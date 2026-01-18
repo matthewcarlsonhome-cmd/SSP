@@ -42,20 +42,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAppUser(getCurrentAppUser());
   };
 
-  // Check admin status from Supabase (async)
-  const checkAdminFromSupabase = async (userId: string, email: string) => {
+  // Check admin status from Supabase (async) with timeout
+  const checkAdminFromSupabase = async (userId: string, email: string): Promise<boolean> => {
     try {
-      // First check profile's is_admin flag
-      const profileIsAdmin = await checkProfileAdminStatus(userId);
-      if (profileIsAdmin) {
-        return true;
-      }
+      // Add a timeout to prevent hanging
+      const timeoutPromise = new Promise<boolean>((_, reject) => {
+        setTimeout(() => reject(new Error('Admin check timeout')), 5000);
+      });
 
-      // Then check admin_emails table and initialize status if needed
-      const isAdmin = await initializeAdminStatus(userId, email);
-      return isAdmin;
+      const adminCheckPromise = (async () => {
+        // First check profile's is_admin flag
+        const profileIsAdmin = await checkProfileAdminStatus(userId);
+        if (profileIsAdmin) {
+          return true;
+        }
+
+        // Then check admin_emails table and initialize status if needed
+        const isAdmin = await initializeAdminStatus(userId, email);
+        return isAdmin;
+      })();
+
+      return await Promise.race([adminCheckPromise, timeoutPromise]);
     } catch (e) {
-      console.error('Error checking admin status:', e);
+      // Don't block on admin check errors - just log and continue
+      console.warn('Admin check failed (this is OK if tables not yet created):', e);
       return false;
     }
   };
@@ -66,8 +76,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Pre-fetch admin emails from Supabase to populate cache
-    getAdminEmailsFromSupabase().catch(() => {});
+    // Pre-fetch admin emails from Supabase to populate cache (non-blocking)
+    // This will fail silently if the admin_settings table doesn't exist
+    getAdminEmailsFromSupabase().catch((e) => {
+      console.warn('Could not fetch admin emails (table may not exist yet):', e);
+    });
 
     // Get initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {

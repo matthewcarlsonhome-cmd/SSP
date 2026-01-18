@@ -81,14 +81,26 @@ export async function getAdminEmailsFromSupabase(): Promise<string[]> {
   if (!supabase) return [];
 
   try {
+    // Add a timeout to prevent hanging if table doesn't exist
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
     const { data, error } = await supabase
       .from('admin_settings')
       .select('admin_emails')
       .eq('id', 'default')
-      .single();
+      .single()
+      .abortSignal(controller.signal);
+
+    clearTimeout(timeoutId);
 
     if (error) {
-      logger.warn('Error fetching admin emails from Supabase', { error: error.message });
+      // Don't log as error if table just doesn't exist
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        logger.warn('admin_settings table does not exist yet');
+      } else {
+        logger.warn('Error fetching admin emails from Supabase', { error: error.message });
+      }
       return [];
     }
 
@@ -102,7 +114,12 @@ export async function getAdminEmailsFromSupabase(): Promise<string[]> {
     }
     return emails;
   } catch (e) {
-    logger.error('Exception fetching admin emails', { error: e instanceof Error ? e.message : String(e) });
+    // Handle abort/timeout gracefully
+    if (e instanceof Error && e.name === 'AbortError') {
+      logger.warn('Admin emails fetch timed out');
+    } else {
+      logger.error('Exception fetching admin emails', { error: e instanceof Error ? e.message : String(e) });
+    }
     return [];
   }
 }
@@ -179,20 +196,36 @@ export async function checkProfileAdminStatus(userId: string): Promise<boolean> 
   if (!supabase) return false;
 
   try {
+    // Add a timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
     const { data, error } = await supabase
       .from('profiles')
       .select('is_admin')
       .eq('id', userId)
-      .single();
+      .single()
+      .abortSignal(controller.signal);
+
+    clearTimeout(timeoutId);
 
     if (error) {
-      logger.warn('Error checking profile admin status', { error: error.message });
+      // Handle missing column gracefully
+      if (error.message?.includes('is_admin') || error.code === '42703') {
+        logger.warn('is_admin column does not exist in profiles table yet');
+      } else if (error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        logger.warn('Error checking profile admin status', { error: error.message });
+      }
       return false;
     }
 
     return data?.is_admin === true;
   } catch (e) {
-    logger.error('Exception checking profile admin', { error: e instanceof Error ? e.message : String(e) });
+    if (e instanceof Error && e.name === 'AbortError') {
+      logger.warn('Profile admin check timed out');
+    } else {
+      logger.error('Exception checking profile admin', { error: e instanceof Error ? e.message : String(e) });
+    }
     return false;
   }
 }
