@@ -30,7 +30,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
-import { getClientBySlug } from '../lib/clients';
+import { getClientBySlug, getClientBySlugAsync } from '../lib/clients';
 import { getStaticSkills } from '../lib/skills/registry';
 import { WORKFLOWS } from '../lib/workflows';
 import type { Client } from '../lib/storage/types';
@@ -310,23 +310,33 @@ const ClientPortalPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load client data
+  // Load client data (tries Supabase first for external users, falls back to localStorage)
   useEffect(() => {
-    if (!slug) {
-      setError('Invalid portal URL');
+    async function loadClient() {
+      if (!slug) {
+        setError('Invalid portal URL');
+        setLoading(false);
+        return;
+      }
+
+      // Try async fetch from Supabase first (works for external users without localStorage)
+      const clientData = await getClientBySlugAsync(slug);
+      if (!clientData) {
+        // Fall back to sync localStorage check
+        const localClient = getClientBySlug(slug);
+        if (!localClient) {
+          setError('Portal not found or inactive');
+          setLoading(false);
+          return;
+        }
+        setClient(localClient);
+      } else {
+        setClient(clientData);
+      }
       setLoading(false);
-      return;
     }
 
-    const clientData = getClientBySlug(slug);
-    if (!clientData) {
-      setError('Portal not found or inactive');
-      setLoading(false);
-      return;
-    }
-
-    setClient(clientData);
-    setLoading(false);
+    loadClient();
   }, [slug]);
 
   // Get selected skills and workflows
@@ -481,9 +491,10 @@ const ClientPortalPage: React.FC = () => {
               {selectedSkills.map(skill => {
                 const colors = CATEGORY_COLORS['default'];
                 return (
-                  <div
+                  <Link
                     key={skill.id}
-                    className="group rounded-xl border bg-card p-5 hover:border-primary/50 hover:shadow-lg transition-all"
+                    to={`/skill/${skill.id}`}
+                    className="group rounded-xl border bg-card p-5 hover:border-primary/50 hover:shadow-lg transition-all cursor-pointer block"
                   >
                     <div className="flex items-start gap-4">
                       <div className={`flex-shrink-0 h-12 w-12 rounded-xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center text-white`}>
@@ -505,12 +516,13 @@ const ClientPortalPage: React.FC = () => {
                         <Clock className="h-4 w-4" />
                         <span>Saves hours</span>
                       </div>
-                      <div className="flex items-center gap-1 text-green-600">
-                        <CheckCircle2 className="h-4 w-4" />
-                        <span>Ready to use</span>
+                      <div className="flex items-center gap-1 text-primary">
+                        <Play className="h-4 w-4" />
+                        <span>Try it now</span>
+                        <ChevronRight className="h-3 w-3 ml-1 group-hover:translate-x-1 transition-transform" />
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
@@ -542,9 +554,10 @@ const ClientPortalPage: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {selectedWorkflows.map(workflow => (
-                <div
+                <Link
                   key={workflow.id}
-                  className="group rounded-xl border bg-card p-6 hover:border-primary/50 hover:shadow-lg transition-all"
+                  to={`/workflow/${workflow.id}`}
+                  className="group rounded-xl border bg-card p-6 hover:border-primary/50 hover:shadow-lg transition-all cursor-pointer block"
                 >
                   <div className="flex items-start gap-4 mb-4">
                     <div className="flex-shrink-0 h-14 w-14 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white">
@@ -591,12 +604,13 @@ const ClientPortalPage: React.FC = () => {
                       <Clock className="h-4 w-4" />
                       <span>{workflow.estimatedTime}</span>
                     </div>
-                    <div className="flex items-center gap-1 text-muted-foreground">
-                      <FileText className="h-4 w-4" />
-                      <span>{workflow.outputs.length} outputs</span>
+                    <div className="flex items-center gap-1 text-primary">
+                      <Play className="h-4 w-4" />
+                      <span>Start workflow</span>
+                      <ChevronRight className="h-3 w-3 ml-1 group-hover:translate-x-1 transition-transform" />
                     </div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}

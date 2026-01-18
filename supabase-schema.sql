@@ -278,3 +278,90 @@ GRANT INSERT, UPDATE, DELETE ON public.skill_tags TO authenticated;
 GRANT INSERT, UPDATE, DELETE ON public.skill_ratings TO authenticated;
 
 GRANT EXECUTE ON FUNCTION public.increment_skill_use_count TO anon, authenticated;
+
+-- ============================================
+-- 9. CLIENTS TABLE (B2B Client Management)
+-- ============================================
+-- Stores client/company information for B2B outreach
+-- Portal pages are publicly accessible by slug
+
+CREATE TABLE IF NOT EXISTS public.clients (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+
+  -- Company info
+  company_name TEXT NOT NULL,
+  industry TEXT NOT NULL,
+  website TEXT,
+  description TEXT,
+
+  -- Extended company details
+  company_type TEXT,
+  services TEXT,
+  revenue TEXT,
+  employee_count TEXT,
+  location TEXT,
+  priority TEXT CHECK (priority IN ('HIGH', 'MEDIUM', 'LOW', 'RESEARCH')),
+
+  -- ROI estimates
+  estimated_time_savings TEXT,
+  estimated_cost_savings TEXT,
+  pain_points TEXT,
+
+  -- Contacts stored as JSONB array
+  contacts JSONB DEFAULT '[]',
+
+  -- Selected skills and workflows (stored as ID arrays)
+  selected_skill_ids TEXT[] DEFAULT '{}',
+  selected_workflow_ids TEXT[] DEFAULT '{}',
+
+  -- Custom messaging for portal
+  custom_headline TEXT,
+  custom_message TEXT,
+
+  -- Portal settings
+  portal_slug TEXT UNIQUE NOT NULL,
+  portal_enabled BOOLEAN DEFAULT false,
+
+  -- Status tracking
+  status TEXT DEFAULT 'prospect' CHECK (status IN ('prospect', 'contacted', 'demo_scheduled', 'active', 'inactive')),
+  notes TEXT,
+
+  -- Timestamps
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  last_contacted_at TIMESTAMPTZ
+);
+
+-- Index for portal lookups (used by public portal pages)
+CREATE INDEX IF NOT EXISTS idx_clients_portal_slug ON public.clients(portal_slug);
+CREATE INDEX IF NOT EXISTS idx_clients_portal_enabled ON public.clients(portal_enabled) WHERE portal_enabled = true;
+CREATE INDEX IF NOT EXISTS idx_clients_industry ON public.clients(industry);
+CREATE INDEX IF NOT EXISTS idx_clients_priority ON public.clients(priority);
+CREATE INDEX IF NOT EXISTS idx_clients_status ON public.clients(status);
+
+-- Enable RLS
+ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if re-running
+DROP POLICY IF EXISTS "Anyone can read enabled portals" ON public.clients;
+DROP POLICY IF EXISTS "Authenticated users can manage clients" ON public.clients;
+
+-- Policy: Anyone can read clients with enabled portals (for public portal pages)
+CREATE POLICY "Anyone can read enabled portals"
+  ON public.clients FOR SELECT
+  USING (portal_enabled = true);
+
+-- Policy: Authenticated users can manage all clients (for admin panel)
+CREATE POLICY "Authenticated users can manage clients"
+  ON public.clients FOR ALL
+  USING (auth.uid() IS NOT NULL);
+
+-- Trigger for updated_at
+DROP TRIGGER IF EXISTS clients_updated_at ON public.clients;
+CREATE TRIGGER clients_updated_at
+  BEFORE UPDATE ON public.clients
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+
+-- Grant permissions
+GRANT SELECT ON public.clients TO anon;
+GRANT ALL ON public.clients TO authenticated;

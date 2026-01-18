@@ -226,6 +226,128 @@ export const INDUSTRY_SKILL_MAPPING: Record<ClientIndustry, string[]> = {
     'employee-onboarding-planner',
   ],
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADDITIONAL INDUSTRIES FOR MADISON-AREA BUSINESSES
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  construction: [
+    // Project Management
+    'sop-documentation-builder',
+    'meeting-minutes-pro',
+    'process-automation-spec',
+    // Safety & Compliance
+    'compliance-audit-prep-assistant',
+    'policy-document-generator',
+    'incident-postmortem-generator',
+    'change-request-doc-builder',
+    // Vendor & Contract Management
+    'vendor-comparison-matrix',
+    'contract-review-accelerator',
+    'rfp-response-generator',
+    // Analytics & Reporting
+    'excel-data-analyzer',
+    'kpi-framework-designer',
+    'budget-variance-narrator',
+    // Communication
+    'executive-communication-pack',
+    'steering-committee-pack',
+  ],
+
+  automotive: [
+    // Sales & Customer Management
+    'sales-call-prep-pro',
+    'proposal-builder',
+    'customer-health-scorecard',
+    'competitive-battle-card',
+    // Operations
+    'sop-documentation-builder',
+    'process-automation-spec',
+    'vendor-comparison-matrix',
+    // Marketing & Analytics
+    'excel-marketing-dashboard',
+    'excel-data-analyzer',
+    'kpi-framework-designer',
+    'competitive-landscape-mapper',
+    // HR & Training
+    'job-description-optimizer',
+    'employee-onboarding-planner',
+    'performance-review-writer',
+    // Communication
+    'executive-communication-pack',
+  ],
+
+  food_beverage: [
+    // Operations & Compliance
+    'sop-documentation-builder',
+    'compliance-audit-prep-assistant',
+    'policy-document-generator',
+    'process-automation-spec',
+    // HR & Training
+    'job-description-optimizer',
+    'employee-onboarding-planner',
+    'performance-review-writer',
+    // Marketing & Analytics
+    'excel-marketing-dashboard',
+    'ab-test-analysis-reporter',
+    'competitive-landscape-mapper',
+    'excel-data-analyzer',
+    'kpi-framework-designer',
+    // Customer & Crisis Management
+    'customer-health-scorecard',
+    'crisis-communication-playbook',
+    // Vendor Management
+    'vendor-comparison-matrix',
+  ],
+
+  utilities: [
+    // Compliance & Governance
+    'compliance-audit-prep-assistant',
+    'policy-document-generator',
+    'ai-governance-readiness-assessment',
+    'secure-ai-usage-playbook',
+    // Operations & Safety
+    'sop-documentation-builder',
+    'incident-postmortem-generator',
+    'change-request-doc-builder',
+    'process-automation-spec',
+    // Analytics & Reporting
+    'excel-data-analyzer',
+    'kpi-framework-designer',
+    'budget-variance-narrator',
+    // Communication
+    'executive-communication-pack',
+    'steering-committee-pack',
+    'crisis-communication-playbook',
+    // Vendor Management
+    'vendor-comparison-matrix',
+    'contract-review-accelerator',
+  ],
+
+  biotechnology: [
+    // R&D & Technical Documentation
+    'technical-spec-writer',
+    'api-documentation-generator',
+    'prd-writer',
+    'data-quality-assessment',
+    // Compliance & Governance
+    'ai-governance-readiness-assessment',
+    'compliance-audit-prep-assistant',
+    'ai-data-flow-risk-map',
+    'policy-document-generator',
+    // Operations
+    'sop-documentation-builder',
+    'process-automation-spec',
+    'change-request-doc-builder',
+    // Sales & Market
+    'sales-call-prep-pro',
+    'proposal-builder',
+    'competitive-landscape-mapper',
+    'market-sizing-analyst',
+    // Communication
+    'executive-communication-pack',
+    'board-presentation-builder',
+  ],
+
   other: [
     'sales-call-prep-pro',
     'proposal-builder',
@@ -366,6 +488,62 @@ export const INDUSTRY_WORKFLOW_MAPPING: Record<ClientIndustry, string[]> = {
     'business-case-development',
     'project-initiation',
     'financial-analysis-pack',
+  ],
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADDITIONAL INDUSTRIES FOR MADISON-AREA BUSINESSES
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  construction: [
+    'project-initiation',
+    'vendor-evaluation-pipeline',
+    'process-improvement',
+    'incident-to-improvement',
+    'compliance-program-builder',
+    'quarterly-business-review',
+    'rfp-response-center',
+  ],
+
+  automotive: [
+    'sales-account-pursuit',
+    'customer-churn-prevention',
+    'marketing-campaign',
+    'digital-marketing-audit',
+    'new-hire-onboarding',
+    'process-improvement',
+    'competitive-intelligence',
+  ],
+
+  food_beverage: [
+    'new-hire-onboarding',
+    'process-improvement',
+    'marketing-campaign',
+    'digital-marketing-audit',
+    'customer-churn-prevention',
+    'marketing-analytics-dashboard',
+    'vendor-evaluation-pipeline',
+    'compliance-program-builder',
+  ],
+
+  utilities: [
+    'compliance-program-builder',
+    'ai-governance-implementation',
+    'incident-to-improvement',
+    'process-improvement',
+    'project-initiation',
+    'quarterly-business-review',
+    'vendor-evaluation-pipeline',
+  ],
+
+  biotechnology: [
+    'ai-implementation',
+    'compliance-program-builder',
+    'ai-governance-implementation',
+    'ai-data-protection-assessment',
+    'sales-account-pursuit',
+    'product-launch-gtm',
+    'project-initiation',
+    'quarterly-business-review',
   ],
 
   other: [
