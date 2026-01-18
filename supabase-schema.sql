@@ -302,6 +302,10 @@ CREATE TABLE IF NOT EXISTS public.clients (
   location TEXT,
   priority TEXT CHECK (priority IN ('HIGH', 'MEDIUM', 'LOW', 'RESEARCH')),
 
+  -- Company branding & social
+  logo_url TEXT,
+  linkedin_url TEXT,
+
   -- ROI estimates
   estimated_time_savings TEXT,
   estimated_cost_savings TEXT,
