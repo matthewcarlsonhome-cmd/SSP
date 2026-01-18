@@ -2,7 +2,14 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured, signInWithGoogle as supabaseSignInWithGoogle } from '../lib/supabase';
-import { handleUserSignIn, getCurrentAppUser, isAdminEmail } from '../lib/admin';
+import {
+  handleUserSignIn,
+  getCurrentAppUser,
+  isAdminEmail,
+  checkProfileAdminStatus,
+  initializeAdminStatus,
+  getAdminEmailsFromSupabase,
+} from '../lib/admin';
 import type { AppUser } from '../lib/storage/types';
 
 interface AuthContextType {
@@ -24,14 +31,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [appUser, setAppUser] = useState<AppUser | null>(getCurrentAppUser());
   const [loading, setLoading] = useState(true);
+  const [adminChecked, setAdminChecked] = useState(false);
   const isConfigured = isSupabaseConfigured();
 
-  // Check if current user is admin
+  // Check if current user is admin (uses state that's updated async)
   const isAdmin = appUser?.isAdmin || (user?.email ? isAdminEmail(user.email) : false);
 
   // Refresh app user from storage
   const refreshAppUser = () => {
     setAppUser(getCurrentAppUser());
+  };
+
+  // Check admin status from Supabase (async)
+  const checkAdminFromSupabase = async (userId: string, email: string) => {
+    try {
+      // First check profile's is_admin flag
+      const profileIsAdmin = await checkProfileAdminStatus(userId);
+      if (profileIsAdmin) {
+        return true;
+      }
+
+      // Then check admin_emails table and initialize status if needed
+      const isAdmin = await initializeAdminStatus(userId, email);
+      return isAdmin;
+    } catch (e) {
+      console.error('Error checking admin status:', e);
+      return false;
+    }
   };
 
   useEffect(() => {
@@ -40,8 +66,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // Pre-fetch admin emails from Supabase to populate cache
+    getAdminEmailsFromSupabase().catch(() => {});
+
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
 
@@ -53,7 +82,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           session.user.user_metadata?.full_name,
           session.user.user_metadata?.avatar_url
         );
+
+        // Check admin status from Supabase
+        const isAdminFromDB = await checkAdminFromSupabase(
+          session.user.id,
+          session.user.email || ''
+        );
+
+        // Update app user with admin status from DB
+        if (isAdminFromDB && !capturedUser.isAdmin) {
+          capturedUser.isAdmin = true;
+          capturedUser.role = 'custom';
+        }
+
         setAppUser(capturedUser);
+        setAdminChecked(true);
       }
 
       setLoading(false);
@@ -61,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
 
@@ -73,12 +116,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             session.user.user_metadata?.full_name,
             session.user.user_metadata?.avatar_url
           );
+
+          // Check admin status from Supabase
+          const isAdminFromDB = await checkAdminFromSupabase(
+            session.user.id,
+            session.user.email || ''
+          );
+
+          // Update app user with admin status from DB
+          if (isAdminFromDB && !capturedUser.isAdmin) {
+            capturedUser.isAdmin = true;
+            capturedUser.role = 'custom';
+          }
+
           setAppUser(capturedUser);
+          setAdminChecked(true);
         }
 
         // Clear app user on sign out
         if (event === 'SIGNED_OUT') {
           setAppUser(null);
+          setAdminChecked(false);
         }
       }
     );

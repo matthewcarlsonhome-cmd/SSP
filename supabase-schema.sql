@@ -8,8 +8,12 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   display_name TEXT,
   avatar_url TEXT,
+  is_admin BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Add is_admin column if it doesn't exist (for existing tables)
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false;
 
 -- Auto-create profile when user signs up
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -278,6 +282,46 @@ GRANT INSERT, UPDATE, DELETE ON public.skill_tags TO authenticated;
 GRANT INSERT, UPDATE, DELETE ON public.skill_ratings TO authenticated;
 
 GRANT EXECUTE ON FUNCTION public.increment_skill_use_count TO anon, authenticated;
+
+-- ============================================
+-- 8.5 ADMIN SETTINGS TABLE
+-- ============================================
+-- Stores admin configuration including admin email list
+CREATE TABLE IF NOT EXISTS public.admin_settings (
+  id TEXT PRIMARY KEY DEFAULT 'default',
+  admin_emails TEXT[] DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Insert default row if not exists
+INSERT INTO public.admin_settings (id, admin_emails)
+VALUES ('default', '{}')
+ON CONFLICT (id) DO NOTHING;
+
+-- RLS for admin_settings
+ALTER TABLE public.admin_settings ENABLE ROW LEVEL SECURITY;
+
+-- Anyone can read admin settings (to check if their email is admin)
+DROP POLICY IF EXISTS "Anyone can read admin settings" ON public.admin_settings;
+CREATE POLICY "Anyone can read admin settings"
+  ON public.admin_settings FOR SELECT
+  USING (true);
+
+-- Only existing admins can update admin settings
+DROP POLICY IF EXISTS "Admins can update admin settings" ON public.admin_settings;
+CREATE POLICY "Admins can update admin settings"
+  ON public.admin_settings FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid() AND profiles.is_admin = true
+    )
+  );
+
+-- Grant permissions
+GRANT SELECT ON public.admin_settings TO anon, authenticated;
+GRANT UPDATE ON public.admin_settings TO authenticated;
 
 -- ============================================
 -- 9. CLIENTS TABLE (B2B Client Management)
