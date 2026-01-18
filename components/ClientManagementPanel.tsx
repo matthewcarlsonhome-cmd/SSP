@@ -37,6 +37,7 @@ import {
   CloudOff,
   Linkedin,
   Image,
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
@@ -53,6 +54,7 @@ import {
   getClientPortalUrl,
   getClientStats,
   syncClientsToSupabase,
+  resetAllClientSelectionsToDefaults,
 } from '../lib/clients';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { getStaticSkills } from '../lib/skills/registry';
@@ -115,6 +117,7 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
   const [showNewClientForm, setShowNewClientForm] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const supabaseConfigured = isSupabaseConfigured();
 
   // Load clients on mount
@@ -192,6 +195,23 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
       addToast('Error syncing to database: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handleResetSelections = async () => {
+    if (!confirm('This will reset all client skill and workflow selections to industry defaults (6 skills, 3 workflows max per client). Continue?')) {
+      return;
+    }
+
+    setIsResetting(true);
+    try {
+      const updatedCount = await resetAllClientSelectionsToDefaults();
+      setClients(getClients());
+      addToast(`Reset selections for ${updatedCount} clients to industry defaults`, 'success');
+    } catch (error) {
+      addToast('Error resetting selections: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -355,6 +375,16 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
             <CloudOff className="h-4 w-4 mr-2" />
           )}
           {isSyncing ? 'Syncing...' : 'Sync to DB'}
+        </Button>
+
+        <Button
+          variant="outline"
+          onClick={handleResetSelections}
+          disabled={isResetting}
+          title="Reset all client selections to industry defaults (6 skills, 3 workflows)"
+        >
+          <RotateCcw className={`h-4 w-4 mr-2 ${isResetting ? 'animate-spin' : ''}`} />
+          {isResetting ? 'Resetting...' : 'Reset Selections'}
         </Button>
 
         <Button variant="outline" onClick={handleExport}>

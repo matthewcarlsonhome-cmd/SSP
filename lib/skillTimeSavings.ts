@@ -231,17 +231,23 @@ export function calculateCostSavings(
 /**
  * Format time savings as a string (e.g., "18-28 hrs")
  */
-export function formatTimeSavings(savings: { minHours: number; maxHours: number }): string {
-  if (savings.minHours === savings.maxHours) {
-    return `${Math.round(savings.minHours)} hrs`;
+export function formatTimeSavings(savings: { min: number; max: number } | { minHours: number; maxHours: number }): string {
+  const min = 'min' in savings ? savings.min : savings.minHours;
+  const max = 'max' in savings ? savings.max : savings.maxHours;
+
+  if (min === max) {
+    return `${Math.round(min)} hrs`;
   }
-  return `${Math.round(savings.minHours)}-${Math.round(savings.maxHours)} hrs`;
+  return `${Math.round(min)}-${Math.round(max)} hrs`;
 }
 
 /**
  * Format cost savings as a string (e.g., "$4,500-$11,200")
  */
-export function formatCostSavings(savings: { minCost: number; maxCost: number }): string {
+export function formatCostSavings(savings: { min: number; max: number } | { minCost: number; maxCost: number }): string {
+  const min = 'min' in savings ? savings.min : savings.minCost;
+  const max = 'max' in savings ? savings.max : savings.maxCost;
+
   const formatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -249,10 +255,10 @@ export function formatCostSavings(savings: { minCost: number; maxCost: number })
     maximumFractionDigits: 0,
   });
 
-  if (savings.minCost === savings.maxCost) {
-    return formatter.format(savings.minCost);
+  if (min === max) {
+    return formatter.format(min);
   }
-  return `${formatter.format(savings.minCost)}-${formatter.format(savings.maxCost)}`;
+  return `${formatter.format(min)}-${formatter.format(max)}`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

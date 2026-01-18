@@ -860,3 +860,58 @@ export function getClientStats(): ClientStats {
     avgWorkflowsPerClient: clients.length > 0 ? Math.round(totalWorkflows / clients.length * 10) / 10 : 0,
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RESET CLIENT SELECTIONS TO INDUSTRY DEFAULTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Reset all client skill/workflow selections to industry defaults
+ * Call this when recommendation mappings have been updated
+ */
+export async function resetAllClientSelectionsToDefaults(): Promise<number> {
+  const clients = getClients();
+  let updatedCount = 0;
+
+  for (const client of clients) {
+    const newSkills = getRecommendedSkills(client.industry);
+    const newWorkflows = getRecommendedWorkflows(client.industry);
+
+    // Only update if selections differ
+    const skillsChanged = JSON.stringify(client.selectedSkillIds.sort()) !== JSON.stringify(newSkills.sort());
+    const workflowsChanged = JSON.stringify(client.selectedWorkflowIds.sort()) !== JSON.stringify(newWorkflows.sort());
+
+    if (skillsChanged || workflowsChanged) {
+      client.selectedSkillIds = newSkills;
+      client.selectedWorkflowIds = newWorkflows;
+      client.updatedAt = new Date().toISOString();
+      updatedCount++;
+    }
+  }
+
+  if (updatedCount > 0) {
+    saveClientsToLocalStorage(clients);
+
+    // Sync to Supabase if configured
+    if (isSupabaseConfigured()) {
+      await syncClientsToSupabase(clients);
+    }
+  }
+
+  return updatedCount;
+}
+
+/**
+ * Reset a single client's selections to industry defaults
+ */
+export function resetClientSelectionsToDefaults(clientId: string): Client | null {
+  const client = getClientById(clientId);
+  if (!client) return null;
+
+  client.selectedSkillIds = getRecommendedSkills(client.industry);
+  client.selectedWorkflowIds = getRecommendedWorkflows(client.industry);
+  client.updatedAt = new Date().toISOString();
+
+  saveClient(client);
+  return client;
+}
