@@ -28,11 +28,13 @@ import {
   BarChart3,
   Mail,
   Calendar,
+  Calculator,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { getClientBySlug, getClientBySlugAsync } from '../lib/clients';
 import { getStaticSkills } from '../lib/skills/registry';
 import { WORKFLOWS } from '../lib/workflows';
+import { calculateROI } from '../lib/skillTimeSavings';
 import type { Client } from '../lib/storage/types';
 import type { Skill } from '../types';
 import type { Workflow } from '../lib/storage/types';
@@ -64,33 +66,6 @@ const VALUE_PROPS = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Parse a range string like "18-28 hrs" or "$4,500-$11,200" and return min/max/avg
- */
-function parseRange(rangeStr: string): { min: number; max: number; avg: number } | null {
-  if (!rangeStr) return null;
-
-  // Remove currency symbols, commas, and common suffixes
-  const cleaned = rangeStr.replace(/[$,]/g, '').replace(/\s*(hrs?|hours?|\/mo|\/month|per month)\s*/gi, '');
-
-  // Match patterns like "18-28" or "4500-11200"
-  const match = cleaned.match(/(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)/);
-  if (match) {
-    const min = parseFloat(match[1]);
-    const max = parseFloat(match[2]);
-    return { min, max, avg: (min + max) / 2 };
-  }
-
-  // Single value
-  const singleMatch = cleaned.match(/(\d+(?:\.\d+)?)/);
-  if (singleMatch) {
-    const val = parseFloat(singleMatch[1]);
-    return { min: val, max: val, avg: val };
-  }
-
-  return null;
-}
-
-/**
  * Format a number as currency
  */
 function formatCurrency(value: number): string {
@@ -110,28 +85,31 @@ function formatNumber(value: number): string {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ROI SECTION COMPONENT
+// ROI SECTION COMPONENT (DYNAMIC CALCULATION)
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface ROISectionProps {
   client: Client;
+  selectedSkills: Skill[];
+  selectedWorkflows: Workflow[];
 }
 
-const ROISection: React.FC<ROISectionProps> = ({ client }) => {
-  // Parse time savings (assuming weekly hours)
-  const timeSavings = parseRange(client.estimatedTimeSavings || '');
-  const weeklyHours = timeSavings?.avg || 0;
-  const monthlyHours = weeklyHours * 4.33;
-  const annualHours = weeklyHours * 52;
-  const fteEquivalent = annualHours / 2080; // 2080 = 40hrs * 52 weeks
+const ROISection: React.FC<ROISectionProps> = ({ client, selectedSkills, selectedWorkflows }) => {
+  // Calculate ROI dynamically based on selected skills and workflows
+  // Using $50/hour as a conservative estimate (typical blended rate for professional services)
+  const roi = useMemo(() => {
+    if (selectedSkills.length === 0 && selectedWorkflows.length === 0) {
+      return null;
+    }
+    return calculateROI(selectedSkills, selectedWorkflows, 50);
+  }, [selectedSkills, selectedWorkflows]);
 
-  // Parse cost savings (assuming monthly)
-  const costSavings = parseRange(client.estimatedCostSavings || '');
-  const monthlyCost = costSavings?.avg || 0;
-  const annualCost = monthlyCost * 12;
+  // If no skills/workflows selected, don't show ROI section
+  if (!roi) {
+    return null;
+  }
 
-  // Estimate hourly rate from cost/time if both available
-  const impliedHourlyRate = monthlyHours > 0 && monthlyCost > 0 ? monthlyCost / monthlyHours : 75;
+  const { monthlyHours, monthlyCost, annualHours, annualCost, fiveYearCost, fteEquivalent, formatted, skillCount, workflowCount } = roi;
 
   return (
     <section className="py-16 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-green-950/30 dark:via-emerald-950/20 dark:to-teal-950/30 border-y">
@@ -139,94 +117,91 @@ const ROISection: React.FC<ROISectionProps> = ({ client }) => {
         {/* Section Header */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/10 text-green-700 dark:text-green-400 text-sm font-medium mb-4">
-            <TrendingUp className="h-4 w-4" />
+            <Calculator className="h-4 w-4" />
             Projected Return on Investment
           </div>
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
             Transform {client.companyName}'s Productivity
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Based on your team size and workflow complexity, here's what AI automation can deliver for your organization.
+            Based on the {skillCount} skills and {workflowCount} workflows selected for your organization,
+            here's your projected monthly impact.
           </p>
         </div>
 
         {/* Main ROI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           {/* Time Savings Card */}
-          {timeSavings && (
-            <div className="rounded-2xl bg-white dark:bg-card p-8 shadow-lg border border-green-200 dark:border-green-900">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="h-12 w-12 rounded-xl bg-green-500/10 flex items-center justify-center">
-                  <Clock className="h-6 w-6 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Time Saved</p>
-                  <p className="font-semibold text-green-700 dark:text-green-400">Weekly Hours</p>
-                </div>
+          <div className="rounded-2xl bg-white dark:bg-card p-8 shadow-lg border border-green-200 dark:border-green-900">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-12 w-12 rounded-xl bg-green-500/10 flex items-center justify-center">
+                <Clock className="h-6 w-6 text-green-600" />
               </div>
-
-              <p className="text-5xl font-bold text-green-600 mb-2">
-                {client.estimatedTimeSavings}
-              </p>
-              <p className="text-sm text-muted-foreground mb-6">
-                per week reclaimed for high-value work
-              </p>
-
-              <div className="space-y-3 pt-4 border-t">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Monthly</span>
-                  <span className="font-semibold">{formatNumber(monthlyHours)} hours</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Annually</span>
-                  <span className="font-semibold text-green-600">{formatNumber(annualHours)} hours</span>
-                </div>
-                {fteEquivalent >= 0.1 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">FTE Equivalent</span>
-                    <span className="font-semibold text-green-600">{fteEquivalent.toFixed(1)} FTE</span>
-                  </div>
-                )}
+              <div>
+                <p className="text-sm text-muted-foreground">Time Saved</p>
+                <p className="font-semibold text-green-700 dark:text-green-400">Monthly Hours</p>
               </div>
             </div>
-          )}
+
+            <p className="text-3xl sm:text-4xl lg:text-5xl font-bold text-green-600 mb-2">
+              {formatted.monthlyHours}
+            </p>
+            <p className="text-sm text-muted-foreground mb-6">
+              per month reclaimed for high-value work
+            </p>
+
+            <div className="space-y-3 pt-4 border-t">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Monthly</span>
+                <span className="font-semibold">{formatNumber(monthlyHours.avg)} hours</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Annually</span>
+                <span className="font-semibold text-green-600">{formatNumber(annualHours.avg)} hours</span>
+              </div>
+              {fteEquivalent >= 0.1 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">FTE Equivalent</span>
+                  <span className="font-semibold text-green-600">{fteEquivalent.toFixed(1)} FTE</span>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Cost Savings Card */}
-          {costSavings && (
-            <div className="rounded-2xl bg-white dark:bg-card p-8 shadow-lg border border-green-200 dark:border-green-900">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="h-12 w-12 rounded-xl bg-green-500/10 flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Cost Savings</p>
-                  <p className="font-semibold text-green-700 dark:text-green-400">Monthly Value</p>
-                </div>
+          <div className="rounded-2xl bg-white dark:bg-card p-8 shadow-lg border border-green-200 dark:border-green-900">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-12 w-12 rounded-xl bg-green-500/10 flex items-center justify-center">
+                <TrendingUp className="h-6 w-6 text-green-600" />
               </div>
-
-              <p className="text-5xl font-bold text-green-600 mb-2">
-                {client.estimatedCostSavings}
-              </p>
-              <p className="text-sm text-muted-foreground mb-6">
-                in labor and efficiency gains
-              </p>
-
-              <div className="space-y-3 pt-4 border-t">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Quarterly</span>
-                  <span className="font-semibold">{formatCurrency(monthlyCost * 3)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Annually</span>
-                  <span className="font-semibold text-green-600">{formatCurrency(annualCost)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">5-Year Value</span>
-                  <span className="font-semibold text-green-600">{formatCurrency(annualCost * 5)}</span>
-                </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Cost Savings</p>
+                <p className="font-semibold text-green-700 dark:text-green-400">Monthly Value</p>
               </div>
             </div>
-          )}
+
+            <p className="text-2xl sm:text-3xl lg:text-4xl font-bold text-green-600 mb-2 break-words">
+              {formatted.monthlyCost}
+            </p>
+            <p className="text-sm text-muted-foreground mb-6">
+              per month in labor and efficiency gains
+            </p>
+
+            <div className="space-y-3 pt-4 border-t">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Quarterly</span>
+                <span className="font-semibold">{formatCurrency(monthlyCost.avg * 3)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Annually</span>
+                <span className="font-semibold text-green-600">{formatted.annualCost}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">5-Year Value</span>
+                <span className="font-semibold text-green-600">{formatted.fiveYearCost}</span>
+              </div>
+            </div>
+          </div>
 
           {/* ROI Summary Card */}
           <div className="rounded-2xl bg-gradient-to-br from-green-600 to-emerald-600 p-8 shadow-lg text-white">
@@ -240,8 +215,8 @@ const ROISection: React.FC<ROISectionProps> = ({ client }) => {
               </div>
             </div>
 
-            <p className="text-5xl font-bold mb-2">
-              {annualCost > 0 ? formatCurrency(annualCost) : `${formatNumber(annualHours)}+ hrs`}
+            <p className="text-4xl sm:text-5xl font-bold mb-2 break-words">
+              {formatted.annualCost}
             </p>
             <p className="text-sm text-green-100 mb-6">
               projected first-year return
@@ -250,16 +225,46 @@ const ROISection: React.FC<ROISectionProps> = ({ client }) => {
             <div className="space-y-3 pt-4 border-t border-white/20">
               <div className="flex items-center gap-2 text-sm">
                 <CheckCircle2 className="h-4 w-4" />
+                <span>{skillCount} AI skills selected</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <CheckCircle2 className="h-4 w-4" />
+                <span>{workflowCount} automated workflows</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <CheckCircle2 className="h-4 w-4" />
                 <span>Immediate productivity gains</span>
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <CheckCircle2 className="h-4 w-4" />
-                <span>Reduced manual errors</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <CheckCircle2 className="h-4 w-4" />
-                <span>Faster time-to-delivery</span>
-              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Skill/Workflow Breakdown */}
+        <div className="rounded-2xl bg-white dark:bg-card p-6 shadow-lg mb-8">
+          <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+            <Calculator className="h-5 w-5 text-green-600" />
+            How We Calculate Your ROI
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 className="font-medium text-sm text-muted-foreground mb-2">Selected Skills ({skillCount})</h4>
+              <p className="text-sm text-muted-foreground mb-2">
+                Each AI skill automates specific tasks, saving 2-10 hours per month depending on complexity and usage frequency.
+              </p>
+              <p className="text-sm">
+                <span className="font-semibold text-green-600">Your skills save:</span>{' '}
+                {formatted.monthlyHours} monthly
+              </p>
+            </div>
+            <div>
+              <h4 className="font-medium text-sm text-muted-foreground mb-2">Automated Workflows ({workflowCount})</h4>
+              <p className="text-sm text-muted-foreground mb-2">
+                Workflows chain multiple skills together for end-to-end automation, delivering 4-12 hours of savings each.
+              </p>
+              <p className="text-sm">
+                <span className="font-semibold text-green-600">Cost basis:</span>{' '}
+                $50/hour (conservative professional rate)
+              </p>
             </div>
           </div>
         </div>
@@ -291,7 +296,8 @@ const ROISection: React.FC<ROISectionProps> = ({ client }) => {
         {/* Bottom CTA */}
         <div className="text-center mt-12">
           <p className="text-muted-foreground mb-4">
-            These estimates are based on typical efficiency gains. Your actual results may be even higher.
+            These estimates are calculated based on your specific skill and workflow selections.
+            Schedule a call to discuss how these apply to your team.
           </p>
           <Button size="lg" className="bg-green-600 hover:bg-green-700 gap-2">
             <Calendar className="h-5 w-5" />
@@ -475,9 +481,9 @@ const ClientPortalPage: React.FC = () => {
         </div>
       </section>
 
-      {/* ROI & Value Proposition Section */}
-      {(client.estimatedTimeSavings || client.estimatedCostSavings || client.painPoints) && (
-        <ROISection client={client} />
+      {/* ROI & Value Proposition Section - Dynamic calculation based on selected skills/workflows */}
+      {(selectedSkills.length > 0 || selectedWorkflows.length > 0 || client.painPoints) && (
+        <ROISection client={client} selectedSkills={selectedSkills} selectedWorkflows={selectedWorkflows} />
       )}
 
       {/* Skills Section */}
