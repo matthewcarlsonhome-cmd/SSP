@@ -39,11 +39,19 @@ const STORAGE_KEYS = {
 // ADMIN EMAILS - Who can access the admin panel
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEFAULT_ADMIN_EMAILS = [
-  // Add your email here to be an admin
+const DEFAULT_ADMIN_EMAILS: string[] = [
+  // Add your email here to be an admin (fallback if Supabase not configured)
 ];
 
-export function getAdminEmails(): string[] {
+// Cache for admin emails fetched from Supabase
+let cachedAdminEmails: string[] | null = null;
+let adminEmailsCacheTime = 0;
+const ADMIN_EMAILS_CACHE_TTL = 60000; // 1 minute cache
+
+/**
+ * Get admin emails from localStorage (fallback)
+ */
+export function getAdminEmailsFromLocalStorage(): string[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEYS.ADMIN_EMAILS);
     if (stored) {
@@ -55,13 +63,162 @@ export function getAdminEmails(): string[] {
   return DEFAULT_ADMIN_EMAILS;
 }
 
-export function setAdminEmails(emails: string[]): void {
-  localStorage.setItem(STORAGE_KEYS.ADMIN_EMAILS, JSON.stringify(emails));
+/**
+ * Get admin emails - sync version (uses cached/localStorage)
+ */
+export function getAdminEmails(): string[] {
+  // Return cached if still valid
+  if (cachedAdminEmails && Date.now() - adminEmailsCacheTime < ADMIN_EMAILS_CACHE_TTL) {
+    return cachedAdminEmails;
+  }
+  return getAdminEmailsFromLocalStorage();
 }
 
+/**
+ * Fetch admin emails from Supabase
+ */
+export async function getAdminEmailsFromSupabase(): Promise<string[]> {
+  if (!supabase) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from('admin_settings')
+      .select('admin_emails')
+      .eq('id', 'default')
+      .single();
+
+    if (error) {
+      logger.warn('Error fetching admin emails from Supabase', { error: error.message });
+      return [];
+    }
+
+    const emails = (data?.admin_emails || []) as string[];
+    // Update cache
+    cachedAdminEmails = emails;
+    adminEmailsCacheTime = Date.now();
+    // Also sync to localStorage
+    if (emails.length > 0) {
+      localStorage.setItem(STORAGE_KEYS.ADMIN_EMAILS, JSON.stringify(emails));
+    }
+    return emails;
+  } catch (e) {
+    logger.error('Exception fetching admin emails', { error: e instanceof Error ? e.message : String(e) });
+    return [];
+  }
+}
+
+/**
+ * Save admin emails to Supabase
+ */
+export async function saveAdminEmailsToSupabase(emails: string[]): Promise<boolean> {
+  if (!supabase) return false;
+
+  try {
+    const { error } = await supabase
+      .from('admin_settings')
+      .upsert({
+        id: 'default',
+        admin_emails: emails,
+        updated_at: new Date().toISOString(),
+      });
+
+    if (error) {
+      logger.error('Error saving admin emails to Supabase', { error: error.message });
+      return false;
+    }
+
+    // Update cache
+    cachedAdminEmails = emails;
+    adminEmailsCacheTime = Date.now();
+    return true;
+  } catch (e) {
+    logger.error('Exception saving admin emails', { error: e instanceof Error ? e.message : String(e) });
+    return false;
+  }
+}
+
+/**
+ * Set admin emails (saves to both localStorage and Supabase)
+ */
+export function setAdminEmails(emails: string[]): void {
+  localStorage.setItem(STORAGE_KEYS.ADMIN_EMAILS, JSON.stringify(emails));
+  // Also save to Supabase (fire and forget)
+  saveAdminEmailsToSupabase(emails);
+  // Update cache
+  cachedAdminEmails = emails;
+  adminEmailsCacheTime = Date.now();
+}
+
+/**
+ * Check if email is admin (sync version)
+ */
 export function isAdminEmail(email: string): boolean {
   const adminEmails = getAdminEmails();
-  return adminEmails.includes(email.toLowerCase());
+  return adminEmails.some(e => e.toLowerCase() === email.toLowerCase());
+}
+
+/**
+ * Check if email is admin (async - checks Supabase first)
+ */
+export async function isAdminEmailAsync(email: string): Promise<boolean> {
+  // First try Supabase
+  if (supabase) {
+    const supabaseEmails = await getAdminEmailsFromSupabase();
+    if (supabaseEmails.length > 0) {
+      return supabaseEmails.some(e => e.toLowerCase() === email.toLowerCase());
+    }
+  }
+  // Fallback to localStorage
+  return isAdminEmail(email);
+}
+
+/**
+ * Check if user has admin status in their profile (Supabase)
+ */
+export async function checkProfileAdminStatus(userId: string): Promise<boolean> {
+  if (!supabase) return false;
+
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      logger.warn('Error checking profile admin status', { error: error.message });
+      return false;
+    }
+
+    return data?.is_admin === true;
+  } catch (e) {
+    logger.error('Exception checking profile admin', { error: e instanceof Error ? e.message : String(e) });
+    return false;
+  }
+}
+
+/**
+ * Set user as admin in their profile
+ */
+export async function setProfileAdminStatus(userId: string, isAdmin: boolean): Promise<boolean> {
+  if (!supabase) return false;
+
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ is_admin: isAdmin })
+      .eq('id', userId);
+
+    if (error) {
+      logger.error('Error setting profile admin status', { error: error.message });
+      return false;
+    }
+
+    return true;
+  } catch (e) {
+    logger.error('Exception setting profile admin', { error: e instanceof Error ? e.message : String(e) });
+    return false;
+  }
 }
 
 /**
@@ -71,6 +228,21 @@ export function isAdminEmail(email: string): boolean {
 export function hasAdminSetup(): boolean {
   const adminEmails = getAdminEmails();
   return adminEmails.length > 0;
+}
+
+/**
+ * Initialize admin check - call this on auth to sync admin status
+ */
+export async function initializeAdminStatus(userId: string, email: string): Promise<boolean> {
+  // Check if email is in admin list (Supabase first, then localStorage)
+  const isAdmin = await isAdminEmailAsync(email);
+
+  if (isAdmin) {
+    // Set admin status in profile
+    await setProfileAdminStatus(userId, true);
+  }
+
+  return isAdmin;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
