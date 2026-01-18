@@ -33,6 +33,10 @@ import {
   Globe,
   Save,
   RefreshCw,
+  Cloud,
+  CloudOff,
+  Linkedin,
+  Image,
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
@@ -48,7 +52,9 @@ import {
   exportClientsToCSV,
   getClientPortalUrl,
   getClientStats,
+  syncClientsToSupabase,
 } from '../lib/clients';
+import { isSupabaseConfigured } from '../lib/supabase';
 import { getStaticSkills } from '../lib/skills/registry';
 import { WORKFLOWS } from '../lib/workflows';
 import type { Client, ClientStatus, ClientIndustry, ClientPriority } from '../lib/storage/types';
@@ -108,6 +114,8 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [showNewClientForm, setShowNewClientForm] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const supabaseConfigured = isSupabaseConfigured();
 
   // Load clients on mount
   useEffect(() => {
@@ -166,6 +174,27 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
     addToast('Clients refreshed', 'success');
   };
 
+  const handleSyncToDatabase = async () => {
+    if (!supabaseConfigured) {
+      addToast('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.', 'error');
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      const success = await syncClientsToSupabase();
+      if (success) {
+        addToast(`Successfully synced ${clients.length} clients to database`, 'success');
+      } else {
+        addToast('Failed to sync clients to database. Check console for details.', 'error');
+      }
+    } catch (error) {
+      addToast('Error syncing to database: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleCreateClient = (data: Partial<Client>) => {
     const newClient = createClient(data);
     setClients(getClients());
@@ -198,7 +227,14 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
   };
 
   const handleExport = () => {
-    const csv = exportClientsToCSV();
+    // Build skill and workflow name maps for export
+    const skillsMap = new Map<string, string>();
+    availableSkills.forEach(s => skillsMap.set(s.id, s.name));
+
+    const workflowsMap = new Map<string, string>();
+    availableWorkflows.forEach(w => workflowsMap.set(w.id, w.name));
+
+    const csv = exportClientsToCSV(skillsMap, workflowsMap);
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -208,7 +244,7 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    addToast('Clients exported to CSV', 'success');
+    addToast('Clients exported to CSV with skill/workflow names', 'success');
   };
 
   const getStatusBadge = (status: ClientStatus) => {
@@ -307,9 +343,23 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
           Refresh
         </Button>
 
+        <Button
+          variant="outline"
+          onClick={handleSyncToDatabase}
+          disabled={isSyncing || !supabaseConfigured}
+          title={supabaseConfigured ? 'Sync all clients to Supabase database' : 'Supabase not configured'}
+        >
+          {supabaseConfigured ? (
+            <Cloud className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-pulse' : ''}`} />
+          ) : (
+            <CloudOff className="h-4 w-4 mr-2" />
+          )}
+          {isSyncing ? 'Syncing...' : 'Sync to DB'}
+        </Button>
+
         <Button variant="outline" onClick={handleExport}>
           <Download className="h-4 w-4 mr-2" />
-          Export
+          Export CSV
         </Button>
 
         <Button onClick={() => setShowNewClientForm(true)}>
@@ -576,6 +626,34 @@ const ClientCard: React.FC<ClientCardProps> = ({
                 value={client.website || ''}
                 onChange={e => onUpdate({ website: e.target.value })}
                 placeholder="https://..."
+                className="mt-1"
+              />
+            </div>
+          </div>
+
+          {/* Social & Branding */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                <Linkedin className="h-3 w-3" />
+                LinkedIn URL
+              </label>
+              <Input
+                value={client.linkedInUrl || ''}
+                onChange={e => onUpdate({ linkedInUrl: e.target.value })}
+                placeholder="https://linkedin.com/company/..."
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                <Image className="h-3 w-3" />
+                Logo URL
+              </label>
+              <Input
+                value={client.logoUrl || ''}
+                onChange={e => onUpdate({ logoUrl: e.target.value })}
+                placeholder="https://example.com/logo.png"
                 className="mt-1"
               />
             </div>

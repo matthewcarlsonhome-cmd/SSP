@@ -409,6 +409,21 @@ const ClientPortalPage: React.FC = () => {
 
         <div className="container mx-auto max-w-6xl px-4 py-16 sm:py-20 relative">
           <div className="text-center mb-12">
+            {/* Company Logo (if available) */}
+            {client.logoUrl && (
+              <div className="mb-6">
+                <img
+                  src={client.logoUrl}
+                  alt={`${client.companyName} logo`}
+                  className="h-16 sm:h-20 w-auto mx-auto object-contain"
+                  onError={(e) => {
+                    // Hide broken images
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
+
             {/* Company Badge */}
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
               <Building2 className="h-4 w-4" />

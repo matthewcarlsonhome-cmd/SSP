@@ -32,6 +32,8 @@ interface SupabaseClient {
   employee_count: string | null;
   location: string | null;
   priority: string | null;
+  logo_url: string | null;
+  linkedin_url: string | null;
   estimated_time_savings: string | null;
   estimated_cost_savings: string | null;
   pain_points: string | null;
@@ -62,6 +64,8 @@ function supabaseToClient(row: SupabaseClient): Client {
     employeeCount: row.employee_count || undefined,
     location: row.location || undefined,
     priority: row.priority as Client['priority'] || undefined,
+    logoUrl: row.logo_url || undefined,
+    linkedInUrl: row.linkedin_url || undefined,
     estimatedTimeSavings: row.estimated_time_savings || undefined,
     estimatedCostSavings: row.estimated_cost_savings || undefined,
     painPoints: row.pain_points || undefined,
@@ -93,6 +97,8 @@ function clientToSupabase(client: Partial<Client>): Record<string, unknown> {
   if (client.employeeCount !== undefined) result.employee_count = client.employeeCount || null;
   if (client.location !== undefined) result.location = client.location || null;
   if (client.priority !== undefined) result.priority = client.priority || null;
+  if (client.logoUrl !== undefined) result.logo_url = client.logoUrl || null;
+  if (client.linkedInUrl !== undefined) result.linkedin_url = client.linkedInUrl || null;
   if (client.estimatedTimeSavings !== undefined) result.estimated_time_savings = client.estimatedTimeSavings || null;
   if (client.estimatedCostSavings !== undefined) result.estimated_cost_savings = client.estimatedCostSavings || null;
   if (client.painPoints !== undefined) result.pain_points = client.painPoints || null;
@@ -332,6 +338,8 @@ export async function createClientAsync(data: Partial<Client>): Promise<Client> 
     employeeCount: data.employeeCount,
     location: data.location,
     priority: data.priority,
+    logoUrl: data.logoUrl,
+    linkedInUrl: data.linkedInUrl,
     estimatedTimeSavings: data.estimatedTimeSavings,
     estimatedCostSavings: data.estimatedCostSavings,
     painPoints: data.painPoints,
@@ -387,6 +395,8 @@ export function createClient(data: Partial<Client>): Client {
     employeeCount: data.employeeCount,
     location: data.location,
     priority: data.priority,
+    logoUrl: data.logoUrl,
+    linkedInUrl: data.linkedInUrl,
     estimatedTimeSavings: data.estimatedTimeSavings,
     estimatedCostSavings: data.estimatedCostSavings,
     painPoints: data.painPoints,
@@ -590,11 +600,15 @@ export async function initializeDefaultClientsAsync(): Promise<Client[]> {
       employeeCount: company.employeeCount,
       location: company.location,
       priority: company.priority,
+      logoUrl: company.logoUrl,
+      linkedInUrl: company.linkedInUrl,
       description: company.description,
       painPoints: company.painPoints,
       estimatedTimeSavings: company.estimatedTimeSavings,
       estimatedCostSavings: company.estimatedCostSavings,
       website: company.website,
+      customHeadline: company.customHeadline,
+      customMessage: company.customMessage,
       notes: company.notes,
       contacts: [],
       selectedSkillIds: company.selectedSkillIds || getRecommendedSkills(industry),
@@ -637,11 +651,15 @@ export function initializeDefaultClients(): Client[] {
       employeeCount: company.employeeCount,
       location: company.location,
       priority: company.priority,
+      logoUrl: company.logoUrl,
+      linkedInUrl: company.linkedInUrl,
       description: company.description,
       painPoints: company.painPoints,
       estimatedTimeSavings: company.estimatedTimeSavings,
       estimatedCostSavings: company.estimatedCostSavings,
       website: company.website,
+      customHeadline: company.customHeadline,
+      customMessage: company.customMessage,
       notes: company.notes,
       contacts: [],
       selectedSkillIds: company.selectedSkillIds || getRecommendedSkills(industry),
@@ -699,38 +717,84 @@ export function getClientsWithPortals(): Client[] {
 }
 
 /**
- * Export clients to CSV
+ * Export clients to CSV with full skill and workflow names
  */
-export function exportClientsToCSV(): string {
+export function exportClientsToCSV(skillsMap?: Map<string, string>, workflowsMap?: Map<string, string>): string {
   const clients = getClients();
   const headers = [
     'Company Name',
     'Industry',
     'Status',
+    'Priority',
     'Website',
+    'LinkedIn URL',
     'Portal Slug',
     'Portal Enabled',
+    'Portal URL',
     'Primary Contact',
     'Primary Email',
+    'Custom Headline',
+    'Custom Message',
+    'Location',
+    'Revenue',
+    'Employee Count',
+    'Est. Time Savings',
+    'Est. Cost Savings',
+    'Pain Points',
     'Skills Count',
+    'Skill IDs',
+    'Skill Names',
     'Workflows Count',
+    'Workflow IDs',
+    'Workflow Names',
     'Last Contacted',
     'Created',
   ];
 
   const rows = clients.map(c => {
     const primary = c.contacts.find(contact => contact.isPrimary) || c.contacts[0];
+
+    // Build skill names list
+    const skillNames = skillsMap
+      ? c.selectedSkillIds.map(id => skillsMap.get(id) || id).join('; ')
+      : c.selectedSkillIds.join('; ');
+
+    // Build workflow names list
+    const workflowNames = workflowsMap
+      ? c.selectedWorkflowIds.map(id => workflowsMap.get(id) || id).join('; ')
+      : c.selectedWorkflowIds.join('; ');
+
+    // Build portal URL
+    const portalUrl = c.portalEnabled
+      ? `${typeof window !== 'undefined' ? window.location.origin : ''}/#/portal/${c.portalSlug}`
+      : '';
+
     return [
       c.companyName,
       c.industry,
       c.status,
+      c.priority || '',
       c.website || '',
+      c.linkedInUrl || '',
       c.portalSlug,
       c.portalEnabled ? 'Yes' : 'No',
+      portalUrl,
       primary?.name || '',
       primary?.email || '',
+      c.customHeadline || '',
+      c.customMessage || '',
+      c.location || '',
+      c.revenue || '',
+      c.employeeCount || '',
+      c.estimatedTimeSavings || '',
+      c.estimatedCostSavings || '',
+      c.painPoints || '',
       c.selectedSkillIds.length,
+      c.selectedSkillIds.join('; '),
+      skillNames,
       c.selectedWorkflowIds.length,
+      c.selectedWorkflowIds.join('; '),
+      workflowNames,
       c.lastContactedAt || '',
       c.createdAt,
     ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
