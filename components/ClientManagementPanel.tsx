@@ -57,11 +57,14 @@ import {
   resetAllClientSelectionsToDefaults,
 } from '../lib/clients';
 import { isSupabaseConfigured } from '../lib/supabase';
-import { getStaticSkills } from '../lib/skills/registry';
+import { getAllLibrarySkills } from '../lib/skillLibrary';
 import { WORKFLOWS } from '../lib/workflows';
 import type { Client, ClientStatus, ClientIndustry, ClientPriority } from '../lib/storage/types';
-import type { Skill } from '../types';
 import type { Workflow } from '../lib/storage/types';
+import type { LibrarySkill } from '../lib/skillLibrary/types';
+
+// Simplified skill type for selection (compatible with LibrarySkill)
+type SelectableSkill = { id: string; name: string; description: string };
 
 const STATUS_OPTIONS: { value: ClientStatus; label: string; color: string }[] = [
   { value: 'prospect', label: 'Prospect', color: 'bg-gray-500' },
@@ -132,8 +135,14 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
     }
   }, []);
 
-  // Get all available skills and workflows
-  const availableSkills = useMemo(() => getStaticSkills(), []);
+  // Get all available skills and workflows (277 skills from library)
+  const availableSkills = useMemo<SelectableSkill[]>(() => {
+    const librarySkills = getAllLibrarySkills();
+    // Map to simpler format and sort alphabetically
+    return librarySkills
+      .map(s => ({ id: s.id, name: s.name, description: s.description }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, []);
   const availableWorkflows = useMemo(() => Object.values(WORKFLOWS), []);
 
   // Stats
@@ -468,7 +477,7 @@ interface ClientCardProps {
   onCopyUrl: () => void;
   onViewPortal?: (client: Client) => void;
   copiedUrl: boolean;
-  availableSkills: Skill[];
+  availableSkills: SelectableSkill[];
   availableWorkflows: Workflow[];
 }
 
@@ -806,7 +815,7 @@ const ClientCard: React.FC<ClientCardProps> = ({
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface SkillSelectorProps {
-  availableSkills: Skill[];
+  availableSkills: SelectableSkill[];
   selectedIds: string[];
   onSelectionChange: (ids: string[]) => void;
 }
@@ -969,7 +978,7 @@ const WorkflowSelector: React.FC<WorkflowSelectorProps> = ({
 interface ClientFormProps {
   onSave: (data: Partial<Client>) => void;
   onCancel: () => void;
-  availableSkills: Skill[];
+  availableSkills: SelectableSkill[];
   availableWorkflows: Workflow[];
   initialData?: Partial<Client>;
 }
