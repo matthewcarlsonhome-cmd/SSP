@@ -889,6 +889,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$4,500-$11,200',
     customHeadline: 'AI-Powered Marketing Automation for Pop-Dot\'s Evidence-Based Approach',
     customMessage: 'Transform your Systems + Design methodology with intelligent automation. We\'ve curated AI skills specifically for multi-channel campaign management, creative workflow optimization, and real-time performance tracking across traditional and digital channels.',
+    contacts: [{ name: 'Jason Fish', title: 'Founder & CEO', email: 'jason@popdotmarketing.com', isPrimary: true }],
   },
   {
     companyName: 'Madison Marketing Group',
@@ -908,6 +909,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$4,300-$12,000',
     customHeadline: 'Supercharge Your B2B Marketing Operations with AI',
     customMessage: 'Your expertise in inbound methodology for complex B2B industries is the foundation. Now amplify it with AI skills designed for lead nurturing, content pipeline acceleration, and RevOps optimization—perfectly aligned with your proven approach.',
+    contacts: [{ name: 'Chris Murvine', title: 'CEO & Founder', email: 'cmurvine@madisonmarketing.com', isPrimary: true }],
   },
   {
     companyName: 'Shine United',
@@ -927,6 +929,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$5,500-$14,400',
     customHeadline: 'Enterprise-Grade AI for Award-Winning Campaigns',
     customMessage: 'Serving iconic brands like Harley-Davidson and GORE-TEX demands excellence at scale. Our AI automation suite handles the heavy lifting—media planning, PR monitoring, and campaign analytics—so your team can focus on what made you a Best Place to Work: creativity.',
+    contacts: [{ name: 'Curt Hanke', title: 'Co-Founder & CEO', isPrimary: true }, { name: 'Mike Kriefski', title: 'Co-Founder & President' }],
   },
   {
     companyName: 'Stephan & Brady (S/B Strategic Marketing)',
@@ -946,6 +949,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$4,300-$11,600',
     customHeadline: 'Seven Decades of Strategy, Now Turbocharged by AI',
     customMessage: 'Your strategy-first approach has built nearly 70 years of success. Now imagine AI handling cross-functional coordination, project tracking, and client health monitoring while your strategists focus on what they do best.',
+    contacts: [{ name: 'Daniel Hearn', title: 'President & CEO', isPrimary: true }],
   },
   {
     companyName: 'Nelson Schmidt Inc.',
@@ -965,6 +969,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$4,500-$12,400',
     customHeadline: 'AI Solutions for Considered Purchase Marketing',
     customMessage: 'B2B considered purchases demand precision. Our AI skills are built for complex nurture sequences, PR tracking, and media optimization—helping you serve global clients like Whirlpool with the efficiency your MAGNET network position demands.',
+    contacts: [{ name: 'Daniel H. Nelson Jr.', title: 'President & CEO', isPrimary: true }, { name: 'John Boler', title: 'Chief Marketing Officer' }],
   },
   {
     companyName: 'The Digital Ring',
@@ -984,6 +989,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$4,750-$12,800',
     customHeadline: 'Scale Your $100M+ Media Operation with AI',
     customMessage: 'Managing $100M+ in media spend and 330+ websites is no small feat—your Inc. 5000 recognition proves it. Now unlock the next level with AI-powered media pacing, SEO analytics at scale, and automated website health monitoring.',
+    contacts: [{ name: 'Mason Kemp', title: 'Partner', isPrimary: true }, { name: 'Nick Ring', title: 'Partner' }, { name: 'Matthew Kemp', title: 'Partner' }],
   },
   {
     companyName: 'KennedyC (Kennedy Communications)',
@@ -1003,6 +1009,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$5,000-$14,000',
     customHeadline: 'AI Automation Built for 40 Years of Media Excellence',
     customMessage: 'From winning Madison\'s first web Addy in 1996 to managing 200+ websites today, Kennedy Communications knows digital evolution. Our AI skills streamline media buying, consolidate analytics, and automate campaign reporting—preserving the family-owned quality your clients trust.',
+    contacts: [{ name: 'Katie Kennedy', title: 'President & CEO', isPrimary: true }, { name: 'Chris Kennedy', title: 'Vice President' }],
   },
   {
     companyName: 'Mid-West Family Madison',
@@ -1022,6 +1029,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$5,250-$14,800',
     customHeadline: 'Bridge Radio and Digital with Intelligent Automation',
     customMessage: 'Since 1956, you\'ve connected Madison through 8 radio stations. Now bridge traditional and digital with AI that handles cross-channel attribution, radio ad trafficking, and event follow-up—amplifying your unique hybrid advantage.',
+    contacts: [{ name: 'Kelly NorthLee', title: 'Owner', isPrimary: true }, { name: 'Shar Hermanson', title: 'Executive VP' }],
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1201,6 +1209,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: 'AI-Powered Operations for a Global Cycling Leader',
     customMessage: 'From Waterloo to the world, Trek sets the standard in cycling. Our AI automation suite helps manage global supply chains, coordinate your dealer network, and optimize seasonal planning—so you can focus on what you do best: getting people on bikes.',
+    contacts: [{ name: 'John Burke', title: 'President', isPrimary: true }],
   },
   {
     companyName: 'Sub-Zero Group',
@@ -1220,6 +1229,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: 'Premium Automation for Premium Appliances',
     customMessage: 'Sub-Zero and Wolf represent the pinnacle of kitchen luxury. Our AI solutions match that standard—streamlining dealer coordination, custom order tracking, and warranty processing with the precision your premium brand demands.',
+    contacts: [{ name: 'Jim Bakke', title: 'President & CEO', isPrimary: true }],
   },
   {
     companyName: 'CUNA Mutual Group (TruStage)',
@@ -1239,6 +1249,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$5,000-$14,000',
     customHeadline: 'Intelligent Automation for Your Credit Union Partner Network',
     customMessage: 'Serving thousands of credit unions requires flawless partner coordination. Our AI skills accelerate onboarding, automate multi-tier reporting, and streamline contract management—helping TruStage deliver on its promise to protect what matters most.',
+    contacts: [{ name: 'Robert N. Trunzo', title: 'President & CEO', isPrimary: true }],
   },
   {
     companyName: 'Promega Corporation',
@@ -1258,6 +1269,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: 'AI-Driven Efficiency for Life Science Innovation',
     customMessage: 'Promega\'s commitment to scientific advancement deserves automation that keeps pace. Our AI tools streamline order fulfillment, organize technical documentation, and enhance customer support—so your scientists can focus on discoveries.',
+    contacts: [{ name: 'Bill Linton', title: 'Founder, Chairman & CEO', isPrimary: true }],
   },
   {
     companyName: 'Colony Brands (Swiss Colony)',
@@ -1277,6 +1289,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$5,000-$14,000',
     customHeadline: 'Scale Your Holiday Season with Intelligent Automation',
     customMessage: 'From Swiss Colony to your entire brand portfolio, seasonal peaks demand seamless operations. Our AI suite automates hiring workflows, optimizes inventory, and scales customer service—ensuring every gift arrives on time.',
+    contacts: [{ name: 'John Baumann', title: 'CEO', isPrimary: true }],
   },
   {
     companyName: 'Fetch Rewards',
@@ -1296,6 +1309,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$4,500-$12,000',
     customHeadline: 'Automation That Scales with 55 Million Users',
     customMessage: 'Fetch\'s explosive growth requires automation that keeps pace. Our AI skills accelerate partner onboarding, automate campaign management, and optimize user engagement workflows—built for high-growth tech companies like yours.',
+    contacts: [{ name: 'Wes Schroll', title: 'Founder & CEO', isPrimary: true }],
   },
   {
     companyName: 'Lands\' End',
@@ -1315,6 +1329,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$4,500-$12,000',
     customHeadline: 'Omnichannel Excellence Powered by AI',
     customMessage: 'From catalog heritage to e-commerce leadership, Lands\' End defines omnichannel retail. Our AI automation streamlines B2B uniform orders, enhances inventory management, and delivers the customer service quality your loyal customers expect.',
+    contacts: [{ name: 'Andrew McLean', title: 'CEO', isPrimary: true }],
   },
   {
     companyName: 'Culver\'s (Corporate)',
@@ -1334,6 +1349,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$11,200',
     customHeadline: 'Welcome to Better Franchise Operations',
     customMessage: 'With 900+ locations serving ButterBurgers nationwide, Culver\'s franchise operations must be flawless. Our AI skills streamline franchisee onboarding, coordinate vendor relationships, and distribute marketing assets—welcome to better efficiency.',
+    contacts: [{ name: 'Craig Culver', title: 'Co-Founder & Chairman', isPrimary: true }, { name: 'Rick Silva', title: 'CEO' }],
   },
   {
     companyName: 'Findorff (J.H. Findorff & Son)',
@@ -1353,6 +1369,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: 'Building Madison\'s Future with AI-Powered Efficiency',
     customMessage: 'Findorff has shaped Madison\'s skyline for generations. Now shape the future of construction operations with AI skills that streamline subcontractor coordination, automate RFI tracking, and ensure safety documentation is always project-ready.',
+    contacts: [{ name: 'Jim Yehle', title: 'President & CEO', email: 'jyehle@findorff.com', isPrimary: true }, { name: 'Dave Beck-Engel', title: 'Vice Chairman' }],
   },
   {
     companyName: 'Stark Company Realtors',
@@ -1372,6 +1389,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,000-$8,000',
     customHeadline: 'Empower 200+ Agents with Intelligent Automation',
     customMessage: 'Managing 200+ agents across multiple offices requires seamless coordination. Our AI skills automate transaction workflows, streamline agent onboarding, and ensure leads reach the right agent instantly—helping your team close more deals.',
+    contacts: [{ name: 'Tim Gomoll', title: 'President', isPrimary: true }],
   },
   {
     companyName: 'Zimbrick Automotive Group',
@@ -1391,6 +1409,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: 'Drive Sales Excellence Across All Your Dealerships',
     customMessage: 'With 800+ employees across multiple brands and locations, Zimbrick needs automation that scales. Our AI skills accelerate lead follow-up, optimize service scheduling, and manage customer reviews—keeping every dealership running at peak performance.',
+    contacts: [{ name: 'Tom Zimbrick', title: 'President', isPrimary: true }],
   },
   {
     companyName: 'National Guardian Life (NGL)',
@@ -1410,6 +1429,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: 'Insurance Operations, Streamlined by AI',
     customMessage: 'Your agent and broker network is the heart of NGL\'s success. Our AI skills accelerate agent onboarding, streamline policy administration, and automate compliance workflows—so your team can focus on protecting families and businesses.',
+    contacts: [{ name: 'Mark Solverud', title: 'President & CEO', isPrimary: true }],
   },
   {
     companyName: 'First Weber Realtors',
@@ -1429,6 +1449,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: 'Statewide Real Estate, Powered by AI',
     customMessage: 'Supporting 1,000+ agents across Wisconsin demands powerful tools. Our AI skills boost agent productivity, automate transaction tracking, and optimize lead management—helping First Weber maintain its position as Wisconsin\'s real estate leader.',
+    contacts: [{ name: 'Michael Theo', title: 'President & CEO', isPrimary: true }],
   },
   {
     companyName: 'Gorman & Company',
@@ -1448,6 +1469,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,000-$8,000',
     customHeadline: 'Affordable Housing Development, Streamlined',
     customMessage: 'LIHTC compliance and investor reporting across multi-state projects demands precision. Our AI skills automate compliance documentation, streamline grant management, and keep investor reports on track—so you can focus on building communities.',
+    contacts: [{ name: 'Gary J. Gorman', title: 'Founder & Chairman', isPrimary: true }, { name: 'Brian Swanton', title: 'President & CEO' }],
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1680,6 +1702,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: 'AI-Powered Efficiency for Award-Winning CPAs',
     customMessage: 'Your Top Workplaces USA recognition proves you value efficiency and people. Our AI skills streamline tax season workflows, automate document collection, and coordinate audits across your six offices—letting your team focus on advisory relationships.',
+    contacts: [{ name: 'Glenn Miller', title: 'Managing Partner', email: 'glenn.miller@wegnercpas.com', isPrimary: true }],
   },
   {
     companyName: 'Wipfli LLP',
@@ -1760,6 +1783,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: '140 Years of Legal Excellence, Now AI-Enhanced',
     customMessage: 'With 17 Best Lawyers honorees, Stafford Rosenbaum sets the standard for Madison legal services. Our AI skills handle document management, case tracking, and billing workflows—so your attorneys can focus on the complex matters that earn recognition.',
+    contacts: [{ name: 'James B. Egle', title: 'Managing Partner', isPrimary: true }],
   },
   {
     companyName: 'Godfrey & Kahn',
@@ -1779,6 +1803,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$5,000-$14,000',
     customHeadline: 'Band One M&A Excellence Meets AI Efficiency',
     customMessage: 'Chambers Band One ranking demands flawless execution. Our AI skills accelerate due diligence, coordinate deal workflows across six offices, and manage IP portfolios—supporting your top-ranked M&A practice with the precision it deserves.',
+    contacts: [{ name: 'Jennifer A. Hannon', title: 'Madison Office Managing Partner', isPrimary: true }, { name: 'Nicholas P. Wahl', title: 'President & Managing Partner' }],
   },
   {
     companyName: 'Boardman & Clark LLP',
@@ -1798,6 +1823,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: 'Madison\'s Legal Heritage, Modernized by AI',
     customMessage: 'Since 1881, Boardman & Clark has served southern Wisconsin with excellence. Our AI skills modernize operations across your six locations—managing cases, tracking compliance, and coordinating transactions while preserving the trusted relationships you\'ve built.',
+    contacts: [{ name: 'Jennifer S. Mirus', title: 'Executive Committee Chair', isPrimary: true }],
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1821,6 +1847,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: '65+ Years of HR Excellence, Accelerated by AI',
     customMessage: 'QTI has connected talent with opportunity for over six decades. Our AI skills supercharge candidate pipelines, automate placement tracking, and streamline HR consulting—helping your family-owned firm maintain its Best Place to Work culture while scaling impact.',
+    contacts: [{ name: 'Londa Dewey', title: 'CEO & President', isPrimary: true }],
   },
   {
     companyName: 'Carex Consulting Group',
@@ -1863,6 +1890,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$4,500-$12,000',
     customHeadline: 'ENR Top 500 Engineering, AI-Optimized',
     customMessage: 'GRAEF\'s ENR Top 500 ranking reflects 60+ years of multi-discipline excellence. Our AI skills optimize project resource allocation, coordinate across your nine service areas, and streamline permit tracking—engineering efficiency for an engineering firm.',
+    contacts: [{ name: 'John Kissinger', title: 'President', isPrimary: true }, { name: 'Pat Kressin', title: 'CEO' }],
   },
   {
     companyName: 'Vierbicher',
@@ -1882,6 +1910,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: 'Community Engineering, Intelligently Streamlined',
     customMessage: 'Vierbicher builds communities through trusted partnerships. Our AI skills enhance municipal coordination, track TIF districts, manage grants, and schedule inspections—so your planners and engineers can focus on shaping Wisconsin\'s future.',
+    contacts: [{ name: 'Rod Zubella', title: 'CEO', isPrimary: true }],
   },
   {
     companyName: 'Ayres Associates',
@@ -1901,6 +1930,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$4,500-$12,000',
     customHeadline: 'ENR Top 500 Excellence, Automated for Growth',
     customMessage: 'Ayres\' 65-year legacy and ENR ranking demand operational excellence. Our AI skills coordinate projects across offices, manage geospatial data, track environmental compliance, and streamline transportation planning—supporting your continued growth.',
+    contacts: [{ name: 'Jay Holtz', title: 'President', isPrimary: true }],
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1924,6 +1954,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: 'Protecting 5,500+ Organizations—Now Streamline Your Operations',
     customMessage: 'Singlewire keeps organizations safe across 80 countries. Our AI skills optimize customer onboarding, manage partner channels, and coordinate product releases—so your team can focus on building the safety solutions that matter most.',
+    contacts: [{ name: 'Terry Swanson', title: 'CEO', isPrimary: true }],
   },
   {
     companyName: 'AkitaBox',
@@ -1943,6 +1974,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,000-$8,000',
     customHeadline: 'Inc. 5000 Growth Demands Scalable Operations',
     customMessage: 'AkitaBox\'s Inc. 5000 ranking proves your facility management platform resonates. Our AI skills help scale that success—automating customer success workflows, coordinating implementations, and managing feedback to fuel continued growth.',
+    contacts: [{ name: 'Matt Miszewski', title: 'CEO', isPrimary: true }],
   },
   {
     companyName: 'EnsoData',
@@ -1962,6 +1994,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: 'FDA-Cleared AI Meets Operational Excellence',
     customMessage: 'EnsoData pioneered FDA-cleared AI for sleep diagnostics. Our automation skills support your clinical partner onboarding, regulatory documentation, and product development coordination—so your team can focus on advancing sleep medicine.',
+    contacts: [{ name: 'Justin Mortara', title: 'CEO', isPrimary: true }],
   },
   {
     companyName: 'Nordic Consulting Partners',
@@ -1981,6 +2014,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$5,000-$14,000',
     customHeadline: 'Global Epic Leadership, Streamlined by AI',
     customMessage: 'As the largest Epic consulting practice globally, Nordic\'s operations must be flawless. Our AI skills optimize consultant deployment, track certifications, and coordinate delivery across 700+ clients—supporting your position as healthcare IT\'s trusted partner.',
+    contacts: [{ name: 'Chris Dube', title: 'CEO', isPrimary: true }],
   },
   {
     companyName: 'Redox',
@@ -2000,6 +2034,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$4,500-$12,000',
     customHeadline: 'Connecting Healthcare at Scale—Now Optimize Your Operations',
     customMessage: 'Redox connects 6,700+ healthcare entities, processing 12M+ records daily. Our AI skills streamline customer onboarding, manage integration support, and track compliance—so your team can focus on healthcare\'s interoperability future.',
+    contacts: [{ name: 'Luke Bonney', title: 'CEO', isPrimary: true }],
   },
   {
     companyName: 'Moxe Health',
@@ -2019,6 +2054,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: 'KLAS Award-Winning Data Exchange, AI-Optimized',
     customMessage: 'Moxe\'s KLAS recognition validates your clinical data exchange leadership. Our AI skills accelerate health plan onboarding, streamline provider integrations, and ensure data quality—supporting your mission to simplify healthcare data sharing.',
+    contacts: [{ name: 'Dan Wilson', title: 'CEO & Co-Founder', email: 'dan@moxehealth.com', isPrimary: true }],
   },
   {
     companyName: 'Raven Software',
@@ -2038,6 +2074,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$4,500-$12,000',
     customHeadline: '35 Years of Gaming Excellence, Streamlined',
     customMessage: 'From Middleton to global blockbusters, Raven Software defines gaming excellence. Our AI skills optimize development pipelines, coordinate QA workflows, and manage assets—supporting the creative teams behind Call of Duty\'s continued success.',
+    contacts: [{ name: 'Brian Raffel', title: 'Studio Co-Head', isPrimary: true }],
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2061,6 +2098,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$4,500-$12,000',
     customHeadline: 'Wisconsin\'s Largest Agency Deserves Top-Tier Automation',
     customMessage: 'M3\'s top 1% ranking reflects 55+ years of risk management excellence. Our AI skills streamline renewal workflows, coordinate benefits enrollment, and automate client reporting—helping Wisconsin\'s largest agency serve even more effectively.',
+    contacts: [{ name: 'Mike Victorson', title: 'CEO', isPrimary: true }, { name: 'Sean LaBorde', title: 'COO' }],
   },
   {
     companyName: 'TRICOR Insurance',
@@ -2080,6 +2118,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: 'Family Values Meet Modern Efficiency',
     customMessage: 'TRICOR\'s 80-year family legacy and Great Place To Work culture are worth protecting. Our AI skills modernize policy coordination, streamline transportation compliance, and accelerate claims—maintaining your personal touch while scaling service.',
+    contacts: [{ name: 'John Keuler', title: 'CEO', isPrimary: true }],
   },
   {
     companyName: 'Neckerman Insurance Services',
@@ -2099,6 +2138,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$2,500-$6,000',
     customHeadline: 'A Century of Trust, Enhanced by AI',
     customMessage: 'Neckerman\'s 107-year legacy of trust is invaluable. Our AI skills enhance that heritage—managing client relationships, tracking policies, and coordinating with McClone partnership resources while preserving the personal service your clients expect.',
+    contacts: [{ name: 'Alex Beyer', title: 'President', isPrimary: true }],
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2122,6 +2162,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$5,000-$14,000',
     customHeadline: 'Wisconsin\'s Best Credit Union, AI-Empowered',
     customMessage: 'Newsweek\'s Best Regional Credit Union recognition reflects Summit\'s member-first mission. Our AI skills streamline loan processing, coordinate 58 branches, and enhance digital banking—serving 273,000+ members even more effectively.',
+    contacts: [{ name: 'Kim Sponem', title: 'President & CEO', email: 'kim.sponem@summitcreditunion.com', isPrimary: true }],
   },
   {
     companyName: 'UW Credit Union',
@@ -2141,6 +2182,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$4,500-$12,000',
     customHeadline: 'Serving 366,000+ Members with AI Efficiency',
     customMessage: 'UW Credit Union\'s 90+ year commitment to member service is legendary. Our AI skills enhance loan origination, coordinate campus services, and manage digital channels—helping you serve students and community members across Wisconsin.',
+    contacts: [{ name: 'Paul Kundert', title: 'President & CEO', email: 'pkundert@uwcu.org', isPrimary: true }],
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2164,6 +2206,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$5,000-$14,000',
     customHeadline: 'Integrated Care Excellence, AI-Optimized',
     customMessage: 'GHC-SCW\'s integrated care model and "Excellent" accreditation set the standard. Our AI skills enhance care coordination, streamline claims, and automate quality reporting—supporting your mission to deliver nationally-ranked primary care.',
+    contacts: [{ name: 'Mark Huth', title: 'CEO', isPrimary: true }],
   },
   {
     companyName: 'Dental Health Associates of Madison',
@@ -2183,6 +2226,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: '50 Years of Smiles, Streamlined by AI',
     customMessage: 'DHA\'s dentist-owned model ensures patient-first care across 7 locations. Our AI skills optimize multi-location scheduling, automate patient communication, and streamline insurance verification—so your providers can focus on creating healthy smiles.',
+    contacts: [{ name: 'Dr. Chad Plein', title: 'Managing Partner', isPrimary: true }],
   },
   {
     companyName: 'Capitol Physical Therapy',
@@ -2202,6 +2246,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,000-$8,000',
     customHeadline: 'Research-Based Rehab Meets Intelligent Operations',
     customMessage: 'Capitol PT\'s evidence-based approach and Best of Madison recognition reflect clinical excellence. Our AI skills handle scheduling, documentation, and outcome tracking—letting your therapists focus on research-driven patient care.',
+    contacts: [{ name: 'Dan Erdman', title: 'CEO', isPrimary: true }],
   },
   {
     companyName: 'Quartz Health Solutions',
@@ -2221,6 +2266,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$5,000-$14,000',
     customHeadline: 'Provider-Owned Excellence, AI-Enhanced',
     customMessage: 'Quartz\'s unique provider ownership model aligns incentives for quality care. Our AI skills accelerate claims processing, coordinate networks, and streamline enrollment—supporting 350,000+ members with the efficiency your ownership structure enables.',
+    contacts: [{ name: 'Terry Ebert', title: 'President & CEO', isPrimary: true }],
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2244,6 +2290,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$5,000-$14,000',
     customHeadline: 'Lean Construction Pioneer Meets AI Efficiency',
     customMessage: 'Boldt pioneered Lean construction across 135 years. Our AI skills amplify that efficiency—automating subcontractor coordination, streamlining documentation, and optimizing resource allocation across your global operations.',
+    contacts: [{ name: 'Greg Sabel', title: 'CEO', isPrimary: true }],
   },
   {
     companyName: 'JP Cullen',
@@ -2263,6 +2310,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$4,500-$12,000',
     customHeadline: 'Five Generations of Excellence, Now AI-Accelerated',
     customMessage: 'JP Cullen has built trust for 130+ years across healthcare, education, and historic restoration. Our AI skills modernize prefabrication coordination, compliance tracking, and scheduling—honoring your legacy with tomorrow\'s efficiency.',
+    contacts: [{ name: 'George Cullen', title: 'Chairman & CEO', isPrimary: true }, { name: 'Jeannie Cullen Schultz', title: 'President' }],
   },
   {
     companyName: 'Vogel Bros. Building Co.',
@@ -2282,6 +2330,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: 'Building Madison Since 1875, Now AI-Enhanced',
     customMessage: 'Vogel Bros. has shaped Madison for nearly 150 years. Our AI skills support your award-winning work—streamlining bidding, managing subcontractors, and tracking quality across education, healthcare, and civic projects.',
+    contacts: [{ name: 'Peter C. Vogel', title: 'President', isPrimary: true }],
   },
   {
     companyName: 'Kraemer Brothers',
@@ -2301,6 +2350,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: 'Self-Performed Excellence Meets Smart Automation',
     customMessage: 'Kraemer\'s self-performed model delivers quality control few can match. Our AI skills optimize trade coordination, schedule materials, and allocate crews—enhancing your unique integrated approach across healthcare and life sciences projects.',
+    contacts: [{ name: 'Jim Kraemer', title: 'President & CEO', isPrimary: true }],
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2324,6 +2374,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$4,500-$12,000',
     customHeadline: 'Technology Partner Excellence, AI-Optimized',
     customMessage: 'HBS delivers comprehensive technology solutions across vendors and industries. Our AI skills streamline service tickets, coordinate multi-vendor projects, and enhance customer success—supporting your mission to transform client operations.',
+    contacts: [{ name: 'John Drzewiecki', title: 'CEO', isPrimary: true }],
   },
   {
     companyName: 'Clarity Technology Solutions',
@@ -2343,6 +2394,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,000-$8,000',
     customHeadline: '25 Years of IT Excellence, Now AI-Powered',
     customMessage: 'Clarity has served 100+ Madison clients across regulated industries since 1999. Our AI skills enhance compliance documentation, ticket prioritization, and proactive monitoring—delivering the responsiveness your medical and financial clients demand.',
+    contacts: [{ name: 'Tom Klink', title: 'President', isPrimary: true }],
   },
   {
     companyName: 'Applied Tech',
@@ -2362,6 +2414,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: 'Cybersecurity Excellence Meets Operational Efficiency',
     customMessage: 'Applied Tech protects businesses across four states. Our AI skills accelerate incident response, coordinate multi-office operations, and automate compliance tracking—so your security experts can focus on keeping clients safe.',
+    contacts: [{ name: 'Kurt Sippel', title: 'Founder & CEO', isPrimary: true }],
   },
   {
     companyName: 'Gordon Flesch Company',
@@ -2381,6 +2434,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$4,500-$12,000',
     customHeadline: '11-Time Canon Award Winner, AI-Enhanced',
     customMessage: 'Gordon Flesch\'s 11 Canon Top Dealer awards reflect 68 years of excellence. Our AI skills optimize equipment lifecycle management, streamline service dispatch, and enhance customer retention—supporting your charitable mission with operational efficiency.',
+    contacts: [{ name: 'Patrick Flesch', title: 'President & CEO', isPrimary: true }],
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2404,6 +2458,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: 'AAA Four Diamond Service, AI-Supported',
     customMessage: 'The Edgewater\'s AAA Four Diamond and Condé Nast recognition demand flawless execution. Our AI skills coordinate events, streamline wedding planning, and optimize F&B operations—supporting the luxury experience Madison\'s landmark hotel is known for.',
+    contacts: [{ name: 'Judy Mullins', title: 'General Manager', isPrimary: true }],
   },
   {
     companyName: 'Madison Concourse Hotel',
@@ -2423,5 +2478,6 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,750-$10,000',
     customHeadline: 'Wisconsin\'s Best Conference Center, Streamlined',
     customMessage: 'The Concourse\'s "Best Conference Center" recognition and 7-year average employee tenure reflect operational excellence. Our AI skills enhance convention coordination, manage room blocks, and streamline group billing—supporting your 27,000 sq ft of meeting success.',
+    contacts: [{ name: 'Greg Urban', title: 'General Manager', isPrimary: true }],
   },
 ];
