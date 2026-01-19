@@ -610,7 +610,7 @@ export async function initializeDefaultClientsAsync(): Promise<Client[]> {
       customHeadline: company.customHeadline,
       customMessage: company.customMessage,
       notes: company.notes,
-      contacts: [],
+      contacts: company.contacts || [],
       selectedSkillIds: company.selectedSkillIds || getRecommendedSkills(industry),
       selectedWorkflowIds: company.selectedWorkflowIds || getRecommendedWorkflows(industry),
       portalSlug: generateSlug(company.companyName || 'unknown'),
@@ -661,7 +661,7 @@ export function initializeDefaultClients(): Client[] {
       customHeadline: company.customHeadline,
       customMessage: company.customMessage,
       notes: company.notes,
-      contacts: [],
+      contacts: company.contacts || [],
       selectedSkillIds: company.selectedSkillIds || getRecommendedSkills(industry),
       selectedWorkflowIds: company.selectedWorkflowIds || getRecommendedWorkflows(industry),
       portalSlug: generateSlug(company.companyName || 'unknown'),
@@ -908,10 +908,176 @@ export function resetClientSelectionsToDefaults(clientId: string): Client | null
   const client = getClientById(clientId);
   if (!client) return null;
 
-  client.selectedSkillIds = getRecommendedSkills(client.industry);
-  client.selectedWorkflowIds = getRecommendedWorkflows(client.industry);
-  client.updatedAt = new Date().toISOString();
+  const clients = getClients();
+  const index = clients.findIndex(c => c.id === clientId);
+  if (index === -1) return null;
 
-  saveClient(client);
-  return client;
+  clients[index].selectedSkillIds = getRecommendedSkills(client.industry);
+  clients[index].selectedWorkflowIds = getRecommendedWorkflows(client.industry);
+  clients[index].updatedAt = new Date().toISOString();
+
+  saveClients(clients);
+  return clients[index];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REFRESH FROM DEFAULTS - Sync with updated DEFAULT_TARGET_COMPANIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Refresh clients from DEFAULT_TARGET_COMPANIES
+ * - Adds new companies that don't exist
+ * - Updates existing companies with new data (contacts, customizations, etc.)
+ * - Updates skill/workflow selections to current industry defaults
+ * Returns { added: number, updated: number }
+ */
+export async function refreshClientsFromDefaults(): Promise<{ added: number; updated: number }> {
+  const clients = getClients();
+  const existingByName = new Map(clients.map(c => [c.companyName.toLowerCase(), c]));
+
+  let added = 0;
+  let updated = 0;
+
+  for (const company of defaultCompanies) {
+    const companyName = company.companyName || 'Unknown';
+    const existing = existingByName.get(companyName.toLowerCase());
+    const industry = company.industry || 'other';
+
+    if (existing) {
+      // Update existing client with new data from defaults
+      let hasChanges = false;
+
+      // Update contacts if provided in defaults
+      if (company.contacts && company.contacts.length > 0) {
+        existing.contacts = company.contacts;
+        hasChanges = true;
+      }
+
+      // Update custom headline/message if provided
+      if (company.customHeadline && company.customHeadline !== existing.customHeadline) {
+        existing.customHeadline = company.customHeadline;
+        hasChanges = true;
+      }
+      if (company.customMessage && company.customMessage !== existing.customMessage) {
+        existing.customMessage = company.customMessage;
+        hasChanges = true;
+      }
+
+      // Update LinkedIn URL if provided
+      if (company.linkedInUrl && company.linkedInUrl !== existing.linkedInUrl) {
+        existing.linkedInUrl = company.linkedInUrl;
+        hasChanges = true;
+      }
+
+      // Update other fields
+      if (company.logoUrl && !existing.logoUrl) {
+        existing.logoUrl = company.logoUrl;
+        hasChanges = true;
+      }
+      if (company.painPoints && !existing.painPoints) {
+        existing.painPoints = company.painPoints;
+        hasChanges = true;
+      }
+      if (company.estimatedTimeSavings && !existing.estimatedTimeSavings) {
+        existing.estimatedTimeSavings = company.estimatedTimeSavings;
+        hasChanges = true;
+      }
+      if (company.estimatedCostSavings && !existing.estimatedCostSavings) {
+        existing.estimatedCostSavings = company.estimatedCostSavings;
+        hasChanges = true;
+      }
+
+      // Update skill/workflow selections to current industry defaults
+      const newSkills = getRecommendedSkills(industry);
+      const newWorkflows = getRecommendedWorkflows(industry);
+
+      if (JSON.stringify(existing.selectedSkillIds.sort()) !== JSON.stringify(newSkills.sort())) {
+        existing.selectedSkillIds = newSkills;
+        hasChanges = true;
+      }
+      if (JSON.stringify(existing.selectedWorkflowIds.sort()) !== JSON.stringify(newWorkflows.sort())) {
+        existing.selectedWorkflowIds = newWorkflows;
+        hasChanges = true;
+      }
+
+      if (hasChanges) {
+        existing.updatedAt = new Date().toISOString();
+        updated++;
+      }
+    } else {
+      // Add new client
+      const newClient: Client = {
+        id: generateId(),
+        companyName,
+        industry,
+        companyType: company.companyType,
+        services: company.services,
+        revenue: company.revenue,
+        employeeCount: company.employeeCount,
+        location: company.location,
+        priority: company.priority,
+        logoUrl: company.logoUrl,
+        linkedInUrl: company.linkedInUrl,
+        description: company.description,
+        painPoints: company.painPoints,
+        estimatedTimeSavings: company.estimatedTimeSavings,
+        estimatedCostSavings: company.estimatedCostSavings,
+        website: company.website,
+        customHeadline: company.customHeadline,
+        customMessage: company.customMessage,
+        notes: company.notes,
+        contacts: company.contacts || [],
+        selectedSkillIds: getRecommendedSkills(industry),
+        selectedWorkflowIds: getRecommendedWorkflows(industry),
+        portalSlug: generateSlug(companyName),
+        portalEnabled: false,
+        status: 'prospect' as ClientStatus,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Ensure slug is unique
+      let slug = newClient.portalSlug;
+      let counter = 1;
+      while (clients.some(c => c.portalSlug === slug)) {
+        slug = `${newClient.portalSlug}-${counter}`;
+        counter++;
+      }
+      newClient.portalSlug = slug;
+
+      clients.push(newClient);
+      existingByName.set(companyName.toLowerCase(), newClient);
+      added++;
+    }
+  }
+
+  // Save all changes
+  if (added > 0 || updated > 0) {
+    saveClientsToLocalStorage(clients);
+
+    // Sync to Supabase if configured
+    if (isSupabaseConfigured()) {
+      await Promise.all(clients.map(c => saveClientToSupabase(c)));
+    }
+  }
+
+  logger.info('Refreshed clients from defaults', { added, updated, total: clients.length });
+  return { added, updated };
+}
+
+/**
+ * Force reinitialize all clients from DEFAULT_TARGET_COMPANIES
+ * WARNING: This will delete all existing clients and recreate from defaults
+ */
+export async function forceReinitializeClients(): Promise<Client[]> {
+  // Clear existing clients
+  saveClientsToLocalStorage([]);
+
+  // Delete from Supabase if configured
+  if (isSupabaseConfigured() && supabase) {
+    await supabase.from('clients').delete().neq('id', '');
+  }
+
+  // Reinitialize from defaults
+  return initializeDefaultClientsAsync();
 }
