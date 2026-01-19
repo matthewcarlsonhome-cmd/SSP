@@ -298,7 +298,7 @@ export function getStoredKeyMode(): StoredKeyMode {
   }
   return {
     mode: 'personal', // Default to personal keys until platform is set up
-    provider: 'gemini',
+    provider: 'chatgpt', // ChatGPT 4o-Mini for fast streaming and structured output
     models: {
       gemini: 'gemini-2.0-flash',
       claude: 'haiku',
