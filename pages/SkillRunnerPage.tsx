@@ -22,6 +22,8 @@ import { useToast } from '../hooks/useToast';
 import { useAppContext } from '../hooks/useAppContext';
 import { useAuth } from '../hooks/useAuth';
 import { useRequestTiming } from '../hooks/useRequestTiming';
+import { usePortalMode } from '../hooks/usePortalMode';
+import { streamPortalProxy, PORTAL_MODE_INFO } from '../lib/portalProxy';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Textarea } from '../components/ui/Textarea';
@@ -190,6 +192,17 @@ const SkillRunnerPage: React.FC = () => {
   const { user, appUser } = useAuth();
   const timing = useRequestTiming();
 
+  // Portal mode detection (for anonymous portal visitors)
+  const {
+    isPortalMode,
+    isPortalAvailable,
+    portalSlug,
+    isLoading: isPortalLoading,
+    modelInfo: portalModelInfo,
+    hasPersonalKey,
+    canRun: canRunWithPortal,
+  } = usePortalMode();
+
   // Provider configuration (unified key mode, provider, model selection)
   const {
     state: providerState,
@@ -337,14 +350,19 @@ const SkillRunnerPage: React.FC = () => {
 
   // Validation
   const validateForm = useCallback((): boolean => {
-    // Check if we can run (either platform key or personal key available)
-    if (!canRun && providerState.keyMode === 'personal' && !providerState.apiKey) {
-      addToast('API Key is required.', 'error');
-      return false;
-    }
-    if (!canRun && providerState.keyMode === 'platform') {
-      addToast(runStatus.reason || 'Platform key not available.', 'error');
-      return false;
+    // Portal mode bypasses normal API key checks
+    if (isPortalMode && isPortalAvailable) {
+      // Portal mode is active, can run without personal key
+    } else {
+      // Check if we can run (either platform key or personal key available)
+      if (!canRun && providerState.keyMode === 'personal' && !providerState.apiKey) {
+        addToast('API Key is required.', 'error');
+        return false;
+      }
+      if (!canRun && providerState.keyMode === 'platform') {
+        addToast(runStatus.reason || 'Platform key not available.', 'error');
+        return false;
+      }
     }
     if (!skill) return false;
     for (const input of skill.inputs) {
@@ -354,7 +372,7 @@ const SkillRunnerPage: React.FC = () => {
       }
     }
     return true;
-  }, [canRun, providerState, runStatus, skill, formState, addToast]);
+  }, [canRun, providerState, runStatus, skill, formState, addToast, isPortalMode, isPortalAvailable]);
 
   // Run skill
   const handleRunSkill = useCallback(async () => {
@@ -362,11 +380,15 @@ const SkillRunnerPage: React.FC = () => {
 
     const { provider, model, keyMode, apiKey } = providerState;
 
+    // Determine effective provider for portal mode
+    const effectiveProvider = isPortalMode ? 'chatgpt' : provider;
+    const effectiveModel = isPortalMode ? 'gpt-4o-mini' : model;
+
     // Start timing
     const requestId = timing.startRequest({
       skillId: skill.id,
       skillName: skill.name,
-      provider,
+      provider: effectiveProvider,
     });
 
     setIsLoading(true);
@@ -389,8 +411,23 @@ const SkillRunnerPage: React.FC = () => {
       let fullResponseText = '';
       const currentApiKey = apiKey;
 
+      // Portal mode: Use portal proxy (no auth required)
+      if (isPortalMode && isPortalAvailable) {
+        const stream = streamPortalProxy({
+          prompt: promptData.userPrompt,
+          systemPrompt: promptData.systemInstruction,
+          maxTokens: 2048, // Portal limit
+          portalSlug: portalSlug || undefined,
+        });
+
+        for await (const chunk of stream) {
+          timing.trackChunk(chunk.length);
+          fullResponseText += chunk;
+          setOutput(fullResponseText);
+        }
+      }
       // Platform key mode uses the AI proxy with streaming
-      if (keyMode === 'platform') {
+      else if (keyMode === 'platform') {
         // Map provider and model to proxy model ID
         let proxyModel: string;
         if (provider === 'gemini') {
@@ -570,6 +607,9 @@ const SkillRunnerPage: React.FC = () => {
     appUser,
     user,
     addToast,
+    isPortalMode,
+    isPortalAvailable,
+    portalSlug,
   ]);
 
   // Output actions
@@ -844,27 +884,55 @@ const SkillRunnerPage: React.FC = () => {
         isExecuting={isLoading}
       />
 
-      {/* AI Status - All configuration at /account */}
-      <ProviderConfigStatus
-        providerState={providerState}
-        availableModels={availableModels}
-        canRun={canRun}
-      />
+      {/* AI Status - Portal mode or Provider config */}
+      {isPortalMode && isPortalAvailable ? (
+        <div className="rounded-lg border bg-blue-500/5 border-blue-500/20 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Sparkles className="h-5 w-5 text-blue-500" />
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-medium text-blue-600">Portal Demo Mode</span>
+                <span className="text-muted-foreground">•</span>
+                <span className="text-muted-foreground">
+                  {portalModelInfo.provider} {portalModelInfo.model}
+                </span>
+              </div>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              No setup required
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1.5 ml-8">
+            Try this skill instantly. For full features, <Link to="/account" className="text-primary hover:underline">configure your own API key</Link>.
+          </p>
+        </div>
+      ) : (
+        <ProviderConfigStatus
+          providerState={providerState}
+          availableModels={availableModels}
+          canRun={canRun}
+        />
+      )}
 
       {/* Ready to Run Checklist */}
       <ReadyToRunChecklist
         providerName={
+          isPortalMode ? portalModelInfo.provider :
           providerState.provider === 'gemini' ? 'Gemini' :
           providerState.provider === 'claude' ? 'Claude' : 'ChatGPT'
         }
-        modelName={availableModels.find(m => m.id === providerState.model)?.name || providerState.model}
-        keyMode={providerState.keyMode}
+        modelName={
+          isPortalMode ? portalModelInfo.model :
+          availableModels.find(m => m.id === providerState.model)?.name || providerState.model
+        }
+        keyMode={isPortalMode ? 'platform' : providerState.keyMode}
         keyConfigured={
+          isPortalMode ? isPortalAvailable :
           providerState.keyMode === 'platform'
             ? (platformStatus?.available ?? false)
             : !!providerState.apiKey
         }
-        platformBalance={platformStatus?.available ? 100 : undefined}
+        platformBalance={isPortalMode ? 100 : (platformStatus?.available ? 100 : undefined)}
         requiredInputs={skill.inputs
           .filter(input => input.required)
           .map(input => ({
@@ -877,7 +945,7 @@ const SkillRunnerPage: React.FC = () => {
         onLoadTestData={() => {
           // This will trigger TestDataPanel load
         }}
-        canRun={canRun && skill.inputs.filter(i => i.required).every(i => !!formState[i.id])}
+        canRun={(isPortalMode && isPortalAvailable) || (canRun && skill.inputs.filter(i => i.required).every(i => !!formState[i.id]))}
       />
 
       {/* Form Inputs */}
