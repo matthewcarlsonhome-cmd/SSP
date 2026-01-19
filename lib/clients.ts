@@ -10,7 +10,12 @@
 
 import type { Client, ClientStatus, ClientIndustry } from './storage/types';
 import { DEFAULT_TARGET_COMPANIES as defaultCompanies } from './storage/types';
-import { getRecommendedSkills, getRecommendedWorkflows } from './clientRecommendations';
+import {
+  getRecommendedSkills,
+  getRecommendedWorkflows,
+  getPersonalizedSkillRecommendations,
+  getPersonalizedWorkflowRecommendations,
+} from './clientRecommendations';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { logger } from './logger';
 
@@ -650,8 +655,23 @@ export async function initializeDefaultClientsAsync(): Promise<Client[]> {
       customMessage: company.customMessage,
       notes: company.notes,
       contacts: company.contacts || [],
-      selectedSkillIds: company.selectedSkillIds || getRecommendedSkills(industry),
-      selectedWorkflowIds: company.selectedWorkflowIds || getRecommendedWorkflows(industry),
+      // Use personalized recommendations based on ALL client attributes
+      selectedSkillIds: company.selectedSkillIds || getPersonalizedSkillRecommendations({
+        industry,
+        painPoints: company.painPoints,
+        services: company.services,
+        description: company.description,
+        companyType: company.companyType,
+        employeeCount: company.employeeCount,
+        revenue: company.revenue,
+      }),
+      selectedWorkflowIds: company.selectedWorkflowIds || getPersonalizedWorkflowRecommendations({
+        industry,
+        painPoints: company.painPoints,
+        services: company.services,
+        description: company.description,
+        companyType: company.companyType,
+      }),
       portalSlug: generateSlug(company.companyName || 'unknown'),
       portalEnabled: false,
       status: 'prospect' as ClientStatus,
@@ -701,8 +721,23 @@ export function initializeDefaultClients(): Client[] {
       customMessage: company.customMessage,
       notes: company.notes,
       contacts: company.contacts || [],
-      selectedSkillIds: company.selectedSkillIds || getRecommendedSkills(industry),
-      selectedWorkflowIds: company.selectedWorkflowIds || getRecommendedWorkflows(industry),
+      // Use personalized recommendations based on ALL client attributes
+      selectedSkillIds: company.selectedSkillIds || getPersonalizedSkillRecommendations({
+        industry,
+        painPoints: company.painPoints,
+        services: company.services,
+        description: company.description,
+        companyType: company.companyType,
+        employeeCount: company.employeeCount,
+        revenue: company.revenue,
+      }),
+      selectedWorkflowIds: company.selectedWorkflowIds || getPersonalizedWorkflowRecommendations({
+        industry,
+        painPoints: company.painPoints,
+        services: company.services,
+        description: company.description,
+        companyType: company.companyType,
+      }),
       portalSlug: generateSlug(company.companyName || 'unknown'),
       portalEnabled: false,
       status: 'prospect' as ClientStatus,
@@ -901,20 +936,35 @@ export function getClientStats(): ClientStats {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// RESET CLIENT SELECTIONS TO INDUSTRY DEFAULTS
+// RESET CLIENT SELECTIONS TO PERSONALIZED DEFAULTS
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Reset all client skill/workflow selections to industry defaults
- * Call this when recommendation mappings have been updated
+ * Reset all client skill/workflow selections to personalized defaults
+ * Uses full client attributes (industry, painPoints, services, etc.)
  */
 export async function resetAllClientSelectionsToDefaults(): Promise<number> {
   const clients = getClients();
   let updatedCount = 0;
 
   for (const client of clients) {
-    const newSkills = getRecommendedSkills(client.industry);
-    const newWorkflows = getRecommendedWorkflows(client.industry);
+    // Use personalized recommendations based on ALL client attributes
+    const newSkills = getPersonalizedSkillRecommendations({
+      industry: client.industry,
+      painPoints: client.painPoints,
+      services: client.services,
+      description: client.description,
+      companyType: client.companyType,
+      employeeCount: client.employeeCount,
+      revenue: client.revenue,
+    });
+    const newWorkflows = getPersonalizedWorkflowRecommendations({
+      industry: client.industry,
+      painPoints: client.painPoints,
+      services: client.services,
+      description: client.description,
+      companyType: client.companyType,
+    });
 
     // Only update if selections differ
     const skillsChanged = JSON.stringify(client.selectedSkillIds.sort()) !== JSON.stringify(newSkills.sort());
@@ -941,7 +991,7 @@ export async function resetAllClientSelectionsToDefaults(): Promise<number> {
 }
 
 /**
- * Reset a single client's selections to industry defaults
+ * Reset a single client's selections to personalized defaults
  */
 export function resetClientSelectionsToDefaults(clientId: string): Client | null {
   const client = getClientById(clientId);
@@ -951,8 +1001,23 @@ export function resetClientSelectionsToDefaults(clientId: string): Client | null
   const index = clients.findIndex(c => c.id === clientId);
   if (index === -1) return null;
 
-  clients[index].selectedSkillIds = getRecommendedSkills(client.industry);
-  clients[index].selectedWorkflowIds = getRecommendedWorkflows(client.industry);
+  // Use personalized recommendations
+  clients[index].selectedSkillIds = getPersonalizedSkillRecommendations({
+    industry: client.industry,
+    painPoints: client.painPoints,
+    services: client.services,
+    description: client.description,
+    companyType: client.companyType,
+    employeeCount: client.employeeCount,
+    revenue: client.revenue,
+  });
+  clients[index].selectedWorkflowIds = getPersonalizedWorkflowRecommendations({
+    industry: client.industry,
+    painPoints: client.painPoints,
+    services: client.services,
+    description: client.description,
+    companyType: client.companyType,
+  });
   clients[index].updatedAt = new Date().toISOString();
 
   saveClients(clients);
@@ -1026,9 +1091,23 @@ export async function refreshClientsFromDefaults(): Promise<{ added: number; upd
         hasChanges = true;
       }
 
-      // Update skill/workflow selections to current industry defaults
-      const newSkills = getRecommendedSkills(industry);
-      const newWorkflows = getRecommendedWorkflows(industry);
+      // Update skill/workflow selections to personalized defaults
+      const newSkills = getPersonalizedSkillRecommendations({
+        industry,
+        painPoints: existing.painPoints || company.painPoints,
+        services: existing.services || company.services,
+        description: existing.description || company.description,
+        companyType: existing.companyType || company.companyType,
+        employeeCount: existing.employeeCount || company.employeeCount,
+        revenue: existing.revenue || company.revenue,
+      });
+      const newWorkflows = getPersonalizedWorkflowRecommendations({
+        industry,
+        painPoints: existing.painPoints || company.painPoints,
+        services: existing.services || company.services,
+        description: existing.description || company.description,
+        companyType: existing.companyType || company.companyType,
+      });
 
       if (JSON.stringify(existing.selectedSkillIds.sort()) !== JSON.stringify(newSkills.sort())) {
         existing.selectedSkillIds = newSkills;
@@ -1066,8 +1145,23 @@ export async function refreshClientsFromDefaults(): Promise<{ added: number; upd
         customMessage: company.customMessage,
         notes: company.notes,
         contacts: company.contacts || [],
-        selectedSkillIds: getRecommendedSkills(industry),
-        selectedWorkflowIds: getRecommendedWorkflows(industry),
+        // Use personalized recommendations based on ALL client attributes
+        selectedSkillIds: getPersonalizedSkillRecommendations({
+          industry,
+          painPoints: company.painPoints,
+          services: company.services,
+          description: company.description,
+          companyType: company.companyType,
+          employeeCount: company.employeeCount,
+          revenue: company.revenue,
+        }),
+        selectedWorkflowIds: getPersonalizedWorkflowRecommendations({
+          industry,
+          painPoints: company.painPoints,
+          services: company.services,
+          description: company.description,
+          companyType: company.companyType,
+        }),
         portalSlug: generateSlug(companyName),
         portalEnabled: false,
         status: 'prospect' as ClientStatus,
