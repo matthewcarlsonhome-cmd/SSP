@@ -12,6 +12,7 @@ import { getClients } from './clients';
 import { SKILLS } from './skills';
 import { WORKFLOWS } from './workflows';
 import { callPortalProxy } from './portalProxy';
+import { getLibrarySkill, type LibrarySkill } from './skillLibrary';
 import type { Client } from './storage/types';
 import type { Skill } from '../types';
 import type { Workflow } from './storage/types';
@@ -277,6 +278,95 @@ async function testSkill(
 }
 
 /**
+ * Get minimal test data for a library skill
+ */
+function getTestDataForLibrarySkill(skillId: string, skill: LibrarySkill): Record<string, string> {
+  // Check if we have specific test data
+  if (SMOKE_TEST_DATA[skillId]) {
+    return SMOKE_TEST_DATA[skillId];
+  }
+
+  // Build minimal test data from skill inputs
+  const testData: Record<string, string> = {};
+  for (const input of skill.inputs) {
+    if (input.required) {
+      testData[input.id] = `Test ${input.label.toLowerCase()} for smoke testing`;
+    }
+  }
+
+  return Object.keys(testData).length > 0 ? testData : DEFAULT_SMOKE_TEST;
+}
+
+/**
+ * Interpolate placeholders in a template with values
+ */
+function interpolateTemplate(template: string, values: Record<string, string>): string {
+  let result = template;
+  for (const [key, value] of Object.entries(values)) {
+    const placeholder = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g');
+    result = result.replace(placeholder, value || '');
+  }
+  return result;
+}
+
+/**
+ * Execute a single library skill test
+ */
+async function testLibrarySkill(
+  client: Client,
+  skillId: string,
+  skill: LibrarySkill
+): Promise<{ success: boolean; output?: string; error?: string; durationMs: number; inputTokens: number; outputTokens: number }> {
+  const startTime = Date.now();
+
+  try {
+    // Get test data and generate prompt
+    const testData = getTestDataForLibrarySkill(skillId, skill);
+    const userPrompt = interpolateTemplate(skill.prompts.userPromptTemplate, testData);
+    const systemPrompt = skill.prompts.systemInstruction;
+
+    // Call portal proxy
+    const response = await callPortalProxy({
+      prompt: userPrompt,
+      systemPrompt,
+      maxTokens: 512,
+      portalSlug: client.portalSlug,
+    });
+
+    const durationMs = Date.now() - startTime;
+    const output = response.output || '';
+
+    // Validate non-empty output
+    if (!output || output.trim().length < 10) {
+      return {
+        success: false,
+        error: 'Output is empty or too short',
+        output,
+        durationMs,
+        inputTokens: response.usage?.inputTokens || 0,
+        outputTokens: response.usage?.outputTokens || 0,
+      };
+    }
+
+    return {
+      success: true,
+      output,
+      durationMs,
+      inputTokens: response.usage?.inputTokens || 0,
+      outputTokens: response.usage?.outputTokens || 0,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+      durationMs: Date.now() - startTime,
+      inputTokens: 0,
+      outputTokens: 0,
+    };
+  }
+}
+
+/**
  * Execute a single workflow test (tests first step only for efficiency)
  */
 async function testWorkflow(
@@ -299,22 +389,33 @@ async function testWorkflow(
       };
     }
 
-    const skill = SKILLS[firstStep.skillId];
-    if (!skill) {
+    // First try static skills
+    const staticSkill = SKILLS[firstStep.skillId];
+    if (staticSkill) {
+      const result = await testSkill(client, firstStep.skillId, staticSkill);
       return {
-        success: false,
-        error: `Skill ${firstStep.skillId} not found`,
+        ...result,
         durationMs: Date.now() - startTime,
-        inputTokens: 0,
-        outputTokens: 0,
       };
     }
 
-    // Test the first step
-    const result = await testSkill(client, firstStep.skillId, skill);
+    // Then try library skills (role templates, professional skills, etc.)
+    const librarySkill = getLibrarySkill(firstStep.skillId);
+    if (librarySkill) {
+      const result = await testLibrarySkill(client, firstStep.skillId, librarySkill);
+      return {
+        ...result,
+        durationMs: Date.now() - startTime,
+      };
+    }
+
+    // Skill not found in any source
     return {
-      ...result,
+      success: false,
+      error: `Skill ${firstStep.skillId} not found in static or library skills`,
       durationMs: Date.now() - startTime,
+      inputTokens: 0,
+      outputTokens: 0,
     };
   } catch (error) {
     return {
