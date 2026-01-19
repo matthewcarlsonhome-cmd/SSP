@@ -190,37 +190,77 @@ export async function callPortalProxy(request: PortalProxyRequest): Promise<Port
 export async function* streamPortalProxy(request: PortalProxyRequest): AsyncGenerator<string, void, unknown> {
   const supabaseUrl = getSupabaseUrl();
   if (!supabaseUrl) {
-    throw new Error('Supabase URL not configured');
+    throw new Error('Portal proxy error: Supabase URL not configured. Check VITE_SUPABASE_URL environment variable.');
   }
 
   const anonKey = getSupabaseAnonKey();
   if (!anonKey) {
-    throw new Error('Supabase configuration not available');
+    throw new Error('Portal proxy error: Supabase anon key not configured. Check VITE_SUPABASE_ANON_KEY environment variable.');
   }
 
   // Include portal slug if available
   const portalSlug = request.portalSlug || getCurrentPortalSlug() || getPortalSession() || 'anonymous';
 
-  const response = await fetch(`${supabaseUrl}/functions/v1/portal-proxy`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': anonKey,
-      'x-portal-slug': portalSlug,
-    },
-    body: JSON.stringify({
-      ...request,
-      stream: true,
-      portalSlug,
-    }),
-  });
+  const functionUrl = `${supabaseUrl}/functions/v1/portal-proxy`;
+
+  let response: Response;
+  try {
+    response = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': anonKey,
+        'x-portal-slug': portalSlug,
+      },
+      body: JSON.stringify({
+        ...request,
+        stream: true,
+        portalSlug,
+      }),
+    });
+  } catch (networkError) {
+    throw new Error(`Portal proxy network error: ${networkError instanceof Error ? networkError.message : 'Failed to connect'}. URL: ${functionUrl}`);
+  }
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    // Try to get detailed error information
+    let errorDetails = '';
+    let errorData: any = {};
+
+    try {
+      const responseText = await response.text();
+      try {
+        errorData = JSON.parse(responseText);
+        errorDetails = errorData.error || errorData.message || responseText;
+      } catch {
+        errorDetails = responseText || 'No response body';
+      }
+    } catch {
+      errorDetails = 'Could not read error response';
+    }
+
+    // Build detailed error message for diagnosis
+    const diagnosticInfo = [
+      `Status: ${response.status} ${response.statusText}`,
+      `URL: ${functionUrl}`,
+      `Response: ${errorDetails.substring(0, 500)}`,
+      `Anon key present: ${anonKey ? 'Yes (length: ' + anonKey.length + ')' : 'No'}`,
+    ].join(' | ');
+
+    if (response.status === 401) {
+      throw new Error(`Portal proxy auth error (401): ${diagnosticInfo}`);
+    }
     if (response.status === 429) {
       throw new Error(`Rate limit exceeded. Please try again in ${errorData.retryAfter || 60} seconds.`);
     }
-    throw new Error(errorData.error || `Portal proxy error: ${response.status}`);
+    if (response.status === 404) {
+      throw new Error(`Portal proxy not found (404): Edge function may not be deployed. ${diagnosticInfo}`);
+    }
+    if (response.status >= 500) {
+      throw new Error(`Portal proxy server error (${response.status}): ${diagnosticInfo}`);
+    }
+
+    throw new Error(`Portal proxy error (${response.status}): ${diagnosticInfo}`);
   }
 
   // Check if we got a streaming response
