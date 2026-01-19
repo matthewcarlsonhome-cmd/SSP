@@ -38,6 +38,7 @@ import {
   Linkedin,
   Image,
   RotateCcw,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
@@ -56,6 +57,7 @@ import {
   syncClientsToSupabase,
   resetAllClientSelectionsToDefaults,
   refreshClientsFromDefaults,
+  applyPersuasiveMessagesToAllClients,
 } from '../lib/clients';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { getAllLibrarySkills } from '../lib/skillLibrary';
@@ -126,6 +128,7 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
   const [isSyncing, setIsSyncing] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isApplyingMessages, setIsApplyingMessages] = useState(false);
   const supabaseConfigured = isSupabaseConfigured();
 
   // Load clients on mount
@@ -243,6 +246,23 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
       addToast('Error refreshing: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const handleApplyPersuasiveMessages = async () => {
+    if (!confirm('This will regenerate all marketing messages using science-backed persuasion principles (WHY, social proof, pain-first, etc.). Continue?')) {
+      return;
+    }
+
+    setIsApplyingMessages(true);
+    try {
+      const updatedCount = await applyPersuasiveMessagesToAllClients();
+      setClients(getClients());
+      addToast(`Applied persuasive messaging to ${updatedCount} clients`, 'success');
+    } catch (error) {
+      addToast('Error applying messages: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
+    } finally {
+      setIsApplyingMessages(false);
     }
   };
 
@@ -426,6 +446,16 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
         >
           <RotateCcw className={`h-4 w-4 mr-2 ${isResetting ? 'animate-spin' : ''}`} />
           {isResetting ? 'Resetting...' : 'Reset Skills'}
+        </Button>
+
+        <Button
+          variant="outline"
+          onClick={handleApplyPersuasiveMessages}
+          disabled={isApplyingMessages}
+          title="Regenerate all marketing messages using science-backed persuasion principles"
+        >
+          <Sparkles className={`h-4 w-4 mr-2 ${isApplyingMessages ? 'animate-pulse' : ''}`} />
+          {isApplyingMessages ? 'Applying...' : 'Persuasive Messages'}
         </Button>
 
         <Button variant="outline" onClick={handleExport}>
