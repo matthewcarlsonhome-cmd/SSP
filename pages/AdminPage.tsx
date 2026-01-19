@@ -74,6 +74,7 @@ import { EmailSegmentationPanel } from '../components/EmailSegmentationPanel';
 import { EmailComposer } from '../components/EmailComposer';
 import { UserManagementPanel } from '../components/UserManagementPanel';
 import { ClientManagementPanel } from '../components/ClientManagementPanel';
+import { PortalTestPanel } from '../components/PortalTestPanel';
 import { useEmailSegments } from '../hooks/useEmailSegments';
 import { useSkillUsageStats } from '../hooks/useSkillUsageStats';
 import { sendEmail } from '../lib/emailSegmentation';
@@ -459,7 +460,7 @@ const AdminPage: React.FC = () => {
 
         {/* Clients Tab - B2B Client Management with Skill/Workflow Selection */}
         {activeTab === 'clients' && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div>
               <h2 className="text-xl font-semibold">Client Management</h2>
               <p className="text-sm text-muted-foreground">
@@ -472,6 +473,11 @@ const AdminPage: React.FC = () => {
                 window.open(`/#/portal/${client.portalSlug}`, '_blank');
               }}
             />
+
+            {/* Portal Testing Section */}
+            <div className="border-t pt-6">
+              <PortalTestPanel />
+            </div>
           </div>
         )}
 
