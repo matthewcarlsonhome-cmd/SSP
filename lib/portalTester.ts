@@ -427,10 +427,10 @@ export async function runAllPortalTests(
   onResult?: ResultCallback,
   abortSignal?: AbortSignal
 ): Promise<TestRun | null> {
-  // Get all active clients
-  const clients = getClients().filter(c => c.status === 'active');
+  // Get all clients with portals enabled
+  const clients = getClients().filter(c => c.portalEnabled);
   if (clients.length === 0) {
-    console.warn('No active clients to test');
+    console.warn('No clients with portals enabled to test');
     return null;
   }
 
