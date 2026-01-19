@@ -126,6 +126,17 @@ function getSupabaseUrl(): string {
   return supabase?.supabaseUrl || '';
 }
 
+/**
+ * Get Supabase anon key from environment
+ * Required for Edge Function calls even without user auth
+ */
+function getSupabaseAnonKey(): string {
+  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) {
+    return import.meta.env.VITE_SUPABASE_ANON_KEY;
+  }
+  return '';
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PORTAL PROXY API CALLS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -139,6 +150,11 @@ export async function callPortalProxy(request: PortalProxyRequest): Promise<Port
     throw new Error('Supabase URL not configured');
   }
 
+  const anonKey = getSupabaseAnonKey();
+  if (!anonKey) {
+    throw new Error('Supabase configuration not available');
+  }
+
   // Include portal slug if available
   const portalSlug = request.portalSlug || getCurrentPortalSlug() || getPortalSession() || 'anonymous';
 
@@ -146,6 +162,7 @@ export async function callPortalProxy(request: PortalProxyRequest): Promise<Port
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'apikey': anonKey,
       'x-portal-slug': portalSlug,
     },
     body: JSON.stringify({
@@ -176,6 +193,11 @@ export async function* streamPortalProxy(request: PortalProxyRequest): AsyncGene
     throw new Error('Supabase URL not configured');
   }
 
+  const anonKey = getSupabaseAnonKey();
+  if (!anonKey) {
+    throw new Error('Supabase configuration not available');
+  }
+
   // Include portal slug if available
   const portalSlug = request.portalSlug || getCurrentPortalSlug() || getPortalSession() || 'anonymous';
 
@@ -183,6 +205,7 @@ export async function* streamPortalProxy(request: PortalProxyRequest): AsyncGene
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'apikey': anonKey,
       'x-portal-slug': portalSlug,
     },
     body: JSON.stringify({
@@ -289,11 +312,20 @@ export async function isPortalProxyAvailable(): Promise<boolean> {
     return false;
   }
 
+  const anonKey = getSupabaseAnonKey();
+  if (!anonKey) {
+    portalAvailableCache = false;
+    return false;
+  }
+
   try {
     // Check platform status to see if OpenAI is configured
     const response = await fetch(`${supabaseUrl}/functions/v1/platform-status`, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': anonKey,
+      },
     });
 
     if (!response.ok) {
