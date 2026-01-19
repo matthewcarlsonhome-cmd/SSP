@@ -230,6 +230,42 @@ export const INDUSTRY_SKILL_MAPPING: Record<ClientIndustry, string[]> = {
     'data-quality-assessment',     // Research data validation
   ],
 
+  legal: [
+    'contract-review-accelerator', // Contract analysis & review
+    'sales-call-prep-pro',         // Client meeting prep
+    'proposal-builder',            // Engagement letters/proposals
+    'compliance-audit-prep-assistant', // Regulatory compliance
+    'meeting-minutes-pro',         // Case/meeting documentation
+    'executive-communication-pack', // Client communications
+    'rfp-response-generator',      // RFP/RFI responses
+    'sop-documentation-builder',   // Legal procedures
+    'customer-health-scorecard',   // Client relationship tracking
+  ],
+
+  staffing: [
+    'job-description-optimizer',   // Job posting optimization
+    'sales-call-prep-pro',         // Client meeting prep
+    'proposal-builder',            // Staffing proposals
+    'customer-health-scorecard',   // Client health tracking
+    'contract-review-accelerator', // Employment contracts
+    'meeting-minutes-pro',         // Client meeting notes
+    'email-sequence-creator',      // Candidate outreach
+    'sop-documentation-builder',   // Recruitment procedures
+    'competitive-battle-card',     // Market positioning
+  ],
+
+  engineering: [
+    'technical-spec-writer',       // Engineering specifications
+    'rfp-response-generator',      // Bid/proposal responses
+    'sop-documentation-builder',   // Technical procedures
+    'proposal-builder',            // Project proposals
+    'compliance-audit-prep-assistant', // Regulatory compliance
+    'excel-data-analyzer',         // Project analytics
+    'meeting-minutes-pro',         // Project meetings
+    'contract-review-accelerator', // Contract review
+    'vendor-comparison-matrix',    // Supplier evaluation
+  ],
+
   other: [
     'sales-call-prep-pro',         // Business development
     'proposal-builder',            // Business proposals
@@ -353,6 +389,24 @@ export const INDUSTRY_WORKFLOW_MAPPING: Record<ClientIndustry, string[]> = {
     'compliance-program-builder',  // FDA/regulatory
     'sales-account-pursuit',       // Partner/investor outreach
     'product-launch-gtm',          // Product commercialization
+  ],
+
+  legal: [
+    'consulting-engagement',       // Client matter management
+    'sales-account-pursuit',       // Business development
+    'rfp-response-center',         // RFP/proposal management
+  ],
+
+  staffing: [
+    'sales-account-pursuit',       // Client acquisition
+    'customer-churn-prevention',   // Client retention
+    'new-hire-onboarding',         // Recruiter training
+  ],
+
+  engineering: [
+    'rfp-response-center',         // Bid/proposal management
+    'project-initiation',          // Project kickoff
+    'consulting-engagement',       // Client engagements
   ],
 
   other: [

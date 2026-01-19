@@ -789,6 +789,9 @@ export type ClientIndustry =
   | 'food_beverage'
   | 'utilities'
   | 'biotechnology'
+  | 'legal'
+  | 'staffing'
+  | 'engineering'
   | 'other';
 
 /**
