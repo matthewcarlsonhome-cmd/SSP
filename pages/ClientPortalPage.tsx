@@ -28,6 +28,7 @@ import {
   FileText,
   BarChart3,
   Mail,
+  Phone,
   Calendar,
   Calculator,
   Globe,
@@ -271,40 +272,28 @@ const ROISection: React.FC<ROISectionProps> = ({ client, selectedSkills, selecte
           </div>
         </div>
 
-        {/* Pain Points Section */}
-        {client.painPoints && (
-          <div className="rounded-2xl bg-white dark:bg-card p-8 shadow-lg">
-            <h3 className="text-xl font-bold mb-6 text-center">
-              Workflows We'll Automate for {client.companyName}
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {client.painPoints.split(',').map((point, i) => (
-                <div
-                  key={i}
-                  className="flex items-start gap-3 p-4 rounded-xl bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900"
-                >
-                  <div className="h-8 w-8 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
-                    <CheckCircle2 className="h-4 w-4 text-white" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-sm">{point.trim()}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Bottom CTA */}
+        {/* Bottom CTA - Contact Information */}
         <div className="text-center mt-12">
-          <p className="text-muted-foreground mb-4">
+          <p className="text-muted-foreground mb-6">
             These estimates are calculated based on your specific skill and workflow selections.
-            Schedule a call to discuss how these apply to your team.
+            Contact me to discuss how these apply to your team.
           </p>
-          <Button size="lg" className="bg-green-600 hover:bg-green-700 gap-2">
-            <Calendar className="h-5 w-5" />
-            Schedule a Custom ROI Analysis
-          </Button>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <a
+              href="tel:608-284-7333"
+              className="inline-flex items-center gap-3 px-6 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors"
+            >
+              <Phone className="h-5 w-5" />
+              <span className="text-lg">608-284-7333</span>
+            </a>
+            <a
+              href="mailto:contact@matthewcarlsonconsulting.com"
+              className="inline-flex items-center gap-3 px-6 py-3 rounded-xl border-2 border-green-600 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30 font-semibold transition-colors"
+            >
+              <Mail className="h-5 w-5" />
+              <span>contact@matthewcarlsonconsulting.com</span>
+            </a>
+          </div>
         </div>
       </div>
     </section>
