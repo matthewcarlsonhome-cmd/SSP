@@ -12,16 +12,52 @@
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import {
-  rateLimitMiddleware,
-  getIdentifier,
-} from '../_shared/rateLimit.ts';
 
 // CORS headers for browser requests
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INLINE RATE LIMITING (self-contained, no shared imports)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const rateLimitStore = new Map<string, { count: number; windowStart: number }>();
+const RATE_LIMIT = { maxRequests: 60, windowSeconds: 60 }; // 60 req/min
+
+function getClientIP(req: Request): string {
+  const forwardedFor = req.headers.get('x-forwarded-for');
+  if (forwardedFor) return forwardedFor.split(',')[0].trim();
+  const realIp = req.headers.get('x-real-ip');
+  if (realIp) return realIp;
+  return 'unknown';
+}
+
+function checkRateLimit(identifier: string): { allowed: boolean; retryAfter?: number } {
+  const now = Date.now();
+  const windowMs = RATE_LIMIT.windowSeconds * 1000;
+  const key = `platform-status:${identifier}`;
+
+  let entry = rateLimitStore.get(key);
+  if (!entry || now - entry.windowStart >= windowMs) {
+    entry = { count: 0, windowStart: now };
+    rateLimitStore.set(key, entry);
+  }
+
+  if (entry.count >= RATE_LIMIT.maxRequests) {
+    const windowEnd = entry.windowStart + windowMs;
+    return { allowed: false, retryAfter: Math.ceil((windowEnd - now) / 1000) };
+  }
+
+  entry.count++;
+  rateLimitStore.set(key, entry);
+  return { allowed: true };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MAIN HANDLER
+// ═══════════════════════════════════════════════════════════════════════════
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -30,10 +66,21 @@ serve(async (req) => {
   }
 
   try {
-    // Check rate limits (no user ID for this public endpoint)
-    const rateLimitResponse = rateLimitMiddleware(req, undefined, 'platform-status', corsHeaders);
-    if (rateLimitResponse) {
-      return rateLimitResponse;
+    // Check rate limits
+    const clientIP = getClientIP(req);
+    const rateLimitResult = checkRateLimit(clientIP);
+
+    if (!rateLimitResult.allowed) {
+      return new Response(
+        JSON.stringify({
+          error: 'Rate limit exceeded',
+          retryAfter: rateLimitResult.retryAfter,
+        }),
+        {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     // Check which API keys are configured
