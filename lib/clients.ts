@@ -616,8 +616,9 @@ export async function initializeDefaultClientsAsync(): Promise<Client[]> {
       customMessage: company.customMessage,
       notes: company.notes,
       contacts: company.contacts || [],
-      // Use personalized recommendations based on ALL client attributes
+      // Use personalized recommendations based on ALL client attributes including company name
       selectedSkillIds: company.selectedSkillIds || getPersonalizedSkillRecommendations({
+        companyName: company.companyName,
         industry,
         painPoints: company.painPoints,
         services: company.services,
@@ -627,6 +628,7 @@ export async function initializeDefaultClientsAsync(): Promise<Client[]> {
         revenue: company.revenue,
       }),
       selectedWorkflowIds: company.selectedWorkflowIds || getPersonalizedWorkflowRecommendations({
+        companyName: company.companyName,
         industry,
         painPoints: company.painPoints,
         services: company.services,
@@ -682,8 +684,9 @@ export function initializeDefaultClients(): Client[] {
       customMessage: company.customMessage,
       notes: company.notes,
       contacts: company.contacts || [],
-      // Use personalized recommendations based on ALL client attributes
+      // Use personalized recommendations based on ALL client attributes including company name
       selectedSkillIds: company.selectedSkillIds || getPersonalizedSkillRecommendations({
+        companyName: company.companyName,
         industry,
         painPoints: company.painPoints,
         services: company.services,
@@ -693,6 +696,7 @@ export function initializeDefaultClients(): Client[] {
         revenue: company.revenue,
       }),
       selectedWorkflowIds: company.selectedWorkflowIds || getPersonalizedWorkflowRecommendations({
+        companyName: company.companyName,
         industry,
         painPoints: company.painPoints,
         services: company.services,
@@ -909,8 +913,9 @@ export async function resetAllClientSelectionsToDefaults(): Promise<number> {
   let updatedCount = 0;
 
   for (const client of clients) {
-    // Use personalized recommendations based on ALL client attributes
+    // Use personalized recommendations based on ALL client attributes including company name
     const newSkills = getPersonalizedSkillRecommendations({
+      companyName: client.companyName,
       industry: client.industry,
       painPoints: client.painPoints,
       services: client.services,
@@ -920,6 +925,7 @@ export async function resetAllClientSelectionsToDefaults(): Promise<number> {
       revenue: client.revenue,
     });
     const newWorkflows = getPersonalizedWorkflowRecommendations({
+      companyName: client.companyName,
       industry: client.industry,
       painPoints: client.painPoints,
       services: client.services,
@@ -962,8 +968,9 @@ export function resetClientSelectionsToDefaults(clientId: string): Client | null
   const index = clients.findIndex(c => c.id === clientId);
   if (index === -1) return null;
 
-  // Use personalized recommendations
+  // Use personalized recommendations including company name for uniqueness
   clients[index].selectedSkillIds = getPersonalizedSkillRecommendations({
+    companyName: client.companyName,
     industry: client.industry,
     painPoints: client.painPoints,
     services: client.services,
@@ -973,6 +980,7 @@ export function resetClientSelectionsToDefaults(clientId: string): Client | null
     revenue: client.revenue,
   });
   clients[index].selectedWorkflowIds = getPersonalizedWorkflowRecommendations({
+    companyName: client.companyName,
     industry: client.industry,
     painPoints: client.painPoints,
     services: client.services,
@@ -1052,8 +1060,9 @@ export async function refreshClientsFromDefaults(): Promise<{ added: number; upd
         hasChanges = true;
       }
 
-      // Update skill/workflow selections to personalized defaults
+      // Update skill/workflow selections to personalized defaults (unique per company)
       const newSkills = getPersonalizedSkillRecommendations({
+        companyName: existing.companyName,
         industry,
         painPoints: existing.painPoints || company.painPoints,
         services: existing.services || company.services,
@@ -1063,6 +1072,7 @@ export async function refreshClientsFromDefaults(): Promise<{ added: number; upd
         revenue: existing.revenue || company.revenue,
       });
       const newWorkflows = getPersonalizedWorkflowRecommendations({
+        companyName: existing.companyName,
         industry,
         painPoints: existing.painPoints || company.painPoints,
         services: existing.services || company.services,
@@ -1106,8 +1116,9 @@ export async function refreshClientsFromDefaults(): Promise<{ added: number; upd
         customMessage: company.customMessage,
         notes: company.notes,
         contacts: company.contacts || [],
-        // Use personalized recommendations based on ALL client attributes
+        // Use personalized recommendations based on ALL client attributes (unique per company)
         selectedSkillIds: getPersonalizedSkillRecommendations({
+          companyName,
           industry,
           painPoints: company.painPoints,
           services: company.services,
@@ -1117,6 +1128,7 @@ export async function refreshClientsFromDefaults(): Promise<{ added: number; upd
           revenue: company.revenue,
         }),
         selectedWorkflowIds: getPersonalizedWorkflowRecommendations({
+          companyName,
           industry,
           painPoints: company.painPoints,
           services: company.services,
