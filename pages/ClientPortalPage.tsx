@@ -9,6 +9,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { setPortalSession } from '../lib/portalProxy';
 import {
   Sparkles,
   Zap,
@@ -326,6 +327,10 @@ const ClientPortalPage: React.FC = () => {
         return;
       }
 
+      // Set portal session so skill/workflow pages know we came from a portal
+      // This enables automatic portal mode (no API key required for demos)
+      setPortalSession(slug);
+
       // Try async fetch from Supabase first (works for external users without localStorage)
       const clientData = await getClientBySlugAsync(slug);
       if (!clientData) {
@@ -515,7 +520,7 @@ const ClientPortalPage: React.FC = () => {
                 return (
                   <Link
                     key={skill.id}
-                    to={`/skill/${skill.id}`}
+                    to={`/skill/${skill.id}?portal=true`}
                     className="group rounded-xl border bg-card p-5 hover:border-primary/50 hover:shadow-lg transition-all cursor-pointer block"
                   >
                     <div className="flex items-start gap-4">
@@ -578,7 +583,7 @@ const ClientPortalPage: React.FC = () => {
               {selectedWorkflows.map(workflow => (
                 <Link
                   key={workflow.id}
-                  to={`/workflow/${workflow.id}`}
+                  to={`/workflow/${workflow.id}?portal=true`}
                   className="group rounded-xl border bg-card p-6 hover:border-primary/50 hover:shadow-lg transition-all cursor-pointer block"
                 >
                   <div className="flex items-start gap-4 mb-4">
