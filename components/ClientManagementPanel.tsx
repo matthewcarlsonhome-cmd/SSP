@@ -55,6 +55,7 @@ import {
   getClientStats,
   syncClientsToSupabase,
   resetAllClientSelectionsToDefaults,
+  refreshClientsFromDefaults,
 } from '../lib/clients';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { getAllLibrarySkills } from '../lib/skillLibrary';
@@ -96,6 +97,9 @@ const INDUSTRY_OPTIONS: { value: ClientIndustry; label: string }[] = [
   { value: 'food_beverage', label: 'Food & Beverage' },
   { value: 'utilities', label: 'Utilities' },
   { value: 'professional_services', label: 'Professional Services' },
+  { value: 'legal', label: 'Legal Services' },
+  { value: 'staffing', label: 'Staffing & Recruiting' },
+  { value: 'engineering', label: 'Engineering' },
   { value: 'hospitality', label: 'Hospitality' },
   { value: 'education', label: 'Education' },
   { value: 'nonprofit', label: 'Non-Profit' },
@@ -121,6 +125,7 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const supabaseConfigured = isSupabaseConfigured();
 
   // Load clients on mount
@@ -208,7 +213,7 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
   };
 
   const handleResetSelections = async () => {
-    if (!confirm('This will reset all client skill and workflow selections to industry defaults (6 skills, 3 workflows max per client). Continue?')) {
+    if (!confirm('This will reset all client skill and workflow selections to industry defaults (9 skills, 3 workflows max per client). Continue?')) {
       return;
     }
 
@@ -221,6 +226,23 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
       addToast('Error resetting selections: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
     } finally {
       setIsResetting(false);
+    }
+  };
+
+  const handleRefreshFromDefaults = async () => {
+    if (!confirm('This will add new companies from the defaults and update existing ones with latest data (contacts, customizations, skills). Continue?')) {
+      return;
+    }
+
+    setIsRefreshing(true);
+    try {
+      const result = await refreshClientsFromDefaults();
+      setClients(getClients());
+      addToast(`Refreshed: ${result.added} new clients added, ${result.updated} clients updated`, 'success');
+    } catch (error) {
+      addToast('Error refreshing: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -388,12 +410,22 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
 
         <Button
           variant="outline"
+          onClick={handleRefreshFromDefaults}
+          disabled={isRefreshing}
+          title="Add new companies and update existing with latest data (contacts, skills, workflows)"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+          {isRefreshing ? 'Refreshing...' : 'Refresh Defaults'}
+        </Button>
+
+        <Button
+          variant="outline"
           onClick={handleResetSelections}
           disabled={isResetting}
-          title="Reset all client selections to industry defaults (6 skills, 3 workflows)"
+          title="Reset all client selections to industry defaults (9 skills, 3 workflows)"
         >
           <RotateCcw className={`h-4 w-4 mr-2 ${isResetting ? 'animate-spin' : ''}`} />
-          {isResetting ? 'Resetting...' : 'Reset Selections'}
+          {isResetting ? 'Resetting...' : 'Reset Skills'}
         </Button>
 
         <Button variant="outline" onClick={handleExport}>
