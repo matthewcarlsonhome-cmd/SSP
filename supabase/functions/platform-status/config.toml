@@ -1,0 +1,2 @@
+# Disable JWT verification for public platform status checks
+verify_jwt = false

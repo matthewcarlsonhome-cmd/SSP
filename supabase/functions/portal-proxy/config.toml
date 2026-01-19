@@ -1,0 +1,2 @@
+# Disable JWT verification for anonymous portal access
+verify_jwt = false
