@@ -890,17 +890,17 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     customHeadline: 'AI-Powered Marketing Automation for Pop-Dot\'s Evidence-Based Approach',
     customMessage: 'Transform your Systems + Design methodology with intelligent automation. We\'ve curated AI skills specifically for multi-channel campaign management, creative workflow optimization, and real-time performance tracking across traditional and digital channels.',
     contacts: [{ name: 'Jason Fish', title: 'Founder & CEO', email: 'jason@popdotmarketing.com', isPrimary: true }],
-    // Curated for: Brand strategy, science-based marketing, multi-channel campaigns, creative agency
+    // Curated for: Evidence-based approach, multi-channel (traditional + digital), branding, packaging
     selectedSkillIds: [
-      'excel-marketing-dashboard',                   // Campaign performance tracking
-      'ab-test-analysis-reporter',                   // Test analysis and insights
-      'sales-call-prep-pro',                         // Client meeting prep
-      'proposal-builder',                            // Client proposals
-      'competitive-landscape-mapper',                // Competitive analysis
+      'excel-marketing-dashboard',                   // Multi-channel campaign performance
+      'ab-test-analysis-reporter',                   // Evidence-based testing & insights
+      'competitive-landscape-mapper',                // Market positioning analysis
+      'proposal-builder',                            // Client pitch development
+      'board-presentation-builder',                  // High-level client presentations
+      'kpi-framework-designer',                      // Evidence-based metrics design
+      'process-automation-spec',                     // Creative workflow automation
+      'crisis-communication-playbook',               // PR support for clients
       'customer-health-scorecard',                   // Client retention tracking
-      'executive-communication-pack',                // Executive presentations
-      'meeting-minutes-pro',                         // Client meeting documentation
-      'sop-documentation-builder',                   // Agency process docs
     ],
     selectedWorkflowIds: ['marketing-campaign-launch', 'competitive-intelligence', 'digital-marketing-audit'],
   },
@@ -923,17 +923,17 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     customHeadline: 'Supercharge Your B2B Marketing Operations with AI',
     customMessage: 'Your expertise in inbound methodology for complex B2B industries is the foundation. Now amplify it with AI skills designed for lead nurturing, content pipeline acceleration, and RevOps optimization—perfectly aligned with your proven approach.',
     contacts: [{ name: 'Chris Murvine', title: 'CEO & Founder', email: 'cmurvine@madisonmarketing.com', isPrimary: true }],
-    // Curated for: B2B digital, HubSpot partner, inbound marketing, lead gen, data-driven
+    // Curated for: B2B inbound marketing, HubSpot partner, lead gen, RevOps, data-driven
     selectedSkillIds: [
-      'ab-test-analysis-reporter',   // Email/nurture sequences
-      'automation-opportunity-assessment', // Marketing automation
-      'sop-documentation-builder',              // SEO for inbound
-      'executive-communication-pack',           // Content pipeline
-      'ab-test-analysis-reporter',  // Conversion optimization
-      'excel-marketing-dashboard', // Analytics dashboards
-      'customer-health-scorecard',                       // Client health tracking
-      'excel-data-analyzer',                             // Data analysis
-      'proposal-builder',                                // B2B proposals
+      'excel-data-analyzer',                       // B2B lead data analysis
+      'automation-opportunity-assessment',         // RevOps & marketing automation
+      'sales-call-prep-pro',                       // B2B sales enablement support
+      'rfp-response-generator',                    // B2B RFP responses
+      'kpi-framework-designer',                    // Inbound marketing metrics
+      'customer-health-scorecard',                 // Lead nurturing & client health
+      'ab-test-analysis-reporter',                 // Conversion optimization
+      'prd-writer',                                // Product marketing documentation
+      'executive-communication-pack',              // C-suite communications
     ],
     selectedWorkflowIds: ['marketing-campaign-launch', 'digital-marketing-audit', 'sales-account-pursuit'],
   },
@@ -956,17 +956,17 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     customHeadline: 'Enterprise-Grade AI for Award-Winning Campaigns',
     customMessage: 'Serving iconic brands like Harley-Davidson and GORE-TEX demands excellence at scale. Our AI automation suite handles the heavy lifting—media planning, PR monitoring, and campaign analytics—so your team can focus on what made you a Best Place to Work: creativity.',
     contacts: [{ name: 'Curt Hanke', title: 'Co-Founder & CEO', isPrimary: true }, { name: 'Mike Kriefski', title: 'Co-Founder & President' }],
-    // Curated for: Bold creative, big brands (Harley-Davidson, GORE-TEX), full-service advertising
+    // Curated for: Enterprise clients (Harley-Davidson, GORE-TEX), PR, media buying, award-winning creative
     selectedSkillIds: [
-      'sales-call-prep-pro',        // Campaign planning for big brands
-      'competitive-landscape-mapper',      // Brand strategy
-      'meeting-minutes-pro',    // Social media
-      'customer-health-scorecard',    // Influencer marketing
-      'executive-communication-pack',         // Content strategy
-      'excel-data-analyzer',     // Performance reporting
-      'competitive-landscape-mapper',                  // Competitive analysis
-      'proposal-builder',                              // Client proposals
-      'executive-communication-pack',                  // Executive presentations
+      'board-presentation-builder',                // Enterprise C-suite presentations
+      'executive-communication-pack',              // Big brand executive comms
+      'competitive-landscape-mapper',              // Brand positioning research
+      'crisis-communication-playbook',             // PR crisis management
+      'all-hands-meeting-script',                  // Large team coordination
+      'excel-chart-designer',                      // Visual performance reporting
+      'market-sizing-analyst',                     // Market research & sizing
+      'proposal-builder',                          // Enterprise brand pitches
+      'vendor-comparison-matrix',                  // Media vendor evaluation
     ],
     selectedWorkflowIds: ['marketing-campaign-launch', 'influencer-campaign', 'competitive-intelligence'],
   },
@@ -989,17 +989,17 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     customHeadline: 'Seven Decades of Strategy, Now Turbocharged by AI',
     customMessage: 'Your strategy-first approach has built nearly 70 years of success. Now imagine AI handling cross-functional coordination, project tracking, and client health monitoring while your strategists focus on what they do best.',
     contacts: [{ name: 'Daniel Hearn', title: 'President & CEO', isPrimary: true }],
-    // Curated for: 70+ years, strategic customer connections, brand-customer focus, full-service
+    // Curated for: 70 years experience, strategy-first, experiential, cross-functional coordination
     selectedSkillIds: [
-      'market-sizing-analyst',         // Customer understanding focus
-      'sales-call-prep-pro',        // Campaign strategy
-      'executive-communication-pack',         // Content planning
-      'excel-data-analyzer',     // Performance reporting
-      'meeting-minutes-pro',    // Social media
-      'competitive-landscape-mapper',                  // Competitive analysis
-      'customer-health-scorecard',                     // Client health tracking
-      'proposal-builder',                              // Client proposals
-      'market-sizing-analyst',                         // Market research
+      'steering-committee-pack',                   // Executive governance & strategy
+      'team-retrospective-facilitator',            // Cross-functional team coordination
+      'customer-health-scorecard',                 // Long-term client relationships
+      'meeting-minutes-pro',                       // Project coordination
+      'market-sizing-analyst',                     // Strategic market planning
+      'proposal-builder',                          // Strategy-first pitches
+      'one-on-one-meeting-prep',                   // Client relationship building
+      'sop-documentation-builder',                 // Process standardization
+      'okr-workshop-facilitator',                  // Strategic goal alignment
     ],
     selectedWorkflowIds: ['marketing-campaign-launch', 'consulting-engagement', 'competitive-intelligence'],
   },
@@ -1022,17 +1022,17 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     customHeadline: 'AI Solutions for Considered Purchase Marketing',
     customMessage: 'B2B considered purchases demand precision. Our AI skills are built for complex nurture sequences, PR tracking, and media optimization—helping you serve global clients like Whirlpool with the efficiency your MAGNET network position demands.',
     contacts: [{ name: 'Daniel H. Nelson Jr.', title: 'President & CEO', isPrimary: true }, { name: 'John Boler', title: 'Chief Marketing Officer' }],
-    // Curated for: Complex B2B marketing, considered purchase, performance-based, global (MAGNET)
+    // Curated for: B2B considered purchase, Whirlpool/WEDC clients, MAGNET global network, ROI-driven
     selectedSkillIds: [
-      'sales-call-prep-pro',        // Campaign planning
-      'prd-writer',            // GTM for B2B
-      'budget-variance-narrator',         // Budget/ROI focus
-      'ab-test-analysis-reporter', // Nurture sequences
-      'excel-data-analyzer',     // Performance accountability
-      'executive-communication-pack',         // Content marketing
-      'competitive-landscape-mapper',                  // Competitive analysis
-      'proposal-builder',                              // Client proposals
-      'budget-variance-narrator',                      // Budget tracking
+      'rfp-response-generator',                    // Complex B2B RFP responses
+      'prd-writer',                                // B2B product marketing docs
+      'sales-call-prep-pro',                       // Considered purchase sales support
+      'budget-variance-narrator',                  // ROI & budget accountability
+      'competitive-battle-card',                   // B2B competitive positioning
+      'excel-marketing-dashboard',                 // Performance dashboards
+      'contract-review-accelerator',               // Enterprise contract review
+      'executive-communication-pack',              // Enterprise communications
+      'ai-governance-client-brief',                // AI governance for enterprise clients
     ],
     selectedWorkflowIds: ['marketing-campaign-launch', 'consulting-engagement', 'product-launch-gtm'],
   },
@@ -1055,17 +1055,17 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     customHeadline: 'Scale Your $100M+ Media Operation with AI',
     customMessage: 'Managing $100M+ in media spend and 330+ websites is no small feat—your Inc. 5000 recognition proves it. Now unlock the next level with AI-powered media pacing, SEO analytics at scale, and automated website health monitoring.',
     contacts: [{ name: 'Mason Kemp', title: 'Partner', isPrimary: true }, { name: 'Nick Ring', title: 'Partner' }, { name: 'Matthew Kemp', title: 'Partner' }],
-    // Curated for: Full-service digital, $100M+ media managed, SEO, paid media, data-driven
+    // Curated for: $100M+ media managed, Inc. 5000, SEO at scale, 330+ websites, video production
     selectedSkillIds: [
-      'sop-documentation-builder',            // SEO consulting
-      'competitive-battle-card',             // Paid media ($100M+)
-      'ab-test-analysis-reporter', // Conversion optimization
-      'excel-marketing-dashboard', // Analytics dashboards
-      'meeting-minutes-pro',    // Social media
-      'automation-opportunity-assessment', // Automation
-      'excel-data-analyzer',                           // Data analysis
-      'excel-marketing-dashboard',                     // Reporting
-      'proposal-builder',                              // Client proposals
+      'excel-data-analyzer',                       // Large-scale media data analysis
+      'automation-opportunity-assessment',         // Scale operations automation
+      'competitive-battle-card',                   // Media competitive positioning
+      'ab-test-analysis-reporter',                 // Conversion testing at scale
+      'excel-marketing-dashboard',                 // Media performance dashboards
+      'kpi-framework-designer',                    // KPIs for $100M+ operations
+      'data-quality-assessment',                   // Data integrity at scale
+      'sql-query-optimizer',                       // Data infrastructure optimization
+      'process-automation-spec',                   // Workflow automation specs
     ],
     selectedWorkflowIds: ['digital-marketing-audit', 'marketing-campaign-launch', 'seo-client-onboarding'],
   },
@@ -1088,17 +1088,17 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     customHeadline: 'AI Automation Built for 40 Years of Media Excellence',
     customMessage: 'From winning Madison\'s first web Addy in 1996 to managing 200+ websites today, Kennedy Communications knows digital evolution. Our AI skills streamline media buying, consolidate analytics, and automate campaign reporting—preserving the family-owned quality your clients trust.',
     contacts: [{ name: 'Katie Kennedy', title: 'President & CEO', isPrimary: true }, { name: 'Chris Kennedy', title: 'Vice President' }],
-    // Curated for: Data-backed, results-accountable, media buying, 200+ websites, outthink not outspend
+    // Curated for: Media buying/planning, 200+ websites, 40+ years experience, family-owned, data-driven
     selectedSkillIds: [
-      'excel-marketing-dashboard', // Analytics dashboards
-      'excel-data-analyzer',     // Performance reporting
-      'competitive-battle-card',             // Paid media optimization
-      'sop-documentation-builder',            // SEO
-      'sales-call-prep-pro',        // Campaign strategy
-      'excel-data-analyzer',                           // Data analysis
-      'excel-marketing-dashboard',                     // Marketing dashboards
-      'budget-variance-narrator',                      // Budget accountability
-      'proposal-builder',                              // Client proposals
+      'excel-marketing-dashboard',                 // Media analytics consolidation
+      'budget-variance-narrator',                  // Media ROI accountability
+      'excel-chart-designer',                      // Visual client reporting
+      'vendor-comparison-matrix',                  // Media vendor evaluation
+      'customer-health-scorecard',                 // Long-term client relationships
+      'automation-opportunity-assessment',         // Media buying efficiency
+      'data-quality-assessment',                   // Website health monitoring
+      'meeting-minutes-pro',                       // Client coordination
+      'proposal-builder',                          // Media proposals
     ],
     selectedWorkflowIds: ['digital-marketing-audit', 'marketing-campaign-launch', 'marketing-analytics-dashboard'],
   },
@@ -1121,17 +1121,17 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     customHeadline: 'Bridge Radio and Digital with Intelligent Automation',
     customMessage: 'Since 1956, you\'ve connected Madison through 8 radio stations. Now bridge traditional and digital with AI that handles cross-channel attribution, radio ad trafficking, and event follow-up—amplifying your unique hybrid advantage.',
     contacts: [{ name: 'Kelly NorthLee', title: 'Owner', isPrimary: true }, { name: 'Shar Hermanson', title: 'Executive VP' }],
-    // Curated for: Radio + digital hybrid, local brand development, events, 50+ years, multi-channel
+    // Curated for: Radio+digital hybrid (8 stations), local business focus, events, 70 years experience
     selectedSkillIds: [
-      'sales-call-prep-pro',        // Campaign planning
-      'meeting-minutes-pro',    // Social media
-      'ab-test-analysis-reporter', // Email marketing
-      'executive-communication-pack',         // Content strategy
-      'excel-data-analyzer',     // Performance tracking
-      'competitive-battle-card',             // Paid digital ads
-      'sales-call-prep-pro',                           // Sales meetings
-      'proposal-builder',                              // Client proposals
-      'meeting-minutes-pro',                           // Meeting documentation
+      'excel-marketing-dashboard',                 // Cross-channel attribution tracking
+      'sales-call-prep-pro',                       // Local business sales support
+      'ab-test-analysis-reporter',                 // Digital campaign testing
+      'customer-health-scorecard',                 // Local client relationships
+      'all-hands-meeting-script',                  // Large team coordination
+      'sop-documentation-builder',                 // Radio operations processes
+      'proposal-builder',                          // Local ad packages
+      'crisis-communication-playbook',             // Local community PR
+      'market-sizing-analyst',                     // Local market analysis
     ],
     selectedWorkflowIds: ['marketing-campaign-launch', 'sales-account-pursuit', 'consulting-engagement'],
   },
@@ -1157,17 +1157,17 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$2,750-$6,800',
     customHeadline: 'Healthcare Marketing Meets Intelligent Automation',
     customMessage: 'Your 24+ years of healthcare marketing excellence and MANNY Award recognition speak for themselves. Now amplify that expertise with AI skills designed for healthcare compliance tracking, campaign workflows, and sustainability reporting—all with the precision your healthcare clients demand.',
-    // Curated for: Creative problem solvers, brand awakening, diverse team, healthcare focus
+    // Curated for: Healthcare marketing, compliance tracking, sustainability, MANNY Award-winning
     selectedSkillIds: [
-      'competitive-landscape-mapper',      // Brand awakening focus
-      'sales-call-prep-pro',        // Campaign planning
-      'market-sizing-analyst',         // Customer understanding
-      'executive-communication-pack',         // Content strategy
-      'meeting-minutes-pro',    // Social media
-      'competitive-landscape-mapper',      // Competitive analysis
-      'competitive-landscape-mapper',                  // Market mapping
-      'proposal-builder',                              // Client proposals
-      'market-sizing-analyst',                         // Market research
+      'compliance-audit-prep-assistant',           // Healthcare compliance tracking
+      'policy-document-generator',                 // Healthcare policy documentation
+      'competitive-landscape-mapper',              // Healthcare market positioning
+      'market-sizing-analyst',                     // Healthcare market sizing
+      'proposal-builder',                          // Healthcare pitches
+      'ai-ethics-review',                          // Healthcare AI ethics
+      'crisis-communication-playbook',             // Healthcare crisis comms
+      'customer-health-scorecard',                 // Client retention
+      'executive-communication-pack',              // Healthcare stakeholder comms
     ],
     selectedWorkflowIds: ['marketing-campaign-launch', 'consulting-engagement', 'competitive-intelligence'],
   },
@@ -1189,17 +1189,17 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$2,500-$6,000',
     customHeadline: 'Three Decades of Branding, Now Supercharged by AI',
     customMessage: 'Thirty years of brand architecture excellence and BBB A+ ratings prove your commitment to quality. Our AI automation helps manage brand assets, streamline social scheduling, and track PR impact—so your rebranded Market Crafters team can focus on crafting the next great brand story.',
-    // Curated for: Branding, Strategic Planning, Digital, Web Design, PR, Social Media
+    // Curated for: Brand architecture (30 years), strategic planning, PR, social media, BBB A+ rated
     selectedSkillIds: [
-      'competitive-landscape-mapper',       // 30 years of brand architecture
-      'sales-call-prep-pro',         // Campaign tracking
-      'meeting-minutes-pro',     // Social media scheduling
-      'executive-communication-pack',          // Strategic content planning
-      'excel-data-analyzer',      // Performance tracking
-      'ab-test-analysis-reporter', // Web design optimization
-      'competitive-landscape-mapper',                   // Strategic planning
-      'proposal-builder',                               // Client proposals
-      'excel-marketing-dashboard',                      // PR and campaign reporting
+      'competitive-landscape-mapper',              // Brand positioning strategy
+      'market-sizing-analyst',                     // Brand market research
+      'excel-chart-designer',                      // Brand performance visuals
+      'proposal-builder',                          // Branding proposals
+      'one-on-one-meeting-prep',                   // Client relationship building
+      'meeting-minutes-pro',                       // Project documentation
+      'customer-health-scorecard',                 // Long-term client tracking
+      'kpi-framework-designer',                    // Brand metrics design
+      'role-transition-playbook',                  // Client onboarding
     ],
     selectedWorkflowIds: ['marketing-campaign-launch', 'competitive-intelligence', 'digital-marketing-audit'],
   },
@@ -1221,6 +1221,19 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$2,500-$6,400',
     customHeadline: 'Cause Marketing + AI: Amplify Your Nonprofit Impact',
     customMessage: 'For 34+ years, you\'ve championed nonprofits and cause marketing with BBB A+ quality. Now amplify that impact with AI skills for PR monitoring, social workflows, and nonprofit-specific reporting—helping your clients tell their stories more effectively than ever.',
+    // Curated for: PR & Digital, nonprofit/cause marketing, 34+ years, BBB A+ rated, email marketing
+    selectedSkillIds: [
+      'crisis-communication-playbook',             // PR crisis management
+      'executive-communication-pack',              // Nonprofit stakeholder comms
+      'ab-test-analysis-reporter',                 // Email campaign optimization
+      'customer-health-scorecard',                 // Donor/client relationships
+      'meeting-minutes-pro',                       // Board meeting documentation
+      'excel-marketing-dashboard',                 // Campaign performance reporting
+      'proposal-builder',                          // Nonprofit grant/pitch support
+      'all-hands-meeting-script',                  // Event coordination
+      'kpi-framework-designer',                    // Impact metrics for nonprofits
+    ],
+    selectedWorkflowIds: ['marketing-campaign-launch', 'consulting-engagement', 'competitive-intelligence'],
   },
   {
     companyName: 'Sortis Digital Marketing',
@@ -1240,17 +1253,17 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,000-$8,000',
     customHeadline: 'Revenue Generation, Accelerated by AI',
     customMessage: 'As a Revenue Generation Agency integrating sales, marketing, and web for nearly 30 years, you understand the full funnel. Our AI skills enhance that integration—automating SEO reporting, lead attribution, and sales-marketing alignment to drive even more revenue for your B2B clients.',
-    // Curated for: SEO, Web Design, PPC, Content Marketing, Revenue Generation, B2B
+    // Curated for: Revenue Generation Agency, SEO+PPC+Web integration, B2B sales-marketing alignment
     selectedSkillIds: [
-      'sop-documentation-builder',             // SEO focus
-      'competitive-battle-card',              // PPC management
-      'executive-communication-pack',          // Content marketing
-      'excel-marketing-dashboard', // Analytics dashboards
-      'sales-call-prep-pro',         // Campaign planning
-      'ab-test-analysis-reporter', // Web design optimization
-      'sales-call-prep-pro',                            // Sales-marketing alignment
-      'excel-marketing-dashboard',                      // Revenue reporting
-      'proposal-builder',                               // B2B client proposals
+      'sales-call-prep-pro',                       // Revenue-focused sales support
+      'competitive-battle-card',                   // PPC competitive analysis
+      'ab-test-analysis-reporter',                 // Conversion optimization
+      'excel-marketing-dashboard',                 // Revenue dashboards
+      'automation-opportunity-assessment',         // Sales-marketing automation
+      'kpi-framework-designer',                    // Revenue-focused KPIs
+      'customer-health-scorecard',                 // Revenue retention tracking
+      'prd-writer',                                // Product-led content strategy
+      'proposal-builder',                          // B2B revenue proposals
     ],
     selectedWorkflowIds: ['digital-marketing-audit', 'sales-account-pursuit', 'marketing-campaign-launch'],
   },
@@ -1272,17 +1285,17 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,000-$7,600',
     customHeadline: 'Scale Local SEO with Intelligent Automation',
     customMessage: 'Managing Google Business Profiles, reviews, and local SEO at scale requires precision. Our AI skills automate GBP management, review monitoring, and local reporting—helping your automotive, contractor, and financial services clients dominate their local markets.',
-    // Curated for: Local SEO, PPC, CRM, Google Business Profile, Web Design
+    // Curated for: Local SEO, Google Business Profile management, PPC, CRM integration, local businesses
     selectedSkillIds: [
-      'sop-documentation-builder',             // Local SEO expertise
-      'competitive-battle-card',              // PPC campaigns
-      'excel-marketing-dashboard', // Local SEO reporting
-      'sales-call-prep-pro',         // Campaign management
-      'ab-test-analysis-reporter', // Web design optimization
-      'customer-health-scorecard',                      // CRM/customer tracking
-      'sales-call-prep-pro',                            // Sales/CRM alignment
-      'excel-marketing-dashboard',                      // Reporting dashboards
-      'proposal-builder',                               // Client proposals
+      'excel-data-analyzer',                       // Local search data analysis
+      'competitive-battle-card',                   // Local PPC competition
+      'customer-health-scorecard',                 // CRM & client tracking
+      'sales-call-prep-pro',                       // Local business sales
+      'proposal-builder',                          // Local service packages
+      'ab-test-analysis-reporter',                 // Local landing page testing
+      'excel-marketing-dashboard',                 // Local SEO reporting
+      'sop-documentation-builder',                 // GBP management processes
+      'data-quality-assessment',                   // Review data quality
     ],
     selectedWorkflowIds: ['marketing-campaign-launch', 'digital-marketing-audit', 'process-improvement'],
   },
@@ -1304,17 +1317,17 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$2,750-$6,800',
     customHeadline: 'Content That Converts, Automated by AI',
     customMessage: 'Your B2B content expertise—from webinars to white papers—has earned CBS News and Mashable features. Our AI skills supercharge content calendars, webinar workflows, and analytics dashboards, letting your team focus on creating content that sparks growth.',
-    // Curated for: Content Marketing - Webinars, Podcasts, White Papers, Analytics, B2B
+    // Curated for: Content marketing (webinars, podcasts, white papers), Dreamdata analytics, B2B
     selectedSkillIds: [
-      'executive-communication-pack',          // Content marketing core
-      'excel-marketing-dashboard', // Dreamdata analytics
-      'sales-call-prep-pro',         // Campaign planning
-      'meeting-minutes-pro',     // Content scheduling
-      'excel-data-analyzer',      // Performance tracking
-      'sop-documentation-builder',        // Content repurposing
-      'excel-marketing-dashboard',                      // Analytics dashboards
-      'competitive-landscape-mapper',                   // Competitive analysis
-      'proposal-builder',                               // B2B proposals
+      'excel-marketing-dashboard',                 // Content analytics dashboards
+      'kpi-framework-designer',                    // Content performance KPIs
+      'competitive-landscape-mapper',              // Content market positioning
+      'prd-writer',                                // Content briefs & specs
+      'executive-communication-pack',              // Thought leadership content
+      'ab-test-analysis-reporter',                 // Content A/B testing
+      'all-hands-meeting-script',                  // Webinar script development
+      'data-quality-assessment',                   // Analytics data validation
+      'proposal-builder',                          // Content marketing proposals
     ],
     selectedWorkflowIds: ['marketing-campaign-launch', 'product-launch-gtm', 'competitive-intelligence'],
   },
@@ -1336,6 +1349,19 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$2,250-$5,600',
     customHeadline: 'Marketing Automation Experts, Meet AI Acceleration',
     customMessage: 'As marketing automation specialists, you understand the power of workflows. Our AI skills take automation to the next level—optimizing marketing sequences, generating insightful reports, and managing brand assets with the precision your clients expect.',
+    // Curated for: Marketing automation specialists, brand strategy, workflow optimization
+    selectedSkillIds: [
+      'automation-opportunity-assessment',         // Core automation expertise
+      'process-automation-spec',                   // Workflow specifications
+      'competitive-landscape-mapper',              // Brand positioning
+      'ab-test-analysis-reporter',                 // Sequence optimization
+      'kpi-framework-designer',                    // Automation KPIs
+      'excel-marketing-dashboard',                 // Performance reporting
+      'customer-health-scorecard',                 // Client tracking
+      'sop-documentation-builder',                 // Process documentation
+      'proposal-builder',                          // Automation proposals
+    ],
+    selectedWorkflowIds: ['marketing-campaign-launch', 'digital-marketing-audit', 'process-improvement'],
   },
   {
     companyName: 'Ideas That Evoke',
@@ -1355,6 +1381,19 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,000-$7,200',
     customHeadline: 'Recruitment Marketing, Elevated by AI',
     customMessage: 'Your specialized focus on recruitment marketing, employer branding, and social recruitment sets you apart. Our AI skills streamline candidate communication, automate job posting distribution, and optimize recruitment pipelines—helping your clients attract top talent faster.',
+    // Curated for: Recruitment marketing, employer branding, social recruitment, HR marketing
+    selectedSkillIds: [
+      'job-description-optimizer',                 // Core recruitment content
+      'linkedin-optimizer-pro',                    // Social recruitment optimization
+      'competitive-landscape-mapper',              // Employer brand positioning
+      'employee-onboarding-planner',               // Candidate experience design
+      'proposal-builder',                          // Recruitment marketing proposals
+      'excel-marketing-dashboard',                 // Recruitment metrics dashboards
+      'kpi-framework-designer',                    // Recruitment KPIs
+      'ab-test-analysis-reporter',                 // Job posting optimization
+      'customer-health-scorecard',                 // Client relationship tracking
+    ],
+    selectedWorkflowIds: ['marketing-campaign-launch', 'consulting-engagement', 'competitive-intelligence'],
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
