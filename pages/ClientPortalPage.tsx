@@ -36,11 +36,10 @@ import {
 import { Button } from '../components/ui/Button';
 import { getClientBySlugAsync } from '../lib/clients';
 import { isSupabaseConfigured } from '../lib/supabase';
-import { getStaticSkills } from '../lib/skills/registry';
+import { getAllLibrarySkills, type LibrarySkill } from '../lib/skillLibrary';
 import { WORKFLOWS } from '../lib/workflows';
 import { calculateROI } from '../lib/skillTimeSavings';
 import type { Client } from '../lib/storage/types';
-import type { Skill } from '../types';
 import type { Workflow } from '../lib/storage/types';
 
 // Category colors for skill cards
@@ -94,7 +93,7 @@ function formatNumber(value: number): string {
 
 interface ROISectionProps {
   client: Client;
-  selectedSkills: Skill[];
+  selectedSkills: LibrarySkill[];
   selectedWorkflows: Workflow[];
 }
 
@@ -336,8 +335,8 @@ const ClientPortalPage: React.FC = () => {
     loadClient();
   }, [slug]);
 
-  // Get selected skills and workflows
-  const allSkills = useMemo(() => getStaticSkills(), []);
+  // Get selected skills and workflows from the full library (not just static skills)
+  const allSkills = useMemo(() => getAllLibrarySkills(), []);
   const allWorkflows = useMemo(() => Object.values(WORKFLOWS), []);
 
   const selectedSkills = useMemo(() => {
@@ -352,7 +351,7 @@ const ClientPortalPage: React.FC = () => {
 
   // Group skills by category
   const skillsByCategory = useMemo(() => {
-    const grouped: Record<string, Skill[]> = {};
+    const grouped: Record<string, LibrarySkill[]> = {};
     selectedSkills.forEach(skill => {
       // Extract category from skill id (e.g., "job-seeker-resume" -> "job-seeker")
       const categoryMatch = skill.id.match(/^([a-z-]+?)-/);
