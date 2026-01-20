@@ -892,15 +892,15 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     contacts: [{ name: 'Jason Fish', title: 'Founder & CEO', email: 'jason@popdotmarketing.com', isPrimary: true }],
     // Curated for: Brand strategy, science-based marketing, multi-channel campaigns, creative agency
     selectedSkillIds: [
-      'professional-campaign-strategy-builder',      // Campaign planning
-      'professional-brand-positioning-framework',    // Brand strategy focus
-      'professional-content-strategy-planner',       // Content marketing
-      'professional-marketing-performance-report',   // Performance tracking
-      'professional-social-media-content-calendar',  // Social media
-      'professional-marketing-analytics-dashboard-designer', // Dashboards
-      'competitive-landscape-mapper',                // Competitive analysis
+      'excel-marketing-dashboard',                   // Campaign performance tracking
+      'ab-test-analysis-reporter',                   // Test analysis and insights
+      'sales-call-prep-pro',                         // Client meeting prep
       'proposal-builder',                            // Client proposals
-      'excel-marketing-dashboard',                   // Reporting
+      'competitive-landscape-mapper',                // Competitive analysis
+      'customer-health-scorecard',                   // Client retention tracking
+      'executive-communication-pack',                // Executive presentations
+      'meeting-minutes-pro',                         // Client meeting documentation
+      'sop-documentation-builder',                   // Agency process docs
     ],
     selectedWorkflowIds: ['marketing-campaign-launch', 'competitive-intelligence', 'digital-marketing-audit'],
   },
@@ -925,12 +925,12 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     contacts: [{ name: 'Chris Murvine', title: 'CEO & Founder', email: 'cmurvine@madisonmarketing.com', isPrimary: true }],
     // Curated for: B2B digital, HubSpot partner, inbound marketing, lead gen, data-driven
     selectedSkillIds: [
-      'professional-email-marketing-campaign-designer',   // Email/nurture sequences
-      'professional-marketing-automation-workflow-designer', // Marketing automation
-      'professional-seo-content-optimizer',              // SEO for inbound
-      'professional-content-strategy-planner',           // Content pipeline
-      'professional-landing-page-conversion-optimizer',  // Conversion optimization
-      'professional-marketing-analytics-dashboard-designer', // Analytics dashboards
+      'ab-test-analysis-reporter',   // Email/nurture sequences
+      'automation-opportunity-assessment', // Marketing automation
+      'sop-documentation-builder',              // SEO for inbound
+      'executive-communication-pack',           // Content pipeline
+      'ab-test-analysis-reporter',  // Conversion optimization
+      'excel-marketing-dashboard', // Analytics dashboards
       'customer-health-scorecard',                       // Client health tracking
       'excel-data-analyzer',                             // Data analysis
       'proposal-builder',                                // B2B proposals
@@ -958,12 +958,12 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     contacts: [{ name: 'Curt Hanke', title: 'Co-Founder & CEO', isPrimary: true }, { name: 'Mike Kriefski', title: 'Co-Founder & President' }],
     // Curated for: Bold creative, big brands (Harley-Davidson, GORE-TEX), full-service advertising
     selectedSkillIds: [
-      'professional-campaign-strategy-builder',        // Campaign planning for big brands
-      'professional-brand-positioning-framework',      // Brand strategy
-      'professional-social-media-content-calendar',    // Social media
-      'professional-influencer-marketing-strategy',    // Influencer marketing
-      'professional-content-strategy-planner',         // Content strategy
-      'professional-marketing-performance-report',     // Performance reporting
+      'sales-call-prep-pro',        // Campaign planning for big brands
+      'competitive-landscape-mapper',      // Brand strategy
+      'meeting-minutes-pro',    // Social media
+      'customer-health-scorecard',    // Influencer marketing
+      'executive-communication-pack',         // Content strategy
+      'excel-data-analyzer',     // Performance reporting
       'competitive-landscape-mapper',                  // Competitive analysis
       'proposal-builder',                              // Client proposals
       'executive-communication-pack',                  // Executive presentations
@@ -991,11 +991,11 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     contacts: [{ name: 'Daniel Hearn', title: 'President & CEO', isPrimary: true }],
     // Curated for: 70+ years, strategic customer connections, brand-customer focus, full-service
     selectedSkillIds: [
-      'professional-customer-persona-builder',         // Customer understanding focus
-      'professional-campaign-strategy-builder',        // Campaign strategy
-      'professional-content-strategy-planner',         // Content planning
-      'professional-marketing-performance-report',     // Performance reporting
-      'professional-social-media-content-calendar',    // Social media
+      'market-sizing-analyst',         // Customer understanding focus
+      'sales-call-prep-pro',        // Campaign strategy
+      'executive-communication-pack',         // Content planning
+      'excel-data-analyzer',     // Performance reporting
+      'meeting-minutes-pro',    // Social media
       'competitive-landscape-mapper',                  // Competitive analysis
       'customer-health-scorecard',                     // Client health tracking
       'proposal-builder',                              // Client proposals
@@ -1024,12 +1024,12 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     contacts: [{ name: 'Daniel H. Nelson Jr.', title: 'President & CEO', isPrimary: true }, { name: 'John Boler', title: 'Chief Marketing Officer' }],
     // Curated for: Complex B2B marketing, considered purchase, performance-based, global (MAGNET)
     selectedSkillIds: [
-      'professional-campaign-strategy-builder',        // Campaign planning
-      'professional-go-to-market-strategy',            // GTM for B2B
-      'professional-marketing-budget-planner',         // Budget/ROI focus
-      'professional-email-marketing-campaign-designer', // Nurture sequences
-      'professional-marketing-performance-report',     // Performance accountability
-      'professional-content-strategy-planner',         // Content marketing
+      'sales-call-prep-pro',        // Campaign planning
+      'prd-writer',            // GTM for B2B
+      'budget-variance-narrator',         // Budget/ROI focus
+      'ab-test-analysis-reporter', // Nurture sequences
+      'excel-data-analyzer',     // Performance accountability
+      'executive-communication-pack',         // Content marketing
       'competitive-landscape-mapper',                  // Competitive analysis
       'proposal-builder',                              // Client proposals
       'budget-variance-narrator',                      // Budget tracking
@@ -1057,12 +1057,12 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     contacts: [{ name: 'Mason Kemp', title: 'Partner', isPrimary: true }, { name: 'Nick Ring', title: 'Partner' }, { name: 'Matthew Kemp', title: 'Partner' }],
     // Curated for: Full-service digital, $100M+ media managed, SEO, paid media, data-driven
     selectedSkillIds: [
-      'professional-seo-content-optimizer',            // SEO consulting
-      'professional-ppc-campaign-builder',             // Paid media ($100M+)
-      'professional-landing-page-conversion-optimizer', // Conversion optimization
-      'professional-marketing-analytics-dashboard-designer', // Analytics dashboards
-      'professional-social-media-content-calendar',    // Social media
-      'professional-marketing-automation-workflow-designer', // Automation
+      'sop-documentation-builder',            // SEO consulting
+      'competitive-battle-card',             // Paid media ($100M+)
+      'ab-test-analysis-reporter', // Conversion optimization
+      'excel-marketing-dashboard', // Analytics dashboards
+      'meeting-minutes-pro',    // Social media
+      'automation-opportunity-assessment', // Automation
       'excel-data-analyzer',                           // Data analysis
       'excel-marketing-dashboard',                     // Reporting
       'proposal-builder',                              // Client proposals
@@ -1090,11 +1090,11 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     contacts: [{ name: 'Katie Kennedy', title: 'President & CEO', isPrimary: true }, { name: 'Chris Kennedy', title: 'Vice President' }],
     // Curated for: Data-backed, results-accountable, media buying, 200+ websites, outthink not outspend
     selectedSkillIds: [
-      'professional-marketing-analytics-dashboard-designer', // Analytics dashboards
-      'professional-marketing-performance-report',     // Performance reporting
-      'professional-ppc-campaign-builder',             // Paid media optimization
-      'professional-seo-content-optimizer',            // SEO
-      'professional-campaign-strategy-builder',        // Campaign strategy
+      'excel-marketing-dashboard', // Analytics dashboards
+      'excel-data-analyzer',     // Performance reporting
+      'competitive-battle-card',             // Paid media optimization
+      'sop-documentation-builder',            // SEO
+      'sales-call-prep-pro',        // Campaign strategy
       'excel-data-analyzer',                           // Data analysis
       'excel-marketing-dashboard',                     // Marketing dashboards
       'budget-variance-narrator',                      // Budget accountability
@@ -1123,12 +1123,12 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     contacts: [{ name: 'Kelly NorthLee', title: 'Owner', isPrimary: true }, { name: 'Shar Hermanson', title: 'Executive VP' }],
     // Curated for: Radio + digital hybrid, local brand development, events, 50+ years, multi-channel
     selectedSkillIds: [
-      'professional-campaign-strategy-builder',        // Campaign planning
-      'professional-social-media-content-calendar',    // Social media
-      'professional-email-marketing-campaign-designer', // Email marketing
-      'professional-content-strategy-planner',         // Content strategy
-      'professional-marketing-performance-report',     // Performance tracking
-      'professional-ppc-campaign-builder',             // Paid digital ads
+      'sales-call-prep-pro',        // Campaign planning
+      'meeting-minutes-pro',    // Social media
+      'ab-test-analysis-reporter', // Email marketing
+      'executive-communication-pack',         // Content strategy
+      'excel-data-analyzer',     // Performance tracking
+      'competitive-battle-card',             // Paid digital ads
       'sales-call-prep-pro',                           // Sales meetings
       'proposal-builder',                              // Client proposals
       'meeting-minutes-pro',                           // Meeting documentation
@@ -1159,12 +1159,12 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     customMessage: 'Your 24+ years of healthcare marketing excellence and MANNY Award recognition speak for themselves. Now amplify that expertise with AI skills designed for healthcare compliance tracking, campaign workflows, and sustainability reporting—all with the precision your healthcare clients demand.',
     // Curated for: Creative problem solvers, brand awakening, diverse team, healthcare focus
     selectedSkillIds: [
-      'professional-brand-positioning-framework',      // Brand awakening focus
-      'professional-campaign-strategy-builder',        // Campaign planning
-      'professional-customer-persona-builder',         // Customer understanding
-      'professional-content-strategy-planner',         // Content strategy
-      'professional-social-media-content-calendar',    // Social media
-      'professional-competitive-analysis-report',      // Competitive analysis
+      'competitive-landscape-mapper',      // Brand awakening focus
+      'sales-call-prep-pro',        // Campaign planning
+      'market-sizing-analyst',         // Customer understanding
+      'executive-communication-pack',         // Content strategy
+      'meeting-minutes-pro',    // Social media
+      'competitive-landscape-mapper',      // Competitive analysis
       'competitive-landscape-mapper',                  // Market mapping
       'proposal-builder',                              // Client proposals
       'market-sizing-analyst',                         // Market research
@@ -1191,12 +1191,12 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     customMessage: 'Thirty years of brand architecture excellence and BBB A+ ratings prove your commitment to quality. Our AI automation helps manage brand assets, streamline social scheduling, and track PR impact—so your rebranded Market Crafters team can focus on crafting the next great brand story.',
     // Curated for: Branding, Strategic Planning, Digital, Web Design, PR, Social Media
     selectedSkillIds: [
-      'professional-brand-positioning-framework',       // 30 years of brand architecture
-      'professional-campaign-strategy-builder',         // Campaign tracking
-      'professional-social-media-content-calendar',     // Social media scheduling
-      'professional-content-strategy-planner',          // Strategic content planning
-      'professional-marketing-performance-report',      // Performance tracking
-      'professional-landing-page-conversion-optimizer', // Web design optimization
+      'competitive-landscape-mapper',       // 30 years of brand architecture
+      'sales-call-prep-pro',         // Campaign tracking
+      'meeting-minutes-pro',     // Social media scheduling
+      'executive-communication-pack',          // Strategic content planning
+      'excel-data-analyzer',      // Performance tracking
+      'ab-test-analysis-reporter', // Web design optimization
       'competitive-landscape-mapper',                   // Strategic planning
       'proposal-builder',                               // Client proposals
       'excel-marketing-dashboard',                      // PR and campaign reporting
@@ -1242,12 +1242,12 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     customMessage: 'As a Revenue Generation Agency integrating sales, marketing, and web for nearly 30 years, you understand the full funnel. Our AI skills enhance that integration—automating SEO reporting, lead attribution, and sales-marketing alignment to drive even more revenue for your B2B clients.',
     // Curated for: SEO, Web Design, PPC, Content Marketing, Revenue Generation, B2B
     selectedSkillIds: [
-      'professional-seo-content-optimizer',             // SEO focus
-      'professional-ppc-campaign-builder',              // PPC management
-      'professional-content-strategy-planner',          // Content marketing
-      'professional-marketing-analytics-dashboard-designer', // Analytics dashboards
-      'professional-campaign-strategy-builder',         // Campaign planning
-      'professional-landing-page-conversion-optimizer', // Web design optimization
+      'sop-documentation-builder',             // SEO focus
+      'competitive-battle-card',              // PPC management
+      'executive-communication-pack',          // Content marketing
+      'excel-marketing-dashboard', // Analytics dashboards
+      'sales-call-prep-pro',         // Campaign planning
+      'ab-test-analysis-reporter', // Web design optimization
       'sales-call-prep-pro',                            // Sales-marketing alignment
       'excel-marketing-dashboard',                      // Revenue reporting
       'proposal-builder',                               // B2B client proposals
@@ -1274,11 +1274,11 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     customMessage: 'Managing Google Business Profiles, reviews, and local SEO at scale requires precision. Our AI skills automate GBP management, review monitoring, and local reporting—helping your automotive, contractor, and financial services clients dominate their local markets.',
     // Curated for: Local SEO, PPC, CRM, Google Business Profile, Web Design
     selectedSkillIds: [
-      'professional-seo-content-optimizer',             // Local SEO expertise
-      'professional-ppc-campaign-builder',              // PPC campaigns
-      'professional-marketing-analytics-dashboard-designer', // Local SEO reporting
-      'professional-campaign-strategy-builder',         // Campaign management
-      'professional-landing-page-conversion-optimizer', // Web design optimization
+      'sop-documentation-builder',             // Local SEO expertise
+      'competitive-battle-card',              // PPC campaigns
+      'excel-marketing-dashboard', // Local SEO reporting
+      'sales-call-prep-pro',         // Campaign management
+      'ab-test-analysis-reporter', // Web design optimization
       'customer-health-scorecard',                      // CRM/customer tracking
       'sales-call-prep-pro',                            // Sales/CRM alignment
       'excel-marketing-dashboard',                      // Reporting dashboards
@@ -1306,12 +1306,12 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     customMessage: 'Your B2B content expertise—from webinars to white papers—has earned CBS News and Mashable features. Our AI skills supercharge content calendars, webinar workflows, and analytics dashboards, letting your team focus on creating content that sparks growth.',
     // Curated for: Content Marketing - Webinars, Podcasts, White Papers, Analytics, B2B
     selectedSkillIds: [
-      'professional-content-strategy-planner',          // Content marketing core
-      'professional-marketing-analytics-dashboard-designer', // Dreamdata analytics
-      'professional-campaign-strategy-builder',         // Campaign planning
-      'professional-social-media-content-calendar',     // Content scheduling
-      'professional-marketing-performance-report',      // Performance tracking
-      'professional-content-repurposing-engine',        // Content repurposing
+      'executive-communication-pack',          // Content marketing core
+      'excel-marketing-dashboard', // Dreamdata analytics
+      'sales-call-prep-pro',         // Campaign planning
+      'meeting-minutes-pro',     // Content scheduling
+      'excel-data-analyzer',      // Performance tracking
+      'sop-documentation-builder',        // Content repurposing
       'excel-marketing-dashboard',                      // Analytics dashboards
       'competitive-landscape-mapper',                   // Competitive analysis
       'proposal-builder',                               // B2B proposals
