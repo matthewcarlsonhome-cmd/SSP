@@ -39,6 +39,7 @@ import {
   Image,
   RotateCcw,
   Sparkles,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
@@ -58,6 +59,7 @@ import {
   resetAllClientSelectionsToDefaults,
   refreshClientsFromDefaults,
   applyPersuasiveMessagesToAllClients,
+  forceReinitializeClients,
 } from '../lib/clients';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { getAllLibrarySkills } from '../lib/skillLibrary';
@@ -129,6 +131,7 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
   const [isResetting, setIsResetting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isApplyingMessages, setIsApplyingMessages] = useState(false);
+  const [isReinitializing, setIsReinitializing] = useState(false);
   const supabaseConfigured = isSupabaseConfigured();
 
   // Load clients on mount
@@ -263,6 +266,23 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
       addToast('Error applying messages: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
     } finally {
       setIsApplyingMessages(false);
+    }
+  };
+
+  const handleForceReinitialize = async () => {
+    if (!confirm('WARNING: This will DELETE all existing client data and recreate from defaults with curated skills/workflows. This cannot be undone. Continue?')) {
+      return;
+    }
+
+    setIsReinitializing(true);
+    try {
+      const newClients = await forceReinitializeClients();
+      setClients(newClients);
+      addToast(`Reinitialized ${newClients.length} clients from defaults`, 'success');
+    } catch (error) {
+      addToast('Error reinitializing: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
+    } finally {
+      setIsReinitializing(false);
     }
   };
 
@@ -461,6 +481,17 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
         <Button variant="outline" onClick={handleExport}>
           <Download className="h-4 w-4 mr-2" />
           Export CSV
+        </Button>
+
+        <Button
+          variant="outline"
+          onClick={handleForceReinitialize}
+          disabled={isReinitializing}
+          className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400"
+          title="Delete all clients and recreate from defaults with curated skills/workflows"
+        >
+          <AlertTriangle className={`h-4 w-4 mr-2 ${isReinitializing ? 'animate-pulse' : ''}`} />
+          {isReinitializing ? 'Reinitializing...' : 'Force Reset'}
         </Button>
 
         <Button onClick={() => setShowNewClientForm(true)}>

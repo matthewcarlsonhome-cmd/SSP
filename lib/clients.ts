@@ -1121,25 +1121,29 @@ export async function refreshClientsFromDefaults(): Promise<{ added: number; upd
         customMessage: company.customMessage,
         notes: company.notes,
         contacts: company.contacts || [],
-        // Use personalized recommendations based on ALL client attributes (unique per company)
-        selectedSkillIds: getPersonalizedSkillRecommendations({
-          companyName,
-          industry,
-          painPoints: company.painPoints,
-          services: company.services,
-          description: company.description,
-          companyType: company.companyType,
-          employeeCount: company.employeeCount,
-          revenue: company.revenue,
-        }),
-        selectedWorkflowIds: getPersonalizedWorkflowRecommendations({
-          companyName,
-          industry,
-          painPoints: company.painPoints,
-          services: company.services,
-          description: company.description,
-          companyType: company.companyType,
-        }),
+        // Use curated selections from defaults if available, otherwise generate personalized recommendations
+        selectedSkillIds: company.selectedSkillIds && company.selectedSkillIds.length > 0
+          ? company.selectedSkillIds
+          : getPersonalizedSkillRecommendations({
+              companyName,
+              industry,
+              painPoints: company.painPoints,
+              services: company.services,
+              description: company.description,
+              companyType: company.companyType,
+              employeeCount: company.employeeCount,
+              revenue: company.revenue,
+            }),
+        selectedWorkflowIds: company.selectedWorkflowIds && company.selectedWorkflowIds.length > 0
+          ? company.selectedWorkflowIds
+          : getPersonalizedWorkflowRecommendations({
+              companyName,
+              industry,
+              painPoints: company.painPoints,
+              services: company.services,
+              description: company.description,
+              companyType: company.companyType,
+            }),
         portalSlug: generateSlug(companyName),
         portalEnabled: false,
         status: 'prospect' as ClientStatus,
