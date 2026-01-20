@@ -37,35 +37,6 @@ interface PersuasiveMessage {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SOCIAL PROOF DATA
-// Statistics that make messages credible
-// ═══════════════════════════════════════════════════════════════════════════
-
-const SOCIAL_PROOF_STATS = {
-  time_savings: [
-    '73% of marketing teams report saving 15+ hours weekly with AI automation',
-    'Teams using AI-assisted workflows complete projects 40% faster',
-    'Marketing agencies report 3x faster campaign turnaround with automation',
-    '82% of professionals say AI tools have improved their work quality',
-  ],
-  cost_savings: [
-    'Companies save an average of $12,000/month on operational tasks',
-    'AI automation delivers 4x ROI within the first 90 days',
-    'Businesses report 35% reduction in operational costs',
-  ],
-  adoption: [
-    '78% of leading agencies have adopted AI tools in 2024',
-    'Early AI adopters outperform competitors by 23%',
-    '91% of professionals who try AI tools continue using them',
-  ],
-  quality: [
-    'AI-assisted reports show 47% fewer errors',
-    'Content quality scores improve by 38% with AI review',
-    'Client satisfaction increases 29% with faster turnaround',
-  ],
-};
-
-// ═══════════════════════════════════════════════════════════════════════════
 // INDUSTRY-SPECIFIC PAIN POINT OPENERS
 // "Bad news first" - acknowledge the challenge
 // ═══════════════════════════════════════════════════════════════════════════
@@ -441,7 +412,8 @@ export function generatePersuasiveHeadline(client: ClientContext): string {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GENERATE PERSUASIVE MESSAGE
-// Structure: Pain (acknowledge) → Why AI helps → Social proof → Easy action
+// Structure: Pain (acknowledge) → Why AI helps → Memorable closer
+// Note: Savings stats removed - portal page displays those separately
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function generatePersuasiveMessage(client: ClientContext): string {
@@ -464,30 +436,13 @@ export function generatePersuasiveMessage(client: ClientContext): string {
     becauseBridge = `That's why our AI automation exists—because your expertise is too valuable for repetitive tasks.`;
   }
 
-  // 3. Social proof element
-  const proofCategory = ['time_savings', 'adoption', 'quality'][hash % 3] as keyof typeof SOCIAL_PROOF_STATS;
-  const socialProof = selectFromArray(SOCIAL_PROOF_STATS[proofCategory], hash);
-
-  // 4. Company-specific value (if we have savings estimates)
-  let valueStatement = '';
-  if (client.estimatedTimeSavings) {
-    valueStatement = `For ${client.companyName}, that translates to ${client.estimatedTimeSavings} saved weekly`;
-    if (client.estimatedCostSavings) {
-      valueStatement += ` and ${client.estimatedCostSavings} in annual savings.`;
-    } else {
-      valueStatement += '.';
-    }
-  }
-
-  // 5. Memorable closer
+  // 3. Memorable closer
   const closer = selectFromArray(MEMORABLE_PHRASES, hash);
 
-  // Assemble the message
+  // Assemble the message (social proof stats and savings removed - portal shows savings separately)
   const parts = [
     painOpener,
     becauseBridge,
-    socialProof + '.',
-    valueStatement,
     closer,
   ].filter(p => p.length > 0);
 
