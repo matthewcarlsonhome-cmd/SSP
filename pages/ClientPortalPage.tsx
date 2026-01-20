@@ -155,10 +155,6 @@ const ROISection: React.FC<ROISectionProps> = ({ client, selectedSkills, selecte
 
             <div className="space-y-3 pt-4 border-t">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Monthly</span>
-                <span className="font-semibold">{formatNumber(monthlyHours.avg)} hours</span>
-              </div>
-              <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Annually</span>
                 <span className="font-semibold text-green-600">{formatNumber(annualHours.avg)} hours</span>
               </div>
@@ -191,10 +187,6 @@ const ROISection: React.FC<ROISectionProps> = ({ client, selectedSkills, selecte
             </p>
 
             <div className="space-y-3 pt-4 border-t">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Quarterly</span>
-                <span className="font-semibold">{formatCurrency(monthlyCost.avg * 3)}</span>
-              </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Annually</span>
                 <span className="font-semibold text-green-600">{formatted.annualCost}</span>

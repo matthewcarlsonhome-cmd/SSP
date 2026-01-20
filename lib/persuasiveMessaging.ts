@@ -318,10 +318,6 @@ function extractKeyAchievements(description?: string): string[] {
     achievements.push(`${yearsAgo}+ years`);
   }
 
-  // Look for revenue
-  const revenueMatch = description.match(/\$[\d.]+[MBK]?\+?\s*(?:revenue|rev)/i);
-  if (revenueMatch) achievements.push(revenueMatch[0]);
-
   // Look for awards
   if (/award|winner|best|top|inc\.?\s*5000/i.test(description)) {
     achievements.push('award-winning');
