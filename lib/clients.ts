@@ -1061,25 +1061,29 @@ export async function refreshClientsFromDefaults(): Promise<{ added: number; upd
         hasChanges = true;
       }
 
-      // Update skill/workflow selections to personalized defaults (unique per company)
-      const newSkills = getPersonalizedSkillRecommendations({
-        companyName: existing.companyName,
-        industry,
-        painPoints: existing.painPoints || company.painPoints,
-        services: existing.services || company.services,
-        description: existing.description || company.description,
-        companyType: existing.companyType || company.companyType,
-        employeeCount: existing.employeeCount || company.employeeCount,
-        revenue: existing.revenue || company.revenue,
-      });
-      const newWorkflows = getPersonalizedWorkflowRecommendations({
-        companyName: existing.companyName,
-        industry,
-        painPoints: existing.painPoints || company.painPoints,
-        services: existing.services || company.services,
-        description: existing.description || company.description,
-        companyType: existing.companyType || company.companyType,
-      });
+      // Update skill/workflow selections - prefer curated selections from defaults, fall back to personalized recommendations
+      const newSkills = company.selectedSkillIds && company.selectedSkillIds.length > 0
+        ? company.selectedSkillIds
+        : getPersonalizedSkillRecommendations({
+            companyName: existing.companyName,
+            industry,
+            painPoints: existing.painPoints || company.painPoints,
+            services: existing.services || company.services,
+            description: existing.description || company.description,
+            companyType: existing.companyType || company.companyType,
+            employeeCount: existing.employeeCount || company.employeeCount,
+            revenue: existing.revenue || company.revenue,
+          });
+      const newWorkflows = company.selectedWorkflowIds && company.selectedWorkflowIds.length > 0
+        ? company.selectedWorkflowIds
+        : getPersonalizedWorkflowRecommendations({
+            companyName: existing.companyName,
+            industry,
+            painPoints: existing.painPoints || company.painPoints,
+            services: existing.services || company.services,
+            description: existing.description || company.description,
+            companyType: existing.companyType || company.companyType,
+          });
 
       if (JSON.stringify(existing.selectedSkillIds.sort()) !== JSON.stringify(newSkills.sort())) {
         existing.selectedSkillIds = newSkills;
