@@ -847,6 +847,7 @@ export interface Client {
   // Custom messaging
   customHeadline?: string;
   customMessage?: string;
+  linkedInConnectMessage?: string;  // Short LinkedIn connection request note (300 char max)
 
   // Portal settings
   portalSlug: string;  // URL-friendly identifier for their portal page
@@ -889,6 +890,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$4,500-$11,200',
     customHeadline: 'AI-Powered Marketing Automation for Pop-Dot\'s Evidence-Based Approach',
     customMessage: 'Transform your Systems + Design methodology with intelligent automation. We\'ve curated AI skills specifically for multi-channel campaign management, creative workflow optimization, and real-time performance tracking across traditional and digital channels.',
+    linkedInConnectMessage: 'Hi Jason,\n\nI\'ve curated AI skills for Pop-Dot—including Marketing Dashboard automation and A/B Test Analysis (18-28 hrs/week potential). Would love to connect and share how these could help.',
     contacts: [{ name: 'Jason Fish', title: 'Founder & CEO', email: 'jason@popdotmarketing.com', isPrimary: true }],
     // Curated for: Evidence-based approach, multi-channel (traditional + digital), branding, packaging
     selectedSkillIds: [
@@ -922,6 +924,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$4,300-$12,000',
     customHeadline: 'Supercharge Your B2B Marketing Operations with AI',
     customMessage: 'Your expertise in inbound methodology for complex B2B industries is the foundation. Now amplify it with AI skills designed for lead nurturing, content pipeline acceleration, and RevOps optimization—perfectly aligned with your proven approach.',
+    linkedInConnectMessage: 'Hi Chris,\n\nBuilt AI skills for Madison Marketing Group—Excel Data Analyzer and Sales Call Prep automation. Happy to share insights on saving 17-30 hrs/week. Let\'s connect?',
     contacts: [{ name: 'Chris Murvine', title: 'CEO & Founder', email: 'cmurvine@madisonmarketing.com', isPrimary: true }],
     // Curated for: B2B inbound marketing, HubSpot partner, lead gen, RevOps, data-driven
     selectedSkillIds: [
@@ -955,6 +958,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$5,500-$14,400',
     customHeadline: 'Enterprise-Grade AI for Award-Winning Campaigns',
     customMessage: 'Serving iconic brands like Harley-Davidson and GORE-TEX demands excellence at scale. Our AI automation suite handles the heavy lifting—media planning, PR monitoring, and campaign analytics—so your team can focus on what made you a Best Place to Work: creativity.',
+    linkedInConnectMessage: 'Hi Curt,\n\nCreated AI skills for Shine United—Board Presentation Builder and Crisis Communication automation. Serving brands like Harley demands efficiency. Connect to see your custom portal?',
     contacts: [{ name: 'Curt Hanke', title: 'Co-Founder & CEO', isPrimary: true }, { name: 'Mike Kriefski', title: 'Co-Founder & President' }],
     // Curated for: Enterprise clients (Harley-Davidson, GORE-TEX), PR, media buying, award-winning creative
     selectedSkillIds: [
@@ -988,6 +992,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$4,300-$11,600',
     customHeadline: 'Seven Decades of Strategy, Now Turbocharged by AI',
     customMessage: 'Your strategy-first approach has built nearly 70 years of success. Now imagine AI handling cross-functional coordination, project tracking, and client health monitoring while your strategists focus on what they do best.',
+    linkedInConnectMessage: 'Hi Daniel,\n\nI\'ve built AI skills for S/B—Steering Committee Pack and Team Retrospective automation. 70 years of strategy deserves modern tools. Have a personalized portal ready. Let\'s connect?',
     contacts: [{ name: 'Daniel Hearn', title: 'President & CEO', isPrimary: true }],
     // Curated for: 70 years experience, strategy-first, experiential, cross-functional coordination
     selectedSkillIds: [
@@ -1021,6 +1026,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$4,500-$12,400',
     customHeadline: 'AI Solutions for Considered Purchase Marketing',
     customMessage: 'B2B considered purchases demand precision. Our AI skills are built for complex nurture sequences, PR tracking, and media optimization—helping you serve global clients like Whirlpool with the efficiency your MAGNET network position demands.',
+    linkedInConnectMessage: 'Hi Daniel,\n\nBuilt AI tools for Nelson Schmidt—RFP Response Generator and Competitive Battle Cards. B2B considered purchases need precision automation. Would love to connect and share.',
     contacts: [{ name: 'Daniel H. Nelson Jr.', title: 'President & CEO', isPrimary: true }, { name: 'John Boler', title: 'Chief Marketing Officer' }],
     // Curated for: B2B considered purchase, Whirlpool/WEDC clients, MAGNET global network, ROI-driven
     selectedSkillIds: [
@@ -1054,6 +1060,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$4,750-$12,800',
     customHeadline: 'Scale Your $100M+ Media Operation with AI',
     customMessage: 'Managing $100M+ in media spend and 330+ websites is no small feat—your Inc. 5000 recognition proves it. Now unlock the next level with AI-powered media pacing, SEO analytics at scale, and automated website health monitoring.',
+    linkedInConnectMessage: 'Hi Mason,\n\nI noticed The Digital Ring\'s $100M+ media operation and put together AI automation for data analysis and KPI frameworks. Happy to share insights on saving 19-32 hrs/week. Let\'s connect?',
     contacts: [{ name: 'Mason Kemp', title: 'Partner', isPrimary: true }, { name: 'Nick Ring', title: 'Partner' }, { name: 'Matthew Kemp', title: 'Partner' }],
     // Curated for: $100M+ media managed, Inc. 5000, SEO at scale, 330+ websites, video production
     selectedSkillIds: [
@@ -1087,6 +1094,7 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$5,000-$14,000',
     customHeadline: 'AI Automation Built for 40 Years of Media Excellence',
     customMessage: 'From winning Madison\'s first web Addy in 1996 to managing 200+ websites today, Kennedy Communications knows digital evolution. Our AI skills streamline media buying, consolidate analytics, and automate campaign reporting—preserving the family-owned quality your clients trust.',
+    linkedInConnectMessage: 'Hi Katie,\n\nI\'ve curated AI skills for KennedyC—Marketing Dashboard and Budget Variance automation. 40+ years of media expertise deserves modern efficiency. Would love to connect and share.',
     contacts: [{ name: 'Katie Kennedy', title: 'President & CEO', isPrimary: true }, { name: 'Chris Kennedy', title: 'Vice President' }],
     // Curated for: Media buying/planning, 200+ websites, 40+ years experience, family-owned, data-driven
     selectedSkillIds: [

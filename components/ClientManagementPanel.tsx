@@ -59,6 +59,7 @@ import {
   refreshClientsFromDefaults,
   applyPersuasiveMessagesToAllClients,
   applyCuratedSelectionsToClients,
+  applyLinkedInConnectMessagesToAllClients,
 } from '../lib/clients';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { getAllLibrarySkills } from '../lib/skillLibrary';
@@ -131,6 +132,7 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isApplyingMessages, setIsApplyingMessages] = useState(false);
   const [isApplyingCurated, setIsApplyingCurated] = useState(false);
+  const [isApplyingLinkedIn, setIsApplyingLinkedIn] = useState(false);
   const supabaseConfigured = isSupabaseConfigured();
 
   // Load clients on mount
@@ -282,6 +284,23 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
       addToast('Error applying curated selections: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
     } finally {
       setIsApplyingCurated(false);
+    }
+  };
+
+  const handleApplyLinkedInConnectMessages = async () => {
+    if (!confirm('This will generate LinkedIn Connect messages for all clients based on their curated skills/workflows. Messages are under 300 characters for LinkedIn connection requests. Continue?')) {
+      return;
+    }
+
+    setIsApplyingLinkedIn(true);
+    try {
+      const updatedCount = await applyLinkedInConnectMessagesToAllClients();
+      setClients(getClients());
+      addToast(`Applied LinkedIn Connect messages to ${updatedCount} clients`, 'success');
+    } catch (error) {
+      addToast('Error applying LinkedIn messages: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
+    } finally {
+      setIsApplyingLinkedIn(false);
     }
   };
 
@@ -491,6 +510,17 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
         >
           <Zap className={`h-4 w-4 mr-2 ${isApplyingCurated ? 'animate-pulse' : ''}`} />
           {isApplyingCurated ? 'Applying...' : 'Apply Curated'}
+        </Button>
+
+        <Button
+          variant="outline"
+          onClick={handleApplyLinkedInConnectMessages}
+          disabled={isApplyingLinkedIn}
+          className="text-cyan-600 hover:text-cyan-700 border-cyan-300 hover:border-cyan-400"
+          title="Generate LinkedIn Connect messages that reference each client's skills/workflows"
+        >
+          <Linkedin className={`h-4 w-4 mr-2 ${isApplyingLinkedIn ? 'animate-pulse' : ''}`} />
+          {isApplyingLinkedIn ? 'Generating...' : 'LinkedIn Connect'}
         </Button>
 
         <Button onClick={() => setShowNewClientForm(true)}>
@@ -863,6 +893,33 @@ const ClientCard: React.FC<ClientCardProps> = ({
               rows={3}
               className="mt-1"
             />
+          </div>
+
+          {/* LinkedIn Connect Message */}
+          <div className="rounded-lg border p-4 bg-cyan-50/50 dark:bg-cyan-950/20">
+            <div className="flex items-center gap-2 mb-2">
+              <Linkedin className="h-4 w-4 text-cyan-600" />
+              <label className="text-sm font-medium text-cyan-700 dark:text-cyan-400">
+                LinkedIn Connect Message
+              </label>
+              <span className="text-xs text-muted-foreground ml-auto">
+                {client.linkedInConnectMessage?.length || 0}/300 chars
+              </span>
+            </div>
+            <Textarea
+              value={client.linkedInConnectMessage || ''}
+              onChange={e => {
+                const value = e.target.value.slice(0, 300);
+                onUpdate({ linkedInConnectMessage: value });
+              }}
+              placeholder="Short personalized message for LinkedIn connection request..."
+              rows={3}
+              className="mt-1 text-sm"
+              maxLength={300}
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              This message references skills: {client.selectedSkillIds.slice(0, 3).join(', ')}
+            </p>
           </div>
 
           {/* Skills Selection */}

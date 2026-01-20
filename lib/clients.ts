@@ -16,7 +16,9 @@ import {
   getPersonalizedSkillRecommendations,
   getPersonalizedWorkflowRecommendations,
 } from './clientRecommendations';
-import { applyPersuasiveMessaging } from './persuasiveMessaging';
+import { applyPersuasiveMessaging, generateLinkedInConnectForClient } from './persuasiveMessaging';
+import { getAllLibrarySkills } from './skillLibrary';
+import { WORKFLOWS } from './workflows';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { logger } from './logger';
 
@@ -48,6 +50,7 @@ interface SupabaseClient {
   selected_workflow_ids: string[] | null;
   custom_headline: string | null;
   custom_message: string | null;
+  linkedin_connect_message: string | null;
   portal_slug: string;
   portal_enabled: boolean;
   status: string;
@@ -80,6 +83,7 @@ function supabaseToClient(row: SupabaseClient): Client {
     selectedWorkflowIds: row.selected_workflow_ids || [],
     customHeadline: row.custom_headline || undefined,
     customMessage: row.custom_message || undefined,
+    linkedInConnectMessage: row.linkedin_connect_message || undefined,
     portalSlug: row.portal_slug,
     portalEnabled: row.portal_enabled,
     status: row.status as ClientStatus,
@@ -113,6 +117,7 @@ function clientToSupabase(client: Partial<Client>): Record<string, unknown> {
   if (client.selectedWorkflowIds !== undefined) result.selected_workflow_ids = client.selectedWorkflowIds || [];
   if (client.customHeadline !== undefined) result.custom_headline = client.customHeadline || null;
   if (client.customMessage !== undefined) result.custom_message = client.customMessage || null;
+  if (client.linkedInConnectMessage !== undefined) result.linkedin_connect_message = client.linkedInConnectMessage || null;
   if (client.portalSlug !== undefined) result.portal_slug = client.portalSlug;
   if (client.portalEnabled !== undefined) result.portal_enabled = client.portalEnabled;
   if (client.status !== undefined) result.status = client.status;
@@ -354,6 +359,7 @@ export async function createClientAsync(data: Partial<Client>): Promise<Client> 
     selectedWorkflowIds: data.selectedWorkflowIds || [],
     customHeadline: data.customHeadline,
     customMessage: data.customMessage,
+    linkedInConnectMessage: data.linkedInConnectMessage,
     portalSlug: data.portalSlug || generateSlug(data.companyName || 'new-company'),
     portalEnabled: data.portalEnabled ?? false,
     status: data.status || 'prospect',
@@ -411,6 +417,7 @@ export function createClient(data: Partial<Client>): Client {
     selectedWorkflowIds: data.selectedWorkflowIds || [],
     customHeadline: data.customHeadline,
     customMessage: data.customMessage,
+    linkedInConnectMessage: data.linkedInConnectMessage,
     portalSlug: data.portalSlug || generateSlug(data.companyName || 'new-company'),
     portalEnabled: data.portalEnabled ?? false,
     status: data.status || 'prospect',
@@ -1347,4 +1354,125 @@ export async function applyCuratedSelectionsToClients(): Promise<number> {
 
   logger.info('Applied curated selections', { updatedCount, totalClients: clients.length });
   return updatedCount;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LINKEDIN CONNECT MESSAGES - Generate personalized connection request notes
+// References specific skills/workflows for each client (300 char max)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Apply LinkedIn Connect messages to all clients
+ * Generates personalized connection request notes that reference their specific skills/workflows
+ *
+ * @returns Number of clients updated
+ */
+export async function applyLinkedInConnectMessagesToAllClients(): Promise<number> {
+  const clients = getClients();
+  let updatedCount = 0;
+
+  // Build skill and workflow name maps for message generation
+  const skillNameMap = new Map<string, string>();
+  const workflowNameMap = new Map<string, string>();
+
+  try {
+    const allSkills = getAllLibrarySkills();
+    allSkills.forEach(s => skillNameMap.set(s.id, s.name));
+  } catch (e) {
+    logger.warn('Could not load skill library for LinkedIn message generation', { error: e });
+  }
+
+  try {
+    const allWorkflows = Object.values(WORKFLOWS);
+    allWorkflows.forEach(w => workflowNameMap.set(w.id, w.name));
+  } catch (e) {
+    logger.warn('Could not load workflows for LinkedIn message generation', { error: e });
+  }
+
+  for (const client of clients) {
+    // Generate LinkedIn Connect message that references their skills/workflows
+    const linkedInConnectMessage = generateLinkedInConnectForClient(
+      {
+        companyName: client.companyName,
+        industry: client.industry,
+        contacts: client.contacts,
+        selectedSkillIds: client.selectedSkillIds,
+        selectedWorkflowIds: client.selectedWorkflowIds,
+        painPoints: client.painPoints,
+        estimatedTimeSavings: client.estimatedTimeSavings,
+      },
+      skillNameMap,
+      workflowNameMap
+    );
+
+    // Only update if message has changed
+    if (client.linkedInConnectMessage !== linkedInConnectMessage) {
+      client.linkedInConnectMessage = linkedInConnectMessage;
+      client.updatedAt = new Date().toISOString();
+      updatedCount++;
+    }
+  }
+
+  if (updatedCount > 0) {
+    saveClientsToLocalStorage(clients);
+
+    // Sync to Supabase if configured
+    if (isSupabaseConfigured()) {
+      await Promise.all(clients.map(c => saveClientToSupabase(c)));
+    }
+  }
+
+  logger.info('Applied LinkedIn Connect messages to clients', { updatedCount, total: clients.length });
+  return updatedCount;
+}
+
+/**
+ * Apply LinkedIn Connect message to a single client
+ */
+export function applyLinkedInConnectMessageToClient(clientId: string): Client | null {
+  const client = getClientById(clientId);
+  if (!client) return null;
+
+  const clients = getClients();
+  const index = clients.findIndex(c => c.id === clientId);
+  if (index === -1) return null;
+
+  // Build skill and workflow name maps
+  const skillNameMap = new Map<string, string>();
+  const workflowNameMap = new Map<string, string>();
+
+  try {
+    const allSkills = getAllLibrarySkills();
+    allSkills.forEach(s => skillNameMap.set(s.id, s.name));
+  } catch (e) {
+    logger.warn('Could not load skill library', { error: e });
+  }
+
+  try {
+    const allWorkflows = Object.values(WORKFLOWS);
+    allWorkflows.forEach(w => workflowNameMap.set(w.id, w.name));
+  } catch (e) {
+    logger.warn('Could not load workflows', { error: e });
+  }
+
+  // Generate LinkedIn Connect message
+  const linkedInConnectMessage = generateLinkedInConnectForClient(
+    {
+      companyName: client.companyName,
+      industry: client.industry,
+      contacts: client.contacts,
+      selectedSkillIds: client.selectedSkillIds,
+      selectedWorkflowIds: client.selectedWorkflowIds,
+      painPoints: client.painPoints,
+      estimatedTimeSavings: client.estimatedTimeSavings,
+    },
+    skillNameMap,
+    workflowNameMap
+  );
+
+  clients[index].linkedInConnectMessage = linkedInConnectMessage;
+  clients[index].updatedAt = new Date().toISOString();
+
+  saveClients(clients);
+  return clients[index];
 }
