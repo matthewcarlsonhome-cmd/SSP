@@ -890,6 +890,9 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     customHeadline: 'AI-Powered Marketing Automation for Pop-Dot\'s Evidence-Based Approach',
     customMessage: 'Transform your Systems + Design methodology with intelligent automation. We\'ve curated AI skills specifically for multi-channel campaign management, creative workflow optimization, and real-time performance tracking across traditional and digital channels.',
     contacts: [{ name: 'Jason Fish', title: 'Founder & CEO', email: 'jason@popdotmarketing.com', isPrimary: true }],
+    // Curated for: Brand strategy, science-based marketing, multi-channel campaigns
+    selectedSkillIds: ['proposal-builder', 'competitive-landscape-mapper', 'excel-marketing-dashboard', 'market-sizing-analyst'],
+    selectedWorkflowIds: ['marketing-campaign-launch', 'competitive-intelligence'],
   },
   {
     companyName: 'Madison Marketing Group',
@@ -910,6 +913,9 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     customHeadline: 'Supercharge Your B2B Marketing Operations with AI',
     customMessage: 'Your expertise in inbound methodology for complex B2B industries is the foundation. Now amplify it with AI skills designed for lead nurturing, content pipeline acceleration, and RevOps optimization—perfectly aligned with your proven approach.',
     contacts: [{ name: 'Chris Murvine', title: 'CEO & Founder', email: 'cmurvine@madisonmarketing.com', isPrimary: true }],
+    // Curated for: B2B digital, HubSpot partner, inbound marketing, data-driven
+    selectedSkillIds: ['excel-data-analyzer', 'proposal-builder', 'customer-health-scorecard', 'sales-call-prep-pro'],
+    selectedWorkflowIds: ['marketing-campaign-launch', 'sales-account-pursuit'],
   },
   {
     companyName: 'Shine United',
@@ -930,6 +936,9 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     customHeadline: 'Enterprise-Grade AI for Award-Winning Campaigns',
     customMessage: 'Serving iconic brands like Harley-Davidson and GORE-TEX demands excellence at scale. Our AI automation suite handles the heavy lifting—media planning, PR monitoring, and campaign analytics—so your team can focus on what made you a Best Place to Work: creativity.',
     contacts: [{ name: 'Curt Hanke', title: 'Co-Founder & CEO', isPrimary: true }, { name: 'Mike Kriefski', title: 'Co-Founder & President' }],
+    // Curated for: Bold creative, client-agency relationships, culture-focused, big brands
+    selectedSkillIds: ['proposal-builder', 'competitive-landscape-mapper', 'sales-call-prep-pro', 'executive-communication-pack'],
+    selectedWorkflowIds: ['marketing-campaign-launch', 'consulting-engagement'],
   },
   {
     companyName: 'Stephan & Brady (S/B Strategic Marketing)',
@@ -950,6 +959,9 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     customHeadline: 'Seven Decades of Strategy, Now Turbocharged by AI',
     customMessage: 'Your strategy-first approach has built nearly 70 years of success. Now imagine AI handling cross-functional coordination, project tracking, and client health monitoring while your strategists focus on what they do best.',
     contacts: [{ name: 'Daniel Hearn', title: 'President & CEO', isPrimary: true }],
+    // Curated for: 70+ years, strategic customer connections, brand-customer focus
+    selectedSkillIds: ['competitive-landscape-mapper', 'proposal-builder', 'customer-health-scorecard', 'market-sizing-analyst'],
+    selectedWorkflowIds: ['consulting-engagement', 'competitive-intelligence'],
   },
   {
     companyName: 'Nelson Schmidt Inc.',
@@ -970,6 +982,9 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     customHeadline: 'AI Solutions for Considered Purchase Marketing',
     customMessage: 'B2B considered purchases demand precision. Our AI skills are built for complex nurture sequences, PR tracking, and media optimization—helping you serve global clients like Whirlpool with the efficiency your MAGNET network position demands.',
     contacts: [{ name: 'Daniel H. Nelson Jr.', title: 'President & CEO', isPrimary: true }, { name: 'John Boler', title: 'Chief Marketing Officer' }],
+    // Curated for: Complex marketing challenges, considered purchase, performance-based accountability
+    selectedSkillIds: ['proposal-builder', 'competitive-landscape-mapper', 'excel-data-analyzer', 'budget-variance-narrator'],
+    selectedWorkflowIds: ['consulting-engagement', 'marketing-campaign-launch'],
   },
   {
     companyName: 'The Digital Ring',
@@ -990,6 +1005,9 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     customHeadline: 'Scale Your $100M+ Media Operation with AI',
     customMessage: 'Managing $100M+ in media spend and 330+ websites is no small feat—your Inc. 5000 recognition proves it. Now unlock the next level with AI-powered media pacing, SEO analytics at scale, and automated website health monitoring.',
     contacts: [{ name: 'Mason Kemp', title: 'Partner', isPrimary: true }, { name: 'Nick Ring', title: 'Partner' }, { name: 'Matthew Kemp', title: 'Partner' }],
+    // Curated for: Full-service digital, $100M media, data-driven, customer-centric
+    selectedSkillIds: ['excel-marketing-dashboard', 'excel-data-analyzer', 'proposal-builder', 'vendor-comparison-matrix'],
+    selectedWorkflowIds: ['digital-marketing-audit', 'marketing-campaign-launch'],
   },
   {
     companyName: 'KennedyC (Kennedy Communications)',
@@ -1010,6 +1028,9 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     customHeadline: 'AI Automation Built for 40 Years of Media Excellence',
     customMessage: 'From winning Madison\'s first web Addy in 1996 to managing 200+ websites today, Kennedy Communications knows digital evolution. Our AI skills streamline media buying, consolidate analytics, and automate campaign reporting—preserving the family-owned quality your clients trust.',
     contacts: [{ name: 'Katie Kennedy', title: 'President & CEO', isPrimary: true }, { name: 'Chris Kennedy', title: 'Vice President' }],
+    // Curated for: Data-backed, results-accountable, outthink not outspend
+    selectedSkillIds: ['excel-data-analyzer', 'excel-marketing-dashboard', 'proposal-builder', 'budget-variance-narrator'],
+    selectedWorkflowIds: ['marketing-campaign-launch', 'process-improvement'],
   },
   {
     companyName: 'Mid-West Family Madison',
@@ -1030,6 +1051,9 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     customHeadline: 'Bridge Radio and Digital with Intelligent Automation',
     customMessage: 'Since 1956, you\'ve connected Madison through 8 radio stations. Now bridge traditional and digital with AI that handles cross-channel attribution, radio ad trafficking, and event follow-up—amplifying your unique hybrid advantage.',
     contacts: [{ name: 'Kelly NorthLee', title: 'Owner', isPrimary: true }, { name: 'Shar Hermanson', title: 'Executive VP' }],
+    // Curated for: Radio + digital, local brand development, events, 50+ years
+    selectedSkillIds: ['proposal-builder', 'sales-call-prep-pro', 'competitive-landscape-mapper', 'meeting-minutes-pro'],
+    selectedWorkflowIds: ['marketing-campaign-launch', 'sales-account-pursuit'],
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1053,6 +1077,9 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$2,750-$6,800',
     customHeadline: 'Healthcare Marketing Meets Intelligent Automation',
     customMessage: 'Your 24+ years of healthcare marketing excellence and MANNY Award recognition speak for themselves. Now amplify that expertise with AI skills designed for healthcare compliance tracking, campaign workflows, and sustainability reporting—all with the precision your healthcare clients demand.',
+    // Curated for: Creative problem solvers, brand awakening, diverse team
+    selectedSkillIds: ['competitive-landscape-mapper', 'proposal-builder', 'market-sizing-analyst', 'sales-call-prep-pro'],
+    selectedWorkflowIds: ['consulting-engagement', 'competitive-intelligence'],
   },
   {
     companyName: 'Rippe Keane Marketing (Market Crafters)',
@@ -1072,6 +1099,9 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$2,500-$6,000',
     customHeadline: 'Three Decades of Branding, Now Supercharged by AI',
     customMessage: 'Thirty years of brand architecture excellence and BBB A+ ratings prove your commitment to quality. Our AI automation helps manage brand assets, streamline social scheduling, and track PR impact—so your rebranded Market Crafters team can focus on crafting the next great brand story.',
+    // Curated for: Accountability, customer experience, meticulous, cause and effect
+    selectedSkillIds: ['customer-health-scorecard', 'excel-data-analyzer', 'proposal-builder', 'sop-documentation-builder'],
+    selectedWorkflowIds: ['process-improvement', 'consulting-engagement'],
   },
   {
     companyName: 'The Creative Company',
@@ -1110,6 +1140,9 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,000-$8,000',
     customHeadline: 'Revenue Generation, Accelerated by AI',
     customMessage: 'As a Revenue Generation Agency integrating sales, marketing, and web for nearly 30 years, you understand the full funnel. Our AI skills enhance that integration—automating SEO reporting, lead attribution, and sales-marketing alignment to drive even more revenue for your B2B clients.',
+    // Curated for: Since 1995, data-driven, revenue through marketing and sales, sales funnels
+    selectedSkillIds: ['excel-data-analyzer', 'excel-marketing-dashboard', 'proposal-builder', 'sales-call-prep-pro'],
+    selectedWorkflowIds: ['digital-marketing-audit', 'sales-account-pursuit'],
   },
   {
     companyName: 'Boost Local',
@@ -1129,6 +1162,9 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$3,000-$7,600',
     customHeadline: 'Scale Local SEO with Intelligent Automation',
     customMessage: 'Managing Google Business Profiles, reviews, and local SEO at scale requires precision. Our AI skills automate GBP management, review monitoring, and local reporting—helping your automotive, contractor, and financial services clients dominate their local markets.',
+    // Curated for: Small business marketing, predictable systems, measurable results
+    selectedSkillIds: ['proposal-builder', 'sales-call-prep-pro', 'excel-data-analyzer', 'sop-documentation-builder'],
+    selectedWorkflowIds: ['marketing-campaign-launch', 'process-improvement'],
   },
   {
     companyName: 'Colony Spark',
@@ -1148,6 +1184,9 @@ export const DEFAULT_TARGET_COMPANIES: Partial<Client>[] = [
     estimatedCostSavings: '$2,750-$6,800',
     customHeadline: 'Content That Converts, Automated by AI',
     customMessage: 'Your B2B content expertise—from webinars to white papers—has earned CBS News and Mashable features. Our AI skills supercharge content calendars, webinar workflows, and analytics dashboards, letting your team focus on creating content that sparks growth.',
+    // Curated for: Strategy + execution, full-funnel, go-to-market, AI-powered systems
+    selectedSkillIds: ['proposal-builder', 'competitive-landscape-mapper', 'market-sizing-analyst', 'excel-marketing-dashboard'],
+    selectedWorkflowIds: ['product-launch-gtm', 'competitive-intelligence'],
   },
   {
     companyName: 'Aspect Marketing',
