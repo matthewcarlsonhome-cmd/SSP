@@ -1160,25 +1160,29 @@ export async function refreshClientsFromDefaults(): Promise<{ added: number; upd
         customMessage: company.customMessage,
         notes: company.notes,
         contacts: company.contacts || [],
-        // Use personalized recommendations based on ALL client attributes (unique per company)
-        selectedSkillIds: getPersonalizedSkillRecommendations({
-          companyName,
-          industry,
-          painPoints: company.painPoints,
-          services: company.services,
-          description: company.description,
-          companyType: company.companyType,
-          employeeCount: company.employeeCount,
-          revenue: company.revenue,
-        }),
-        selectedWorkflowIds: getPersonalizedWorkflowRecommendations({
-          companyName,
-          industry,
-          painPoints: company.painPoints,
-          services: company.services,
-          description: company.description,
-          companyType: company.companyType,
-        }),
+        // Use curated selections from defaults if available, otherwise generate personalized recommendations
+        selectedSkillIds: company.selectedSkillIds && company.selectedSkillIds.length > 0
+          ? company.selectedSkillIds
+          : getPersonalizedSkillRecommendations({
+              companyName,
+              industry,
+              painPoints: company.painPoints,
+              services: company.services,
+              description: company.description,
+              companyType: company.companyType,
+              employeeCount: company.employeeCount,
+              revenue: company.revenue,
+            }),
+        selectedWorkflowIds: company.selectedWorkflowIds && company.selectedWorkflowIds.length > 0
+          ? company.selectedWorkflowIds
+          : getPersonalizedWorkflowRecommendations({
+              companyName,
+              industry,
+              painPoints: company.painPoints,
+              services: company.services,
+              description: company.description,
+              companyType: company.companyType,
+            }),
         portalSlug: generateSlug(companyName),
         portalEnabled: false,
         status: 'prospect' as ClientStatus,
@@ -1315,4 +1319,71 @@ export function applyPersuasiveMessageToClient(clientId: string): Client | null 
 
   saveClients(clients);
   return clients[index];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// APPLY CURATED SKILLS - Update only companies with curated selections
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Apply curated skill/workflow selections from DEFAULT_TARGET_COMPANIES
+ * ONLY updates companies that have curated selections defined - leaves all other clients untouched
+ *
+ * @returns Number of clients updated
+ */
+export async function applyCuratedSelectionsToClients(): Promise<number> {
+  const clients = getClients();
+  let updatedCount = 0;
+
+  // Build a map of companies with curated selections from defaults
+  const curatedCompanies = new Map<string, { skills: string[]; workflows: string[] }>();
+  for (const company of defaultCompanies) {
+    if (company.selectedSkillIds && company.selectedSkillIds.length > 0) {
+      curatedCompanies.set(company.companyName?.toLowerCase() || '', {
+        skills: company.selectedSkillIds,
+        workflows: company.selectedWorkflowIds || [],
+      });
+    }
+  }
+
+  logger.info('Applying curated selections', {
+    curatedCompanyCount: curatedCompanies.size,
+    companies: Array.from(curatedCompanies.keys())
+  });
+
+  // Update only clients that have curated selections
+  for (const client of clients) {
+    const curated = curatedCompanies.get(client.companyName.toLowerCase());
+    if (curated) {
+      const skillsChanged = JSON.stringify(client.selectedSkillIds.sort()) !== JSON.stringify(curated.skills.sort());
+      const workflowsChanged = JSON.stringify(client.selectedWorkflowIds.sort()) !== JSON.stringify(curated.workflows.sort());
+
+      if (skillsChanged || workflowsChanged) {
+        client.selectedSkillIds = curated.skills;
+        client.selectedWorkflowIds = curated.workflows;
+        client.updatedAt = new Date().toISOString();
+        updatedCount++;
+        logger.info('Updated curated selections for client', {
+          companyName: client.companyName,
+          skillCount: curated.skills.length,
+          workflowCount: curated.workflows.length
+        });
+      }
+    }
+  }
+
+  // Save to localStorage
+  if (updatedCount > 0) {
+    saveClientsToLocalStorage(clients);
+
+    // Sync to Supabase if configured
+    if (isSupabaseConfigured()) {
+      // Only sync the updated clients
+      const updatedClients = clients.filter(c => curatedCompanies.has(c.companyName.toLowerCase()));
+      await Promise.all(updatedClients.map(c => saveClientToSupabase(c)));
+    }
+  }
+
+  logger.info('Applied curated selections', { updatedCount, totalClients: clients.length });
+  return updatedCount;
 }

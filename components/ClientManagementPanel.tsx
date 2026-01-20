@@ -58,6 +58,7 @@ import {
   resetAllClientSelectionsToDefaults,
   refreshClientsFromDefaults,
   applyPersuasiveMessagesToAllClients,
+  applyCuratedSelectionsToClients,
 } from '../lib/clients';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { getAllLibrarySkills } from '../lib/skillLibrary';
@@ -129,6 +130,7 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
   const [isResetting, setIsResetting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isApplyingMessages, setIsApplyingMessages] = useState(false);
+  const [isApplyingCurated, setIsApplyingCurated] = useState(false);
   const supabaseConfigured = isSupabaseConfigured();
 
   // Load clients on mount
@@ -263,6 +265,23 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
       addToast('Error applying messages: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
     } finally {
       setIsApplyingMessages(false);
+    }
+  };
+
+  const handleApplyCuratedSelections = async () => {
+    if (!confirm('This will update ONLY the companies with curated skill/workflow selections (e.g., the 12 marketing agencies). All other clients remain unchanged. Continue?')) {
+      return;
+    }
+
+    setIsApplyingCurated(true);
+    try {
+      const updatedCount = await applyCuratedSelectionsToClients();
+      setClients(getClients());
+      addToast(`Applied curated selections to ${updatedCount} clients`, 'success');
+    } catch (error) {
+      addToast('Error applying curated selections: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
+    } finally {
+      setIsApplyingCurated(false);
     }
   };
 
@@ -461,6 +480,17 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
         <Button variant="outline" onClick={handleExport}>
           <Download className="h-4 w-4 mr-2" />
           Export CSV
+        </Button>
+
+        <Button
+          variant="outline"
+          onClick={handleApplyCuratedSelections}
+          disabled={isApplyingCurated}
+          className="text-blue-600 hover:text-blue-700 border-blue-300 hover:border-blue-400"
+          title="Apply curated skills/workflows to specific companies (keeps all other clients unchanged)"
+        >
+          <Zap className={`h-4 w-4 mr-2 ${isApplyingCurated ? 'animate-pulse' : ''}`} />
+          {isApplyingCurated ? 'Applying...' : 'Apply Curated'}
         </Button>
 
         <Button onClick={() => setShowNewClientForm(true)}>
