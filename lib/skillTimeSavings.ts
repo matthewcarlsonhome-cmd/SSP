@@ -344,9 +344,22 @@ export function calculateROI(
     fiveYearCost: formatCostSavings(fiveYearCost),
   };
 
+  // Map to the expected interface format (min/max/avg)
+  const monthlyHours = {
+    min: timeSavings.minHours,
+    max: timeSavings.maxHours,
+    avg: timeSavings.avgHours,
+  };
+
+  const monthlyCost = {
+    min: costSavings.minCost,
+    max: costSavings.maxCost,
+    avg: costSavings.avgCost,
+  };
+
   return {
-    monthlyHours: timeSavings,
-    monthlyCost: costSavings,
+    monthlyHours,
+    monthlyCost,
     annualHours,
     annualCost,
     fiveYearCost,
