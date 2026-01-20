@@ -35,11 +35,11 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { getClientBySlug, getClientBySlugAsync } from '../lib/clients';
-import { getStaticSkills } from '../lib/skills/registry';
+import { getAllLibrarySkills } from '../lib/skillLibrary';
 import { WORKFLOWS } from '../lib/workflows';
 import { calculateROI } from '../lib/skillTimeSavings';
 import type { Client } from '../lib/storage/types';
-import type { Skill } from '../types';
+import type { LibrarySkill } from '../lib/skillLibrary/types';
 import type { Workflow } from '../lib/storage/types';
 
 // Category colors for skill cards
@@ -93,7 +93,7 @@ function formatNumber(value: number): string {
 
 interface ROISectionProps {
   client: Client;
-  selectedSkills: Skill[];
+  selectedSkills: LibrarySkill[];
   selectedWorkflows: Workflow[];
 }
 
@@ -333,7 +333,9 @@ const ClientPortalPage: React.FC = () => {
   }, [slug]);
 
   // Get selected skills and workflows
-  const allSkills = useMemo(() => getStaticSkills(), []);
+  // Use getAllLibrarySkills to include all skills (builtin + role templates + professional)
+  // This matches the skill IDs used by ClientManagementPanel
+  const allSkills = useMemo(() => getAllLibrarySkills(), []);
   const allWorkflows = useMemo(() => Object.values(WORKFLOWS), []);
 
   const selectedSkills = useMemo(() => {
@@ -348,7 +350,7 @@ const ClientPortalPage: React.FC = () => {
 
   // Group skills by category
   const skillsByCategory = useMemo(() => {
-    const grouped: Record<string, Skill[]> = {};
+    const grouped: Record<string, LibrarySkill[]> = {};
     selectedSkills.forEach(skill => {
       // Extract category from skill id (e.g., "job-seeker-resume" -> "job-seeker")
       const categoryMatch = skill.id.match(/^([a-z-]+?)-/);
