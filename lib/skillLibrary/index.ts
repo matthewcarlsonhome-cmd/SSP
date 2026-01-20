@@ -22,6 +22,7 @@ import type {
 import { ROLE_TEMPLATES } from '../roleTemplates';
 import type { DynamicFormInput } from '../storage/types';
 import { ALL_PROFESSIONAL_SKILLS } from '../skills/professional';
+import { SKILLS } from '../skills/static';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STATIC SKILL MAPPINGS
@@ -684,15 +685,115 @@ function extractProfessionalSkills(): LibrarySkill[] {
 }
 
 /**
- * Get all skills from all sources (builtin + role templates + professional)
+ * Convert ALL static skills from SKILLS object to LibrarySkill format
+ * This includes all 73 skills: job-seeker, governance, excel, enterprise, extended,
+ * sales, product, technical, hr, and operations
+ */
+function extractAllStaticSkills(): LibrarySkill[] {
+  return Object.entries(SKILLS).map(([id, skill]) => {
+    // Determine category from skill ID prefix
+    const categoryMatch = id.match(/^([a-z-]+?)-/);
+    const categoryHint = categoryMatch ? categoryMatch[1] : 'other';
+
+    // Map category hints to SkillCategory
+    const categoryMapping: Record<string, SkillCategory> = {
+      'job': 'analysis',
+      'skills': 'analysis',
+      'excel': 'analysis',
+      'sales': 'communication',
+      'proposal': 'generation',
+      'customer': 'analysis',
+      'competitive': 'research',
+      'prd': 'generation',
+      'technical': 'generation',
+      'api': 'generation',
+      'code': 'analysis',
+      'incident': 'generation',
+      'employee': 'generation',
+      'performance': 'generation',
+      'org': 'communication',
+      'sop': 'generation',
+      'contract': 'analysis',
+      'policy': 'generation',
+      'vendor': 'analysis',
+      'board': 'generation',
+      'executive': 'communication',
+      'crisis': 'communication',
+      'stakeholder': 'communication',
+      'ai': 'analysis',
+      'compliance': 'analysis',
+      'regulatory': 'analysis',
+      'audit': 'generation',
+      'rfp': 'generation',
+      'meeting': 'generation',
+      'project': 'generation',
+      'process': 'automation',
+      'automation': 'automation',
+      'email': 'generation',
+      'content': 'generation',
+      'seo': 'optimization',
+      'investor': 'generation',
+      'pitch': 'generation',
+      'financial': 'analysis',
+      'product': 'generation',
+      'pricing': 'analysis',
+      'partnership': 'analysis',
+      'market': 'research',
+      'team': 'analysis',
+      'retrospective': 'generation',
+    };
+
+    const category = categoryMapping[categoryHint] || 'generation';
+
+    // Determine use cases based on skill content
+    const useCases: SkillUseCase[] = ['daily-work'];
+    if (id.includes('job') || id.includes('resume') || id.includes('interview')) {
+      useCases.push('job-search');
+    }
+    if (id.includes('onboarding')) {
+      useCases.push('onboarding');
+    }
+
+    return {
+      id: skill.id,
+      name: skill.name,
+      description: skill.description,
+      longDescription: skill.longDescription || skill.description,
+      whatYouGet: skill.whatYouGet || [],
+      estimatedTimeSaved: '15-30 minutes',
+      tags: {
+        category,
+        useCases,
+        level: 'intermediate' as SkillLevel,
+        roles: [],
+      },
+      source: 'builtin' as const,
+      theme: {
+        primary: skill.theme?.primary || 'text-blue-400',
+        secondary: skill.theme?.secondary || 'bg-blue-900/20',
+        gradient: skill.theme?.gradient || 'from-blue-500/20 to-transparent',
+        iconName: 'Zap',
+      },
+      inputs: [],
+      prompts: { systemInstruction: '', userPromptTemplate: '', outputFormat: 'markdown' as const },
+      config: { recommendedModel: 'any', useWebSearch: false, maxTokens: 4096, temperature: 0.4 },
+      useCount: 0,
+      rating: { sum: 0, count: 0 },
+    };
+  });
+}
+
+/**
+ * Get all skills from all sources (static + role templates + professional)
  * Community skills are loaded separately from Supabase
  */
 export function getAllLibrarySkills(): LibrarySkill[] {
   if (!_allSkills) {
-    const builtinSkills = createBuiltinSkillEntries();
+    // Use extractAllStaticSkills to include ALL 73 static skills with correct IDs
+    const staticSkills = extractAllStaticSkills();
     const templateSkills = extractAllDynamicSkills();
     const professionalSkills = extractProfessionalSkills();
-    _allSkills = [...builtinSkills, ...templateSkills, ...professionalSkills];
+    _allSkills = [...staticSkills, ...templateSkills, ...professionalSkills];
   }
   return _allSkills;
 }
