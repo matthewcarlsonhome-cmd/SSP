@@ -39,7 +39,6 @@ import {
   Image,
   RotateCcw,
   Sparkles,
-  AlertTriangle,
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
@@ -59,7 +58,7 @@ import {
   resetAllClientSelectionsToDefaults,
   refreshClientsFromDefaults,
   applyPersuasiveMessagesToAllClients,
-  forceReinitializeClients,
+  applyCuratedSelectionsToClients,
 } from '../lib/clients';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { getAllLibrarySkills } from '../lib/skillLibrary';
@@ -131,7 +130,7 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
   const [isResetting, setIsResetting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isApplyingMessages, setIsApplyingMessages] = useState(false);
-  const [isReinitializing, setIsReinitializing] = useState(false);
+  const [isApplyingCurated, setIsApplyingCurated] = useState(false);
   const supabaseConfigured = isSupabaseConfigured();
 
   // Load clients on mount
@@ -269,20 +268,20 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
     }
   };
 
-  const handleForceReinitialize = async () => {
-    if (!confirm('WARNING: This will DELETE all existing client data and recreate from defaults with curated skills/workflows. This cannot be undone. Continue?')) {
+  const handleApplyCuratedSelections = async () => {
+    if (!confirm('This will update ONLY the companies with curated skill/workflow selections (e.g., the 12 marketing agencies). All other clients remain unchanged. Continue?')) {
       return;
     }
 
-    setIsReinitializing(true);
+    setIsApplyingCurated(true);
     try {
-      const newClients = await forceReinitializeClients();
-      setClients(newClients);
-      addToast(`Reinitialized ${newClients.length} clients from defaults`, 'success');
+      const updatedCount = await applyCuratedSelectionsToClients();
+      setClients(getClients());
+      addToast(`Applied curated selections to ${updatedCount} clients`, 'success');
     } catch (error) {
-      addToast('Error reinitializing: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
+      addToast('Error applying curated selections: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
     } finally {
-      setIsReinitializing(false);
+      setIsApplyingCurated(false);
     }
   };
 
@@ -485,13 +484,13 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
 
         <Button
           variant="outline"
-          onClick={handleForceReinitialize}
-          disabled={isReinitializing}
-          className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400"
-          title="Delete all clients and recreate from defaults with curated skills/workflows"
+          onClick={handleApplyCuratedSelections}
+          disabled={isApplyingCurated}
+          className="text-blue-600 hover:text-blue-700 border-blue-300 hover:border-blue-400"
+          title="Apply curated skills/workflows to specific companies (keeps all other clients unchanged)"
         >
-          <AlertTriangle className={`h-4 w-4 mr-2 ${isReinitializing ? 'animate-pulse' : ''}`} />
-          {isReinitializing ? 'Reinitializing...' : 'Force Reset'}
+          <Zap className={`h-4 w-4 mr-2 ${isApplyingCurated ? 'animate-pulse' : ''}`} />
+          {isApplyingCurated ? 'Applying...' : 'Apply Curated'}
         </Button>
 
         <Button onClick={() => setShowNewClientForm(true)}>
