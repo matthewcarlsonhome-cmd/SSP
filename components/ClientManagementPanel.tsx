@@ -559,6 +559,12 @@ const ClientCard: React.FC<ClientCardProps> = ({
   const industryOption = INDUSTRY_OPTIONS.find(o => o.value === client.industry);
   const priorityOption = PRIORITY_OPTIONS.find(o => o.value === client.priority);
 
+  // Count only valid skills/workflows that actually exist in the library
+  const validSkillIds = new Set(availableSkills.map(s => s.id));
+  const validWorkflowIds = new Set(availableWorkflows.map(w => w.id));
+  const validSkillCount = client.selectedSkillIds.filter(id => validSkillIds.has(id)).length;
+  const validWorkflowCount = client.selectedWorkflowIds.filter(id => validWorkflowIds.has(id)).length;
+
   return (
     <div className="rounded-xl border bg-card overflow-hidden">
       {/* Header Row */}
@@ -591,8 +597,8 @@ const ClientCard: React.FC<ClientCardProps> = ({
             {client.companyType && <span>{client.companyType}</span>}
             {client.revenue && <span>{client.revenue}</span>}
             {client.employeeCount && <span>{client.employeeCount} employees</span>}
-            <span>{client.selectedSkillIds.length} skills</span>
-            <span>{client.selectedWorkflowIds.length} workflows</span>
+            <span>{validSkillCount} skills</span>
+            <span>{validWorkflowCount} workflows</span>
             {client.contacts.length > 0 && (
               <span>{client.contacts[0].name}</span>
             )}
