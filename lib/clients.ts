@@ -16,6 +16,7 @@ import {
   getPersonalizedSkillRecommendations,
   getPersonalizedWorkflowRecommendations,
 } from './clientRecommendations';
+import { applyPersuasiveMessaging } from './persuasiveMessaging';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { logger } from './logger';
 
@@ -1225,4 +1226,89 @@ export async function forceReinitializeClients(): Promise<Client[]> {
 
   // Reinitialize from defaults
   return initializeDefaultClientsAsync();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PERSUASIVE MESSAGING - Apply science-backed marketing messages
+// Based on 7 persuasion principles: why, social proof, questions, etc.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Apply persuasive marketing messages to all clients
+ * Uses 7 science-backed persuasion principles to generate unique messages
+ *
+ * @returns Number of clients updated
+ */
+export async function applyPersuasiveMessagesToAllClients(): Promise<number> {
+  const clients = getClients();
+  let updatedCount = 0;
+
+  for (const client of clients) {
+    // Generate persuasive content based on client attributes
+    const { customHeadline, customMessage } = applyPersuasiveMessaging({
+      companyName: client.companyName,
+      industry: client.industry,
+      companyType: client.companyType,
+      services: client.services,
+      description: client.description,
+      painPoints: client.painPoints,
+      revenue: client.revenue,
+      employeeCount: client.employeeCount,
+      estimatedTimeSavings: client.estimatedTimeSavings,
+      estimatedCostSavings: client.estimatedCostSavings,
+    });
+
+    // Only update if messages have changed
+    if (client.customHeadline !== customHeadline || client.customMessage !== customMessage) {
+      client.customHeadline = customHeadline;
+      client.customMessage = customMessage;
+      client.updatedAt = new Date().toISOString();
+      updatedCount++;
+    }
+  }
+
+  if (updatedCount > 0) {
+    saveClientsToLocalStorage(clients);
+
+    // Sync to Supabase if configured
+    if (isSupabaseConfigured()) {
+      await Promise.all(clients.map(c => saveClientToSupabase(c)));
+    }
+  }
+
+  logger.info('Applied persuasive messaging to clients', { updatedCount, total: clients.length });
+  return updatedCount;
+}
+
+/**
+ * Apply persuasive messaging to a single client
+ */
+export function applyPersuasiveMessageToClient(clientId: string): Client | null {
+  const client = getClientById(clientId);
+  if (!client) return null;
+
+  const clients = getClients();
+  const index = clients.findIndex(c => c.id === clientId);
+  if (index === -1) return null;
+
+  // Generate persuasive content
+  const { customHeadline, customMessage } = applyPersuasiveMessaging({
+    companyName: client.companyName,
+    industry: client.industry,
+    companyType: client.companyType,
+    services: client.services,
+    description: client.description,
+    painPoints: client.painPoints,
+    revenue: client.revenue,
+    employeeCount: client.employeeCount,
+    estimatedTimeSavings: client.estimatedTimeSavings,
+    estimatedCostSavings: client.estimatedCostSavings,
+  });
+
+  clients[index].customHeadline = customHeadline;
+  clients[index].customMessage = customMessage;
+  clients[index].updatedAt = new Date().toISOString();
+
+  saveClients(clients);
+  return clients[index];
 }
