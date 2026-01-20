@@ -16,7 +16,9 @@ import {
   getPersonalizedSkillRecommendations,
   getPersonalizedWorkflowRecommendations,
 } from './clientRecommendations';
-import { applyPersuasiveMessaging } from './persuasiveMessaging';
+import { applyPersuasiveMessaging, generateLinkedInConnectForClient } from './persuasiveMessaging';
+import { getAllLibrarySkills } from './skillLibrary';
+import { WORKFLOWS } from './workflows';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { logger } from './logger';
 
@@ -48,6 +50,7 @@ interface SupabaseClient {
   selected_workflow_ids: string[] | null;
   custom_headline: string | null;
   custom_message: string | null;
+  linkedin_connect_message: string | null;
   portal_slug: string;
   portal_enabled: boolean;
   status: string;
@@ -80,6 +83,7 @@ function supabaseToClient(row: SupabaseClient): Client {
     selectedWorkflowIds: row.selected_workflow_ids || [],
     customHeadline: row.custom_headline || undefined,
     customMessage: row.custom_message || undefined,
+    linkedInConnectMessage: row.linkedin_connect_message || undefined,
     portalSlug: row.portal_slug,
     portalEnabled: row.portal_enabled,
     status: row.status as ClientStatus,
@@ -113,6 +117,7 @@ function clientToSupabase(client: Partial<Client>): Record<string, unknown> {
   if (client.selectedWorkflowIds !== undefined) result.selected_workflow_ids = client.selectedWorkflowIds || [];
   if (client.customHeadline !== undefined) result.custom_headline = client.customHeadline || null;
   if (client.customMessage !== undefined) result.custom_message = client.customMessage || null;
+  if (client.linkedInConnectMessage !== undefined) result.linkedin_connect_message = client.linkedInConnectMessage || null;
   if (client.portalSlug !== undefined) result.portal_slug = client.portalSlug;
   if (client.portalEnabled !== undefined) result.portal_enabled = client.portalEnabled;
   if (client.status !== undefined) result.status = client.status;
@@ -238,11 +243,12 @@ async function getClientBySlugFromSupabase(slug: string): Promise<Client | null>
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PUBLIC API - Uses Supabase with localStorage fallback
+// PUBLIC API - Supabase is the SOURCE OF TRUTH, localStorage is cache only
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
  * Get all clients (async for Supabase, falls back to localStorage)
+ * ALWAYS tries Supabase first when configured - it's the source of truth
  */
 export async function getClientsAsync(): Promise<Client[]> {
   if (isSupabaseConfigured()) {
@@ -265,6 +271,7 @@ export function getClients(): Client[] {
 
 /**
  * Save clients to storage (both Supabase and localStorage)
+ * NOTE: This is fire-and-forget for Supabase. Use saveClientsAndWait for guaranteed sync.
  */
 export function saveClients(clients: Client[]): void {
   // Always save to localStorage for immediate access
@@ -275,6 +282,33 @@ export function saveClients(clients: Client[]): void {
     Promise.all(clients.map(c => saveClientToSupabase(c)))
       .catch(err => logger.error('Failed to sync clients to Supabase', { error: err }));
   }
+}
+
+/**
+ * Save a single client and WAIT for Supabase confirmation
+ * Returns true if saved successfully to Supabase (or if Supabase is not configured)
+ */
+export async function saveClientAndWait(client: Client): Promise<{ success: boolean; error?: string }> {
+  // Always save to localStorage first
+  const clients = getClientsFromLocalStorage();
+  const index = clients.findIndex(c => c.id === client.id);
+  if (index >= 0) {
+    clients[index] = client;
+  } else {
+    clients.push(client);
+  }
+  saveClientsToLocalStorage(clients);
+
+  // If Supabase is configured, save there and wait for confirmation
+  if (isSupabaseConfigured()) {
+    const result = await saveClientToSupabase(client);
+    if (!result) {
+      return { success: false, error: 'Failed to save to database. Please try again.' };
+    }
+    logger.info('Client saved to Supabase successfully', { clientId: client.id, companyName: client.companyName });
+  }
+
+  return { success: true };
 }
 
 /**
@@ -393,6 +427,7 @@ export async function createClientAsync(data: Partial<Client>): Promise<Client> 
     selectedWorkflowIds: data.selectedWorkflowIds || [],
     customHeadline: data.customHeadline,
     customMessage: data.customMessage,
+    linkedInConnectMessage: data.linkedInConnectMessage,
     portalSlug: data.portalSlug || generateSlug(data.companyName || 'new-company'),
     portalEnabled: data.portalEnabled ?? false,
     status: data.status || 'prospect',
@@ -450,6 +485,7 @@ export function createClient(data: Partial<Client>): Client {
     selectedWorkflowIds: data.selectedWorkflowIds || [],
     customHeadline: data.customHeadline,
     customMessage: data.customMessage,
+    linkedInConnectMessage: data.linkedInConnectMessage,
     portalSlug: data.portalSlug || generateSlug(data.companyName || 'new-company'),
     portalEnabled: data.portalEnabled ?? false,
     status: data.status || 'prospect',
@@ -474,13 +510,14 @@ export function createClient(data: Partial<Client>): Client {
 }
 
 /**
- * Update an existing client
+ * Update an existing client (async - WAITS for Supabase confirmation)
+ * Returns { client, success, error } to allow proper error handling
  */
-export async function updateClientAsync(id: string, updates: Partial<Client>): Promise<Client | null> {
+export async function updateClientAsync(id: string, updates: Partial<Client>): Promise<{ client: Client | null; success: boolean; error?: string }> {
   const clients = getClients();
   const index = clients.findIndex(c => c.id === id);
 
-  if (index === -1) return null;
+  if (index === -1) return { client: null, success: false, error: 'Client not found' };
 
   const updatedClient = {
     ...clients[index],
@@ -502,12 +539,16 @@ export async function updateClientAsync(id: string, updates: Partial<Client>): P
   clients[index] = updatedClient;
   saveClientsToLocalStorage(clients);
 
-  // Save to Supabase if configured
+  // Save to Supabase if configured - WAIT for confirmation
   if (isSupabaseConfigured()) {
-    await saveClientToSupabase(updatedClient);
+    const result = await saveClientToSupabase(updatedClient);
+    if (!result) {
+      return { client: updatedClient, success: false, error: 'Saved locally but failed to sync to database' };
+    }
+    logger.info('Client updated in Supabase', { clientId: id, updates: Object.keys(updates) });
   }
 
-  return updatedClient;
+  return { client: updatedClient, success: true };
 }
 
 /**
@@ -757,21 +798,65 @@ export function initializeDefaultClients(): Client[] {
 
 /**
  * Sync clients from localStorage to Supabase (manual sync)
+ * Returns detailed status including success count and failures
  */
-export async function syncClientsToSupabase(): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+export async function syncClientsToSupabase(): Promise<{ success: boolean; synced: number; failed: number; errors: string[] }> {
+  if (!isSupabaseConfigured()) {
+    return { success: false, synced: 0, failed: 0, errors: ['Supabase is not configured'] };
+  }
 
   const clients = getClientsFromLocalStorage();
-  if (clients.length === 0) return true;
-
-  try {
-    await Promise.all(clients.map(c => saveClientToSupabase(c)));
-    logger.info('Successfully synced clients to Supabase', { count: clients.length });
-    return true;
-  } catch (error) {
-    logger.error('Failed to sync clients to Supabase', { error });
-    return false;
+  if (clients.length === 0) {
+    return { success: true, synced: 0, failed: 0, errors: [] };
   }
+
+  const errors: string[] = [];
+  let synced = 0;
+  let failed = 0;
+
+  // Sync each client individually to track successes/failures
+  for (const client of clients) {
+    const result = await saveClientToSupabase(client);
+    if (result) {
+      synced++;
+    } else {
+      failed++;
+      errors.push(`Failed to sync: ${client.companyName}`);
+    }
+  }
+
+  const success = failed === 0;
+  logger.info('Sync to Supabase completed', { synced, failed, total: clients.length });
+
+  return { success, synced, failed, errors };
+}
+
+/**
+ * Verify a client's data matches between localStorage and Supabase
+ * Useful for debugging sync issues
+ */
+export async function verifyClientSync(id: string): Promise<{ inSync: boolean; localStorage: Client | null; supabase: Client | null }> {
+  const localClient = getClientById(id);
+  let supabaseClient: Client | null = null;
+
+  if (isSupabaseConfigured() && supabase && localClient) {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (!error && data) {
+      supabaseClient = supabaseToClient(data as SupabaseClient);
+    }
+  }
+
+  const inSync = localClient && supabaseClient
+    ? JSON.stringify(localClient.selectedSkillIds.sort()) === JSON.stringify(supabaseClient.selectedSkillIds.sort()) &&
+      JSON.stringify(localClient.selectedWorkflowIds.sort()) === JSON.stringify(supabaseClient.selectedWorkflowIds.sort())
+    : false;
+
+  return { inSync, localStorage: localClient, supabase: supabaseClient };
 }
 
 /**
@@ -990,7 +1075,7 @@ export async function resetAllClientSelectionsToDefaults(): Promise<number> {
 
     // Sync to Supabase if configured
     if (isSupabaseConfigured()) {
-      await syncClientsToSupabase(clients);
+      await syncClientsToSupabase();
     }
   }
 
@@ -1386,4 +1471,125 @@ export async function applyCuratedSelectionsToClients(): Promise<number> {
 
   logger.info('Applied curated selections', { updatedCount, totalClients: clients.length });
   return updatedCount;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LINKEDIN CONNECT MESSAGES - Generate personalized connection request notes
+// References specific skills/workflows for each client (300 char max)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Apply LinkedIn Connect messages to all clients
+ * Generates personalized connection request notes that reference their specific skills/workflows
+ *
+ * @returns Number of clients updated
+ */
+export async function applyLinkedInConnectMessagesToAllClients(): Promise<number> {
+  const clients = getClients();
+  let updatedCount = 0;
+
+  // Build skill and workflow name maps for message generation
+  const skillNameMap = new Map<string, string>();
+  const workflowNameMap = new Map<string, string>();
+
+  try {
+    const allSkills = getAllLibrarySkills();
+    allSkills.forEach(s => skillNameMap.set(s.id, s.name));
+  } catch (e) {
+    logger.warn('Could not load skill library for LinkedIn message generation', { error: e });
+  }
+
+  try {
+    const allWorkflows = Object.values(WORKFLOWS);
+    allWorkflows.forEach(w => workflowNameMap.set(w.id, w.name));
+  } catch (e) {
+    logger.warn('Could not load workflows for LinkedIn message generation', { error: e });
+  }
+
+  for (const client of clients) {
+    // Generate LinkedIn Connect message that references their skills/workflows
+    const linkedInConnectMessage = generateLinkedInConnectForClient(
+      {
+        companyName: client.companyName,
+        industry: client.industry,
+        contacts: client.contacts,
+        selectedSkillIds: client.selectedSkillIds,
+        selectedWorkflowIds: client.selectedWorkflowIds,
+        painPoints: client.painPoints,
+        estimatedTimeSavings: client.estimatedTimeSavings,
+      },
+      skillNameMap,
+      workflowNameMap
+    );
+
+    // Only update if message has changed
+    if (client.linkedInConnectMessage !== linkedInConnectMessage) {
+      client.linkedInConnectMessage = linkedInConnectMessage;
+      client.updatedAt = new Date().toISOString();
+      updatedCount++;
+    }
+  }
+
+  if (updatedCount > 0) {
+    saveClientsToLocalStorage(clients);
+
+    // Sync to Supabase if configured
+    if (isSupabaseConfigured()) {
+      await Promise.all(clients.map(c => saveClientToSupabase(c)));
+    }
+  }
+
+  logger.info('Applied LinkedIn Connect messages to clients', { updatedCount, total: clients.length });
+  return updatedCount;
+}
+
+/**
+ * Apply LinkedIn Connect message to a single client
+ */
+export function applyLinkedInConnectMessageToClient(clientId: string): Client | null {
+  const client = getClientById(clientId);
+  if (!client) return null;
+
+  const clients = getClients();
+  const index = clients.findIndex(c => c.id === clientId);
+  if (index === -1) return null;
+
+  // Build skill and workflow name maps
+  const skillNameMap = new Map<string, string>();
+  const workflowNameMap = new Map<string, string>();
+
+  try {
+    const allSkills = getAllLibrarySkills();
+    allSkills.forEach(s => skillNameMap.set(s.id, s.name));
+  } catch (e) {
+    logger.warn('Could not load skill library', { error: e });
+  }
+
+  try {
+    const allWorkflows = Object.values(WORKFLOWS);
+    allWorkflows.forEach(w => workflowNameMap.set(w.id, w.name));
+  } catch (e) {
+    logger.warn('Could not load workflows', { error: e });
+  }
+
+  // Generate LinkedIn Connect message
+  const linkedInConnectMessage = generateLinkedInConnectForClient(
+    {
+      companyName: client.companyName,
+      industry: client.industry,
+      contacts: client.contacts,
+      selectedSkillIds: client.selectedSkillIds,
+      selectedWorkflowIds: client.selectedWorkflowIds,
+      painPoints: client.painPoints,
+      estimatedTimeSavings: client.estimatedTimeSavings,
+    },
+    skillNameMap,
+    workflowNameMap
+  );
+
+  clients[index].linkedInConnectMessage = linkedInConnectMessage;
+  clients[index].updatedAt = new Date().toISOString();
+
+  saveClients(clients);
+  return clients[index];
 }

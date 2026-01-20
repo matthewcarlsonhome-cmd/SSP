@@ -34,7 +34,8 @@ import {
   Globe,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
-import { getClientBySlug, getClientBySlugAsync } from '../lib/clients';
+import { getClientBySlugAsync } from '../lib/clients';
+import { isSupabaseConfigured } from '../lib/supabase';
 import { getStaticSkills } from '../lib/skills/registry';
 import { WORKFLOWS } from '../lib/workflows';
 import { calculateROI } from '../lib/skillTimeSavings';
@@ -299,7 +300,7 @@ const ClientPortalPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load client data (tries Supabase first for external users, falls back to localStorage)
+  // Load client data - ALWAYS from Supabase (DB is the single source of truth)
   useEffect(() => {
     async function loadClient() {
       if (!slug) {
@@ -312,20 +313,23 @@ const ClientPortalPage: React.FC = () => {
       // This enables automatic portal mode (no API key required for demos)
       setPortalSession(slug);
 
-      // Try async fetch from Supabase first (works for external users without localStorage)
+      // Check if Supabase is configured
+      if (!isSupabaseConfigured()) {
+        setError('Database not configured. Please contact the administrator.');
+        setLoading(false);
+        return;
+      }
+
+      // Fetch client from Supabase - this is the ONLY source of truth for portal pages
+      // This ensures that what you see in the Portal is exactly what's in the database
       const clientData = await getClientBySlugAsync(slug);
       if (!clientData) {
-        // Fall back to sync localStorage check
-        const localClient = getClientBySlug(slug);
-        if (!localClient) {
-          setError('Portal not found or inactive');
-          setLoading(false);
-          return;
-        }
-        setClient(localClient);
-      } else {
-        setClient(clientData);
+        setError('Portal not found or inactive. Please ensure the client has been synced to the database.');
+        setLoading(false);
+        return;
       }
+
+      setClient(clientData);
       setLoading(false);
     }
 

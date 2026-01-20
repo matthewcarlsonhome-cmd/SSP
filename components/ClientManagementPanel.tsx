@@ -49,6 +49,7 @@ import {
   getClients,
   createClient,
   updateClient,
+  updateClientAsync,
   deleteClient,
   initializeDefaultClients,
   exportClientsToCSV,
@@ -59,6 +60,7 @@ import {
   refreshClientsFromDefaults,
   applyPersuasiveMessagesToAllClients,
   applyCuratedSelectionsToClients,
+  applyLinkedInConnectMessagesToAllClients,
 } from '../lib/clients';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { getAllLibrarySkills } from '../lib/skillLibrary';
@@ -131,6 +133,7 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isApplyingMessages, setIsApplyingMessages] = useState(false);
   const [isApplyingCurated, setIsApplyingCurated] = useState(false);
+  const [isApplyingLinkedIn, setIsApplyingLinkedIn] = useState(false);
   const supabaseConfigured = isSupabaseConfigured();
 
   // Load clients on mount
@@ -204,11 +207,13 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
 
     setIsSyncing(true);
     try {
-      const success = await syncClientsToSupabase();
-      if (success) {
-        addToast(`Successfully synced ${clients.length} clients to database`, 'success');
+      const result = await syncClientsToSupabase();
+      if (result.success) {
+        addToast(`Successfully synced ${result.synced} clients to database`, 'success');
+      } else if (result.synced > 0) {
+        addToast(`Partial sync: ${result.synced} synced, ${result.failed} failed. ${result.errors.join(', ')}`, 'error');
       } else {
-        addToast('Failed to sync clients to database. Check console for details.', 'error');
+        addToast(`Failed to sync clients: ${result.errors.join(', ')}`, 'error');
       }
     } catch (error) {
       addToast('Error syncing to database: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
@@ -285,6 +290,23 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
     }
   };
 
+  const handleApplyLinkedInConnectMessages = async () => {
+    if (!confirm('This will generate LinkedIn Connect messages for all clients based on their curated skills/workflows. Messages are under 300 characters for LinkedIn connection requests. Continue?')) {
+      return;
+    }
+
+    setIsApplyingLinkedIn(true);
+    try {
+      const updatedCount = await applyLinkedInConnectMessagesToAllClients();
+      setClients(getClients());
+      addToast(`Applied LinkedIn Connect messages to ${updatedCount} clients`, 'success');
+    } catch (error) {
+      addToast('Error applying LinkedIn messages: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
+    } finally {
+      setIsApplyingLinkedIn(false);
+    }
+  };
+
   const handleCreateClient = (data: Partial<Client>) => {
     const newClient = createClient(data);
     setClients(getClients());
@@ -292,11 +314,22 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
     addToast(`Created client: ${newClient.companyName}`, 'success');
   };
 
-  const handleUpdateClient = (id: string, updates: Partial<Client>) => {
-    const updated = updateClient(id, updates);
-    if (updated) {
+  const handleUpdateClient = async (id: string, updates: Partial<Client>) => {
+    // Use async version that waits for Supabase confirmation
+    const result = await updateClientAsync(id, updates);
+    if (result.client) {
       setClients(getClients());
-      addToast('Client updated', 'success');
+      if (result.success) {
+        // Only show toast for significant updates (skills/workflows/portal)
+        const isSignificantUpdate = 'selectedSkillIds' in updates ||
+                                     'selectedWorkflowIds' in updates ||
+                                     'portalEnabled' in updates;
+        if (isSignificantUpdate && supabaseConfigured) {
+          addToast('Client synced to database', 'success');
+        }
+      } else {
+        addToast(result.error || 'Client saved locally but failed to sync to database', 'error');
+      }
     }
   };
 
@@ -493,6 +526,17 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
           {isApplyingCurated ? 'Applying...' : 'Apply Curated'}
         </Button>
 
+        <Button
+          variant="outline"
+          onClick={handleApplyLinkedInConnectMessages}
+          disabled={isApplyingLinkedIn}
+          className="text-cyan-600 hover:text-cyan-700 border-cyan-300 hover:border-cyan-400"
+          title="Generate LinkedIn Connect messages that reference each client's skills/workflows"
+        >
+          <Linkedin className={`h-4 w-4 mr-2 ${isApplyingLinkedIn ? 'animate-pulse' : ''}`} />
+          {isApplyingLinkedIn ? 'Generating...' : 'LinkedIn Connect'}
+        </Button>
+
         <Button onClick={() => setShowNewClientForm(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Client
@@ -564,7 +608,7 @@ interface ClientCardProps {
   client: Client;
   isExpanded: boolean;
   onToggleExpand: () => void;
-  onUpdate: (updates: Partial<Client>) => void;
+  onUpdate: (updates: Partial<Client>) => Promise<void>;
   onDelete: () => void;
   onCopyUrl: () => void;
   onViewPortal?: (client: Client) => void;
@@ -585,9 +629,20 @@ const ClientCard: React.FC<ClientCardProps> = ({
   availableSkills,
   availableWorkflows,
 }) => {
+  const [isSyncing, setIsSyncing] = useState(false);
   const statusOption = STATUS_OPTIONS.find(o => o.value === client.status);
   const industryOption = INDUSTRY_OPTIONS.find(o => o.value === client.industry);
   const priorityOption = PRIORITY_OPTIONS.find(o => o.value === client.priority);
+
+  // Wrap onUpdate to show syncing state
+  const handleUpdate = async (updates: Partial<Client>) => {
+    setIsSyncing(true);
+    try {
+      await onUpdate(updates);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Count only valid skills/workflows that actually exist in the library
   const validSkillIds = new Set(availableSkills.map(s => s.id));
@@ -802,11 +857,18 @@ const ClientCard: React.FC<ClientCardProps> = ({
               <div className="flex items-center gap-2">
                 <Link2 className="h-5 w-5" />
                 <h4 className="font-medium">Client Portal</h4>
+                {isSyncing && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-500/20 text-blue-600">
+                    <Cloud className="w-3 h-3 animate-pulse" />
+                    Syncing...
+                  </span>
+                )}
               </div>
               <Button
                 variant={client.portalEnabled ? 'outline' : 'default'}
                 size="sm"
-                onClick={() => onUpdate({ portalEnabled: !client.portalEnabled })}
+                onClick={() => handleUpdate({ portalEnabled: !client.portalEnabled })}
+                disabled={isSyncing}
               >
                 {client.portalEnabled ? (
                   <>
@@ -865,16 +927,49 @@ const ClientCard: React.FC<ClientCardProps> = ({
             />
           </div>
 
+          {/* LinkedIn Connect Message */}
+          <div className="rounded-lg border p-4 bg-cyan-50/50 dark:bg-cyan-950/20">
+            <div className="flex items-center gap-2 mb-2">
+              <Linkedin className="h-4 w-4 text-cyan-600" />
+              <label className="text-sm font-medium text-cyan-700 dark:text-cyan-400">
+                LinkedIn Connect Message
+              </label>
+              <span className="text-xs text-muted-foreground ml-auto">
+                {client.linkedInConnectMessage?.length || 0}/300 chars
+              </span>
+            </div>
+            <Textarea
+              value={client.linkedInConnectMessage || ''}
+              onChange={e => {
+                const value = e.target.value.slice(0, 300);
+                onUpdate({ linkedInConnectMessage: value });
+              }}
+              placeholder="Short personalized message for LinkedIn connection request..."
+              rows={3}
+              className="mt-1 text-sm"
+              maxLength={300}
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              This message references skills: {client.selectedSkillIds.slice(0, 3).join(', ')}
+            </p>
+          </div>
+
           {/* Skills Selection */}
           <div>
             <div className="flex items-center gap-2 mb-3">
               <Zap className="h-5 w-5" />
               <h4 className="font-medium">Selected Skills ({client.selectedSkillIds.length})</h4>
+              {isSyncing && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-500/20 text-blue-600">
+                  <Cloud className="w-3 h-3 animate-pulse" />
+                  Syncing to DB...
+                </span>
+              )}
             </div>
             <SkillSelector
               availableSkills={availableSkills}
               selectedIds={client.selectedSkillIds}
-              onSelectionChange={ids => onUpdate({ selectedSkillIds: ids })}
+              onSelectionChange={ids => handleUpdate({ selectedSkillIds: ids })}
             />
           </div>
 
@@ -883,11 +978,17 @@ const ClientCard: React.FC<ClientCardProps> = ({
             <div className="flex items-center gap-2 mb-3">
               <GitBranch className="h-5 w-5" />
               <h4 className="font-medium">Selected Workflows ({client.selectedWorkflowIds.length})</h4>
+              {isSyncing && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-500/20 text-blue-600">
+                  <Cloud className="w-3 h-3 animate-pulse" />
+                  Syncing to DB...
+                </span>
+              )}
             </div>
             <WorkflowSelector
               availableWorkflows={availableWorkflows}
               selectedIds={client.selectedWorkflowIds}
-              onSelectionChange={ids => onUpdate({ selectedWorkflowIds: ids })}
+              onSelectionChange={ids => handleUpdate({ selectedWorkflowIds: ids })}
             />
           </div>
 
@@ -915,7 +1016,7 @@ const ClientCard: React.FC<ClientCardProps> = ({
 interface SkillSelectorProps {
   availableSkills: SelectableSkill[];
   selectedIds: string[];
-  onSelectionChange: (ids: string[]) => void;
+  onSelectionChange: (ids: string[]) => void | Promise<void>;
 }
 
 const SkillSelector: React.FC<SkillSelectorProps> = ({
@@ -1004,7 +1105,7 @@ const SkillSelector: React.FC<SkillSelectorProps> = ({
 interface WorkflowSelectorProps {
   availableWorkflows: Workflow[];
   selectedIds: string[];
-  onSelectionChange: (ids: string[]) => void;
+  onSelectionChange: (ids: string[]) => void | Promise<void>;
 }
 
 const WorkflowSelector: React.FC<WorkflowSelectorProps> = ({

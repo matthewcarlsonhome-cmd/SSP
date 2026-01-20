@@ -500,3 +500,238 @@ export function applyPersuasiveMessaging(client: {
     customMessage: `${content.message}\n\n${content.callToAction}`,
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LINKEDIN CONNECT MESSAGE GENERATION
+// Short, personalized notes for connection requests (300 char max)
+// References specific skills/workflows curated for each client
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface LinkedInConnectContext {
+  companyName: string;
+  industry: ClientIndustry;
+  contactName?: string;
+  skillNames?: string[];      // Names of selected skills (top 2-3)
+  workflowNames?: string[];   // Names of selected workflows (top 1-2)
+  painPoints?: string;
+  estimatedTimeSavings?: string;
+}
+
+/**
+ * Industry-specific skill highlights for LinkedIn Connect messages
+ */
+const INDUSTRY_SKILL_HIGHLIGHTS: Record<ClientIndustry, string[]> = {
+  marketing_advertising: [
+    'campaign analytics automation',
+    'multi-channel performance dashboards',
+    'creative workflow optimization',
+    'client reporting automation',
+  ],
+  insurance: [
+    'compliance documentation automation',
+    'claims processing workflows',
+    'policy review acceleration',
+  ],
+  financial_services: [
+    'regulatory compliance tracking',
+    'client reporting automation',
+    'financial analysis workflows',
+  ],
+  healthcare: [
+    'HIPAA compliance automation',
+    'patient communication workflows',
+    'clinical documentation tools',
+  ],
+  technology: [
+    'technical documentation automation',
+    'sprint planning optimization',
+    'code review workflows',
+  ],
+  professional_services: [
+    'proposal generation automation',
+    'client engagement workflows',
+    'deliverable tracking',
+  ],
+  retail: [
+    'inventory management automation',
+    'customer experience workflows',
+    'seasonal planning tools',
+  ],
+  manufacturing: [
+    'supply chain visibility tools',
+    'quality documentation automation',
+    'production coordination workflows',
+  ],
+  real_estate: [
+    'listing management automation',
+    'transaction coordination tools',
+    'CRM workflow optimization',
+  ],
+  hospitality: [
+    'guest communication automation',
+    'scheduling optimization',
+    'review management workflows',
+  ],
+  education: [
+    'administrative task automation',
+    'compliance documentation tools',
+    'stakeholder communication workflows',
+  ],
+  nonprofit: [
+    'grant reporting automation',
+    'donor communication workflows',
+    'program impact tracking',
+  ],
+  construction: [
+    'project coordination automation',
+    'safety documentation tools',
+    'bid preparation workflows',
+  ],
+  automotive: [
+    'service scheduling optimization',
+    'customer follow-up automation',
+    'inventory tracking tools',
+  ],
+  food_beverage: [
+    'compliance documentation automation',
+    'staff scheduling optimization',
+    'recipe management workflows',
+  ],
+  biotechnology: [
+    'R&D documentation automation',
+    'regulatory compliance tools',
+    'research workflow optimization',
+  ],
+  legal: [
+    'document review acceleration',
+    'client communication tracking',
+    'billing documentation automation',
+  ],
+  staffing: [
+    'candidate communication automation',
+    'client coordination tools',
+    'placement tracking workflows',
+  ],
+  engineering: [
+    'technical documentation automation',
+    'bid preparation tools',
+    'project status workflows',
+  ],
+  utilities: [
+    'regulatory compliance tracking',
+    'customer communication automation',
+    'outage response coordination',
+  ],
+  other: [
+    'operational task automation',
+    'documentation workflows',
+    'team productivity tools',
+  ],
+};
+
+/**
+ * Generate a short LinkedIn Connect message that references skills/workflows
+ * LinkedIn connection requests have a 300 character limit
+ */
+export function generateLinkedInConnectMessage(context: LinkedInConnectContext): string {
+  const hash = hashString(context.companyName);
+  const firstName = context.contactName?.split(' ')[0] || '';
+
+  // Select message template based on hash (for variety)
+  const templateIndex = hash % 5;
+
+  // Get skill/workflow highlights to mention
+  const skillHighlights = context.skillNames?.slice(0, 2) || [];
+  const workflowHighlight = context.workflowNames?.[0];
+  const industryHighlights = INDUSTRY_SKILL_HIGHLIGHTS[context.industry] || INDUSTRY_SKILL_HIGHLIGHTS.other;
+  const industryHighlight = selectFromArray(industryHighlights, hash);
+
+  // Build the skill reference based on available data
+  let skillReference: string;
+  if (skillHighlights.length > 0) {
+    skillReference = skillHighlights.join(' and ');
+  } else if (workflowHighlight) {
+    skillReference = workflowHighlight;
+  } else {
+    skillReference = industryHighlight;
+  }
+
+  // Time savings mention if available
+  const timeSavings = context.estimatedTimeSavings ? ` (${context.estimatedTimeSavings}/week potential)` : '';
+
+  // Templates designed to be under 300 chars with personalization
+  const templates = [
+    // Template 0: Direct skill reference
+    `Hi${firstName ? ` ${firstName}` : ''},\n\nI've curated AI skills specifically for ${context.companyName}—including ${skillReference}${timeSavings}. Would love to connect and share how these could help.`,
+
+    // Template 1: Problem-solution focused
+    `Hi${firstName ? ` ${firstName}` : ''},\n\nI noticed ${context.companyName}'s work and put together AI automation for ${skillReference}. Happy to share insights on saving ${context.estimatedTimeSavings || '15-25 hrs'}/week. Let's connect?`,
+
+    // Template 2: Workflow focused
+    `Hi${firstName ? ` ${firstName}` : ''},\n\nBuilt a custom AI toolkit for agencies like ${context.companyName}—${skillReference} automation and more. Would love to connect and show you what's possible.`,
+
+    // Template 3: Value-first
+    `Hi${firstName ? ` ${firstName}` : ''},\n\nCreated AI skills for ${context.industry.replace('_', ' ')} teams: ${skillReference}. ${context.companyName}'s exactly who I had in mind. Connect to see your custom portal?`,
+
+    // Template 4: Brief and direct
+    `Hi${firstName ? ` ${firstName}` : ''},\n\nI've built AI skills tailored for ${context.companyName}—${skillReference}. Have a personalized portal ready. Let's connect?`,
+  ];
+
+  let message = templates[templateIndex];
+
+  // Ensure message is under 300 characters
+  if (message.length > 300) {
+    // Fallback to shorter version
+    message = `Hi${firstName ? ` ${firstName}` : ''},\n\nI've curated AI skills for ${context.companyName}—${skillReference}. Would love to connect and share.`;
+  }
+
+  // Final length check
+  if (message.length > 300) {
+    message = `Hi${firstName ? ` ${firstName}` : ''},\n\nBuilt AI automation skills tailored for ${context.companyName}. Would love to connect and share what's possible.`;
+  }
+
+  return message;
+}
+
+/**
+ * Generate LinkedIn Connect message for a client with full context
+ * Includes skill name lookups
+ */
+export function generateLinkedInConnectForClient(
+  client: {
+    companyName: string;
+    industry: ClientIndustry;
+    contacts?: { name: string; isPrimary?: boolean }[];
+    selectedSkillIds?: string[];
+    selectedWorkflowIds?: string[];
+    painPoints?: string;
+    estimatedTimeSavings?: string;
+  },
+  skillNameMap?: Map<string, string>,
+  workflowNameMap?: Map<string, string>
+): string {
+  // Get primary contact name
+  const primaryContact = client.contacts?.find(c => c.isPrimary) || client.contacts?.[0];
+
+  // Map skill IDs to names (use first 3)
+  const skillNames = client.selectedSkillIds
+    ?.slice(0, 3)
+    .map(id => skillNameMap?.get(id))
+    .filter((name): name is string => !!name) || [];
+
+  // Map workflow IDs to names (use first 2)
+  const workflowNames = client.selectedWorkflowIds
+    ?.slice(0, 2)
+    .map(id => workflowNameMap?.get(id))
+    .filter((name): name is string => !!name) || [];
+
+  return generateLinkedInConnectMessage({
+    companyName: client.companyName,
+    industry: client.industry,
+    contactName: primaryContact?.name,
+    skillNames,
+    workflowNames,
+    painPoints: client.painPoints,
+    estimatedTimeSavings: client.estimatedTimeSavings,
+  });
+}
