@@ -956,7 +956,7 @@ SECTION 3: ANALYSIS GUIDELINES
       'Speaker notes and talking points',
       'Q&A preparation guide',
     ],
-    theme: 'violet',
+    theme: { primary: 'text-violet-400', secondary: 'bg-violet-900/20', gradient: 'from-violet-500/20 to-transparent' },
     icon: MemoIcon,
     inputs: [
       {
@@ -1080,7 +1080,7 @@ For each slide:
       'Evaluation rubrics',
       'Test cases for validation',
     ],
-    theme: 'cyan',
+    theme: { primary: 'text-cyan-400', secondary: 'bg-cyan-900/20', gradient: 'from-cyan-500/20 to-transparent' },
     icon: PromptIcon,
     inputs: [
       {
@@ -1212,7 +1212,7 @@ OUTPUT STRUCTURE
       'Target recommendations',
       'Implementation roadmap',
     ],
-    theme: 'emerald',
+    theme: { primary: 'text-emerald-400', secondary: 'bg-emerald-900/20', gradient: 'from-emerald-500/20 to-transparent' },
     icon: KPIIcon,
     inputs: [
       {
@@ -1361,7 +1361,7 @@ OUTPUT STRUCTURE
       'Performance analysis',
       'Bias assessment and maintenance requirements',
     ],
-    theme: 'purple',
+    theme: { primary: 'text-purple-400', secondary: 'bg-purple-900/20', gradient: 'from-purple-500/20 to-transparent' },
     icon: ModelCardIcon,
     inputs: [
       {
@@ -1547,7 +1547,7 @@ OUTPUT STRUCTURE
       'Index recommendations',
       'Before/after comparison',
     ],
-    theme: 'blue',
+    theme: { primary: 'text-blue-400', secondary: 'bg-blue-900/20', gradient: 'from-blue-500/20 to-transparent' },
     icon: SQLIcon,
     inputs: [
       {
@@ -1697,7 +1697,7 @@ CREATE INDEX idx_name ON table(columns);
       'Usage examples',
       'Integration guides',
     ],
-    theme: 'green',
+    theme: { primary: 'text-green-400', secondary: 'bg-green-900/20', gradient: 'from-green-500/20 to-transparent' },
     icon: APIDocIcon,
     inputs: [
       {
@@ -1888,7 +1888,7 @@ openapi: 3.0.0
       'Alternatives analysis',
       'Implementation guidance',
     ],
-    theme: 'amber',
+    theme: { primary: 'text-amber-400', secondary: 'bg-amber-900/20', gradient: 'from-amber-500/20 to-transparent' },
     icon: ADRIcon,
     inputs: [
       {
@@ -2060,7 +2060,7 @@ OUTPUT STRUCTURE
       'Validation rules',
       'Remediation roadmap',
     ],
-    theme: 'rose',
+    theme: { primary: 'text-rose-400', secondary: 'bg-rose-900/20', gradient: 'from-rose-500/20 to-transparent' },
     icon: KPIIcon,
     inputs: [
       {
@@ -2238,7 +2238,7 @@ SELECT * FROM table WHERE [condition];
       'Implementation plan',
       'Evaluation strategy',
     ],
-    theme: 'indigo',
+    theme: { primary: 'text-indigo-400', secondary: 'bg-indigo-900/20', gradient: 'from-indigo-500/20 to-transparent' },
     icon: RAGIcon,
     inputs: [
       {
@@ -2432,7 +2432,7 @@ OUTPUT STRUCTURE
       'Bias analysis',
       'Mitigation recommendations',
     ],
-    theme: 'slate',
+    theme: { primary: 'text-slate-400', secondary: 'bg-slate-900/20', gradient: 'from-slate-500/20 to-transparent' },
     icon: EthicsIcon,
     inputs: [
       {
@@ -2640,7 +2640,7 @@ OUTPUT STRUCTURE
       'Integration requirements',
       'ROI analysis',
     ],
-    theme: 'orange',
+    theme: { primary: 'text-orange-400', secondary: 'bg-orange-900/20', gradient: 'from-orange-500/20 to-transparent' },
     icon: WorkflowIcon,
     inputs: [
       {
@@ -2847,7 +2847,7 @@ OUTPUT STRUCTURE
       'Stakeholder matrix',
       'Response protocols',
     ],
-    theme: 'red',
+    theme: { primary: 'text-red-400', secondary: 'bg-red-900/20', gradient: 'from-red-500/20 to-transparent' },
     icon: CrisisIcon,
     inputs: [
       {
@@ -3064,7 +3064,7 @@ OUTPUT STRUCTURE
       'Slides guidance',
       'Q&A preparation',
     ],
-    theme: 'sky',
+    theme: { primary: 'text-sky-400', secondary: 'bg-sky-900/20', gradient: 'from-sky-500/20 to-transparent' },
     icon: AllHandsIcon,
     inputs: [
       {
@@ -3241,7 +3241,7 @@ OUTPUT STRUCTURE
       'Technical response',
       'Pricing guidance',
     ],
-    theme: 'teal',
+    theme: { primary: 'text-teal-400', secondary: 'bg-teal-900/20', gradient: 'from-teal-500/20 to-transparent' },
     icon: RFPIcon,
     inputs: [
       {
@@ -3405,7 +3405,7 @@ OUTPUT STRUCTURE
       'Stakeholder map',
       '30-60-90 day roadmap',
     ],
-    theme: 'lime',
+    theme: { primary: 'text-lime-400', secondary: 'bg-lime-900/20', gradient: 'from-lime-500/20 to-transparent' },
     icon: TransitionIcon,
     inputs: [
       {
@@ -3585,7 +3585,7 @@ OUTPUT STRUCTURE
       'Practice projects',
       'Progress milestones',
     ],
-    theme: 'fuchsia',
+    theme: { primary: 'text-fuchsia-400', secondary: 'bg-fuchsia-900/20', gradient: 'from-fuchsia-500/20 to-transparent' },
     icon: LearningPathIcon,
     inputs: [
       {
