@@ -159,6 +159,8 @@ export interface Database {
           estimated_time_savings: string | null;
           estimated_cost_savings: string | null;
           pain_points: string | null;
+          company_technical_info: string | null;
+          key_use_cases: string[] | null;
           contacts: unknown;
           selected_skill_ids: string[] | null;
           selected_workflow_ids: string[] | null;
@@ -189,6 +191,8 @@ export interface Database {
           estimated_time_savings?: string | null;
           estimated_cost_savings?: string | null;
           pain_points?: string | null;
+          company_technical_info?: string | null;
+          key_use_cases?: string[] | null;
           contacts?: unknown;
           selected_skill_ids?: string[] | null;
           selected_workflow_ids?: string[] | null;
@@ -219,6 +223,8 @@ export interface Database {
           estimated_time_savings?: string | null;
           estimated_cost_savings?: string | null;
           pain_points?: string | null;
+          company_technical_info?: string | null;
+          key_use_cases?: string[] | null;
           contacts?: unknown;
           selected_skill_ids?: string[] | null;
           selected_workflow_ids?: string[] | null;
