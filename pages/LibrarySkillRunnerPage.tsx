@@ -13,16 +13,18 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { executeDynamicSkill } from '../lib/skills/dynamic';
 import type { ChatGPTModelType } from '../lib/chatgpt';
 import { useToast } from '../hooks/useToast';
+import { usePortalMode } from '../hooks/usePortalMode';
 import type { DynamicSkill, DynamicFormInput, SavedOutput, SkillExecution, FavoriteSkill } from '../lib/storage/types';
 import type { LibrarySkill } from '../lib/skillLibrary/types';
 import { ROLE_DEFINITIONS, getLibrarySkill } from '../lib/skillLibrary';
 import { db } from '../lib/storage/indexeddb';
+import { streamPortalProxy } from '../lib/portalProxy';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Textarea } from '../components/ui/Textarea';
@@ -61,6 +63,17 @@ const LibrarySkillRunnerPage: React.FC = () => {
   const navigate = useNavigate();
   const { skillId } = useParams<{ skillId: string }>();
   const { addToast } = useToast();
+
+  // Portal mode detection (for anonymous portal visitors)
+  const {
+    isPortalMode,
+    isPortalAvailable,
+    portalSlug,
+    isLoading: isPortalLoading,
+    modelInfo: portalModelInfo,
+    hasPersonalKey,
+    canRun: canRunWithPortal,
+  } = usePortalMode();
 
   // Provider configuration (centralized at /account)
   const {
@@ -255,7 +268,10 @@ const LibrarySkillRunnerPage: React.FC = () => {
   };
 
   const validateForm = (): boolean => {
-    if (!canRun && !providerState.apiKey) {
+    // Portal mode bypasses normal API key checks
+    if (isPortalMode && isPortalAvailable) {
+      // Portal mode is active, can run without personal key
+    } else if (!canRun && !providerState.apiKey) {
       addToast('Please configure your API key in Account Settings', 'error');
       return false;
     }
@@ -292,17 +308,39 @@ const LibrarySkillRunnerPage: React.FC = () => {
     try {
       let fullOutput = '';
 
-      for await (const chunk of executeDynamicSkill({
-        skill,
-        formInputs: formState,
-        apiKey: providerState.apiKey,
-        provider: providerState.provider,
-        claudeModel: providerState.model as 'haiku' | 'sonnet' | 'opus',
-        chatgptModel: providerState.model as ChatGPTModelType,
-        keyMode: providerState.keyMode,
-      })) {
-        fullOutput += chunk;
-        setOutput(fullOutput);
+      // Portal mode: Use portal proxy (no auth required)
+      if (isPortalMode && isPortalAvailable) {
+        // Generate prompt from skill template
+        let userPrompt = skill.prompts.userPromptTemplate;
+        for (const [key, value] of Object.entries(formState)) {
+          userPrompt = userPrompt.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), String(value));
+        }
+
+        const stream = streamPortalProxy({
+          prompt: userPrompt,
+          systemPrompt: skill.prompts.systemInstruction,
+          maxTokens: skill.config.maxTokens || 2048,
+          portalSlug: portalSlug || undefined,
+        });
+
+        for await (const chunk of stream) {
+          fullOutput += chunk;
+          setOutput(fullOutput);
+        }
+      } else {
+        // Standard execution with API key
+        for await (const chunk of executeDynamicSkill({
+          skill,
+          formInputs: formState,
+          apiKey: providerState.apiKey,
+          provider: providerState.provider,
+          claudeModel: providerState.model as 'haiku' | 'sonnet' | 'opus',
+          chatgptModel: providerState.model as ChatGPTModelType,
+          keyMode: providerState.keyMode,
+        })) {
+          fullOutput += chunk;
+          setOutput(fullOutput);
+        }
       }
 
       // Save execution to history
@@ -676,27 +714,55 @@ const LibrarySkillRunnerPage: React.FC = () => {
             isExecuting={isRunning}
           />
 
-          {/* AI Status - All configuration at /account */}
-          <ProviderConfigStatus
-            providerState={providerState}
-            availableModels={availableModels}
-            canRun={canRun}
-          />
+          {/* AI Status - Portal mode or Provider config */}
+          {isPortalMode && isPortalAvailable ? (
+            <div className="rounded-lg border bg-blue-500/5 border-blue-500/20 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Sparkles className="h-5 w-5 text-blue-500" />
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="font-medium text-blue-600">Portal Demo Mode</span>
+                    <span className="text-muted-foreground">•</span>
+                    <span className="text-muted-foreground">
+                      {portalModelInfo.provider} {portalModelInfo.model}
+                    </span>
+                  </div>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  No setup required
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1.5 ml-8">
+                Try this skill instantly. For full features, <Link to="/account" className="text-primary hover:underline">configure your own API key</Link>.
+              </p>
+            </div>
+          ) : (
+            <ProviderConfigStatus
+              providerState={providerState}
+              availableModels={availableModels}
+              canRun={canRun}
+            />
+          )}
 
           {/* Ready to Run Checklist */}
           <ReadyToRunChecklist
             providerName={
+              isPortalMode ? portalModelInfo.provider :
               providerState.provider === 'gemini' ? 'Gemini' :
               providerState.provider === 'claude' ? 'Claude' : 'ChatGPT'
             }
-            modelName={availableModels.find(m => m.id === providerState.model)?.name || providerState.model}
-            keyMode={providerState.keyMode}
+            modelName={
+              isPortalMode ? portalModelInfo.model :
+              availableModels.find(m => m.id === providerState.model)?.name || providerState.model
+            }
+            keyMode={isPortalMode ? 'platform' : providerState.keyMode}
             keyConfigured={
+              isPortalMode ? isPortalAvailable :
               providerState.keyMode === 'platform'
                 ? (platformStatus?.available ?? false)
                 : !!providerState.apiKey
             }
-            platformBalance={platformStatus?.available ? 100 : undefined}
+            platformBalance={isPortalMode ? 100 : (platformStatus?.available ? 100 : undefined)}
             requiredInputs={inputs
               .filter(input => input.validation?.required)
               .map(input => ({
@@ -706,7 +772,7 @@ const LibrarySkillRunnerPage: React.FC = () => {
               }))}
             hasTestData={true}
             testDataApplied={testDataApplied}
-            canRun={canRun && inputs.filter(i => i.validation?.required).every(i => !!formState[i.id])}
+            canRun={(isPortalMode && isPortalAvailable) || (canRun && inputs.filter(i => i.validation?.required).every(i => !!formState[i.id]))}
           />
 
           {/* Skill Inputs */}
