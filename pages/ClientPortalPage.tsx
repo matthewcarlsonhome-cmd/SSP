@@ -179,7 +179,7 @@ const ROISection: React.FC<ROISectionProps> = ({ client, selectedSkills, selecte
               </div>
             </div>
 
-            <p className="text-2xl sm:text-3xl lg:text-4xl font-bold text-green-600 mb-2 break-words">
+            <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-green-600 mb-2 whitespace-nowrap">
               {formatted.monthlyCost}
             </p>
             <p className="text-sm text-muted-foreground mb-6">
@@ -210,7 +210,7 @@ const ROISection: React.FC<ROISectionProps> = ({ client, selectedSkills, selecte
               </div>
             </div>
 
-            <p className="text-4xl sm:text-5xl font-bold mb-2 break-words">
+            <p className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 whitespace-nowrap">
               {formatted.annualCost}
             </p>
             <p className="text-sm text-green-100 mb-6">
@@ -501,10 +501,14 @@ const ClientPortalPage: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {selectedSkills.map(skill => {
                 const colors = CATEGORY_COLORS['default'];
+                // Builtin skills use /skill/:id, library skills (role-template, professional) use /library/skill/:id
+                const skillUrl = skill.source === 'builtin'
+                  ? `/skill/${skill.id}?portal=true`
+                  : `/library/skill/${skill.id}?portal=true`;
                 return (
                   <Link
                     key={skill.id}
-                    to={`/skill/${skill.id}?portal=true`}
+                    to={skillUrl}
                     className="group rounded-xl border bg-card p-5 hover:border-primary/50 hover:shadow-lg transition-all cursor-pointer block"
                   >
                     <div className="flex items-start gap-4">
