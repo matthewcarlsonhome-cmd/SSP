@@ -59,6 +59,7 @@ import { getAllLibrarySkills } from '../lib/skillLibrary';
 import { WORKFLOWS } from '../lib/workflows';
 import type { Client, ClientStatus, ClientIndustry, ClientPriority, ClientContact, ContactStatus } from '../lib/storage/types';
 import type { Workflow } from '../lib/storage/types';
+import { ClientResearchPanel } from './ClientResearchPanel';
 
 // Simplified skill type for selection (compatible with LibrarySkill)
 type SelectableSkill = { id: string; name: string; description: string };
@@ -763,6 +764,16 @@ const ClientCard: React.FC<ClientCardProps> = ({
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* ═══════════════════════════════════════════════════════════════════ */}
+          {/* SECTION B2: AI Research Assistant */}
+          {/* ═══════════════════════════════════════════════════════════════════ */}
+          <div className="space-y-4">
+            <ClientResearchPanel
+              client={client}
+              onApplySuggestions={(updates) => handleUpdate(updates)}
+            />
           </div>
 
           {/* ═══════════════════════════════════════════════════════════════════ */}

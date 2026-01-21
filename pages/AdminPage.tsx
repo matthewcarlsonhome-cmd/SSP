@@ -75,6 +75,7 @@ import { EmailComposer } from '../components/EmailComposer';
 import { UserManagementPanel } from '../components/UserManagementPanel';
 import { ClientManagementPanel } from '../components/ClientManagementPanel';
 import { PortalTestPanel } from '../components/PortalTestPanel';
+import { PortalAnalyticsDashboard } from '../components/PortalAnalyticsDashboard';
 import { useEmailSegments } from '../hooks/useEmailSegments';
 import { useSkillUsageStats } from '../hooks/useSkillUsageStats';
 import { sendEmail } from '../lib/emailSegmentation';
@@ -473,6 +474,11 @@ const AdminPage: React.FC = () => {
                 window.open(`/#/portal/${client.portalSlug}`, '_blank');
               }}
             />
+
+            {/* Portal Analytics Section */}
+            <div className="border-t pt-6">
+              <PortalAnalyticsDashboard />
+            </div>
 
             {/* Portal Testing Section */}
             <div className="border-t pt-6">
