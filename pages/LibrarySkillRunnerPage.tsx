@@ -801,11 +801,16 @@ const LibrarySkillRunnerPage: React.FC = () => {
                         onChange={(e) => handleInputChange(input.id, e.target.value)}
                       >
                         <option value="">Select...</option>
-                        {input.options.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
+                        {input.options.map((opt) => {
+                          // Handle both string options and object options { value, label }
+                          const optValue = typeof opt === 'string' ? opt : (opt as { value: string; label: string }).value;
+                          const optLabel = typeof opt === 'string' ? opt : (opt as { value: string; label: string }).label;
+                          return (
+                            <option key={optValue} value={optValue}>
+                              {optLabel}
+                            </option>
+                          );
+                        })}
                       </Select>
                     ) : input.type === 'checkbox' ? (
                       <Checkbox

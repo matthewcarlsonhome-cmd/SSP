@@ -147,9 +147,14 @@ const FormField = memo<FormFieldProps>(({
           required={input.required}
           disabled={disabled}
         >
-          {input.options?.map((opt) => (
-            <option key={opt} value={opt}>{opt}</option>
-          ))}
+          {input.options?.map((opt) => {
+            // Handle both string options and object options { value, label }
+            const optValue = typeof opt === 'string' ? opt : (opt as { value: string; label: string }).value;
+            const optLabel = typeof opt === 'string' ? opt : (opt as { value: string; label: string }).label;
+            return (
+              <option key={optValue} value={optValue}>{optLabel}</option>
+            );
+          })}
         </Select>
       )}
 
@@ -268,8 +273,10 @@ const SkillRunnerPage: React.FC = () => {
           acc[input.id] = jobDescriptionText;
         } else if (input.id === 'additionalContext') {
           acc[input.id] = additionalInfoText;
-        } else if (input.type === 'select' && input.options) {
-          acc[input.id] = input.options[0];
+        } else if (input.type === 'select' && input.options && input.options.length > 0) {
+          // Handle both string options and object options { value, label }
+          const firstOpt = input.options[0];
+          acc[input.id] = typeof firstOpt === 'string' ? firstOpt : (firstOpt as { value: string }).value;
         } else {
           acc[input.id] = input.type === 'checkbox' ? false : '';
         }

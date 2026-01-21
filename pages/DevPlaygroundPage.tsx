@@ -634,11 +634,16 @@ const DevPlaygroundPage: React.FC = () => {
                         className="w-full px-3 py-2 rounded-lg border bg-background text-sm"
                       >
                         <option value="">Select...</option>
-                        {field.options.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
+                        {field.options.map((opt) => {
+                          // Handle both string options and object options { value, label }
+                          const optValue = typeof opt === 'string' ? opt : (opt as { value: string; label: string }).value;
+                          const optLabel = typeof opt === 'string' ? opt : (opt as { value: string; label: string }).label;
+                          return (
+                            <option key={optValue} value={optValue}>
+                              {optLabel}
+                            </option>
+                          );
+                        })}
                       </select>
                     ) : field.type === 'textarea' ? (
                       <textarea
