@@ -836,6 +836,258 @@ export async function runAllPortalTests(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// SINGLE PORTAL TEST RUNNER
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Run tests for a SINGLE portal - tests all skills/workflows assigned to that client
+ */
+export async function runSinglePortalTests(
+  clientId: string,
+  onProgress?: ProgressCallback,
+  onResult?: ResultCallback,
+  abortSignal?: AbortSignal
+): Promise<TestRun | null> {
+  // Get the specific client
+  const allClients = getClients();
+  const client = allClients.find(c => c.id === clientId);
+
+  if (!client) {
+    console.error('Client not found:', clientId);
+    return null;
+  }
+
+  if (!client.portalEnabled) {
+    console.error('Client portal is not enabled:', client.companyName);
+    return null;
+  }
+
+  // Get skills and workflows for this client
+  const skillIds = client.selectedSkillIds;
+  const workflowIds = client.selectedWorkflowIds;
+  const totalTests = skillIds.length + workflowIds.length;
+
+  console.log(`Testing ${skillIds.length} skills and ${workflowIds.length} workflows for ${client.companyName}`);
+
+  // Create test run in database
+  const runId = await createTestRun(totalTests, 1, skillIds.length, workflowIds.length);
+  if (!runId) {
+    console.error('Failed to create test run');
+    return null;
+  }
+
+  // Initialize stats
+  let completedTests = 0;
+  let passedTests = 0;
+  let failedTests = 0;
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+
+  // GPT-4o-mini pricing: $0.15/1M input, $0.60/1M output
+  const INPUT_COST_PER_TOKEN = 0.15 / 1_000_000;
+  const OUTPUT_COST_PER_TOKEN = 0.60 / 1_000_000;
+
+  try {
+    // Test each skill
+    for (const skillId of skillIds) {
+      if (abortSignal?.aborted) {
+        await updateTestRun(runId, { status: 'cancelled' });
+        break;
+      }
+
+      const skill = SKILLS[skillId];
+
+      if (!skill) {
+        // Skip if skill not found
+        await saveTestResult({
+          runId,
+          clientId: client.id,
+          clientName: client.companyName,
+          portalSlug: client.portalSlug,
+          testType: 'skill',
+          itemId: skillId,
+          itemName: skillId,
+          status: 'skipped',
+          errorMessage: 'Skill not found',
+        });
+        completedTests++;
+        continue;
+      }
+
+      // Report progress
+      onProgress?.({
+        runId,
+        currentClient: client.companyName,
+        currentItem: skill.name,
+        currentItemType: 'skill',
+        completedTests,
+        totalTests,
+        passedTests,
+        failedTests,
+        percentComplete: Math.round((completedTests / totalTests) * 100),
+      });
+
+      // Run test
+      const result = await testSkill(client, skillId, skill);
+
+      // Track tokens
+      totalInputTokens += result.inputTokens;
+      totalOutputTokens += result.outputTokens;
+
+      // Save result
+      const testResult: TestResult = {
+        id: crypto.randomUUID(),
+        runId,
+        clientId: client.id,
+        clientName: client.companyName,
+        portalSlug: client.portalSlug,
+        testType: 'skill',
+        itemId: skillId,
+        itemName: skill.name,
+        status: result.success ? 'passed' : 'failed',
+        errorMessage: result.error,
+        durationMs: result.durationMs,
+        inputTokens: result.inputTokens,
+        outputTokens: result.outputTokens,
+        outputPreview: result.output?.substring(0, 200),
+        executedAt: new Date(),
+      };
+
+      await saveTestResult(testResult);
+      onResult?.(testResult);
+
+      if (result.success) {
+        passedTests++;
+      } else {
+        failedTests++;
+      }
+      completedTests++;
+
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    // Test each workflow
+    for (const workflowId of workflowIds) {
+      if (abortSignal?.aborted) break;
+
+      const workflow = WORKFLOWS[workflowId];
+
+      if (!workflow) {
+        await saveTestResult({
+          runId,
+          clientId: client.id,
+          clientName: client.companyName,
+          portalSlug: client.portalSlug,
+          testType: 'workflow',
+          itemId: workflowId,
+          itemName: workflowId,
+          status: 'skipped',
+          errorMessage: 'Workflow not found',
+        });
+        completedTests++;
+        continue;
+      }
+
+      // Report progress
+      onProgress?.({
+        runId,
+        currentClient: client.companyName,
+        currentItem: workflow.name,
+        currentItemType: 'workflow',
+        completedTests,
+        totalTests,
+        passedTests,
+        failedTests,
+        percentComplete: Math.round((completedTests / totalTests) * 100),
+      });
+
+      // Run test
+      const result = await testWorkflow(client, workflowId, workflow);
+
+      // Track tokens
+      totalInputTokens += result.inputTokens;
+      totalOutputTokens += result.outputTokens;
+
+      // Save result
+      const testResult: TestResult = {
+        id: crypto.randomUUID(),
+        runId,
+        clientId: client.id,
+        clientName: client.companyName,
+        portalSlug: client.portalSlug,
+        testType: 'workflow',
+        itemId: workflowId,
+        itemName: workflow.name,
+        status: result.success ? 'passed' : 'failed',
+        errorMessage: result.error,
+        durationMs: result.durationMs,
+        inputTokens: result.inputTokens,
+        outputTokens: result.outputTokens,
+        outputPreview: result.output?.substring(0, 200),
+        executedAt: new Date(),
+      };
+
+      await saveTestResult(testResult);
+      onResult?.(testResult);
+
+      if (result.success) {
+        passedTests++;
+      } else {
+        failedTests++;
+      }
+      completedTests++;
+
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    // Calculate cost
+    const estimatedCostCents = Math.ceil(
+      (totalInputTokens * INPUT_COST_PER_TOKEN + totalOutputTokens * OUTPUT_COST_PER_TOKEN) * 100
+    );
+
+    // Update final stats
+    await updateTestRun(runId, {
+      status: abortSignal?.aborted ? 'cancelled' : 'completed',
+      completedAt: new Date().toISOString(),
+      passedTests,
+      failedTests,
+      skippedTests: totalTests - passedTests - failedTests,
+      totalInputTokens,
+      totalOutputTokens,
+      estimatedCostCents,
+    });
+
+    return {
+      id: runId,
+      startedAt: new Date(),
+      completedAt: new Date(),
+      status: abortSignal?.aborted ? 'cancelled' : 'completed',
+      totalTests,
+      passedTests,
+      failedTests,
+      skippedTests: totalTests - passedTests - failedTests,
+      clientsTested: 1,
+      skillsPerClient: skillIds.length,
+      workflowsPerClient: workflowIds.length,
+      totalInputTokens,
+      totalOutputTokens,
+      estimatedCostCents,
+    };
+  } catch (error) {
+    console.error('Single portal test run failed:', error);
+    await updateTestRun(runId, {
+      status: 'failed',
+      completedAt: new Date().toISOString(),
+      passedTests,
+      failedTests,
+    });
+    throw error;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // HISTORY QUERIES
 // ═══════════════════════════════════════════════════════════════════════════
 

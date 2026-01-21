@@ -950,7 +950,12 @@ SECTION 3: ANALYSIS GUIDELINES
     name: 'Board Presentation Builder',
     description: 'Create executive board presentations with strategic narrative and data visualization guidance',
     longDescription: 'Generate comprehensive board-level presentations that combine strategic storytelling with data-driven insights. Includes slide-by-slide content, speaker notes, and Q&A preparation.',
-    whatYouGet: 'Complete board deck outline with strategic narrative, slide content, speaker notes, and Q&A preparation',
+    whatYouGet: [
+      'Complete board deck outline with strategic narrative',
+      'Slide-by-slide content recommendations',
+      'Speaker notes and talking points',
+      'Q&A preparation guide',
+    ],
     theme: 'violet',
     icon: MemoIcon,
     inputs: [
@@ -1069,7 +1074,12 @@ For each slide:
     name: 'Prompt Engineering Optimizer',
     description: 'Optimize AI prompts for better outputs with structured techniques and testing frameworks',
     longDescription: 'Transform basic prompts into high-performance AI instructions using proven prompt engineering techniques. Includes optimization strategies, test variants, and evaluation criteria.',
-    whatYouGet: 'Optimized prompt variants with technique explanations, evaluation rubrics, and test cases',
+    whatYouGet: [
+      'Optimized prompt variants',
+      'Technique explanations',
+      'Evaluation rubrics',
+      'Test cases for validation',
+    ],
     theme: 'cyan',
     icon: PromptIcon,
     inputs: [
@@ -1196,7 +1206,12 @@ OUTPUT STRUCTURE
     name: 'KPI Framework Designer',
     description: 'Design comprehensive KPI frameworks and OKR systems with metrics hierarchies',
     longDescription: 'Create structured performance measurement frameworks including KPI hierarchies, OKRs, metric definitions, data sources, and targets aligned with strategic objectives.',
-    whatYouGet: 'Complete KPI/OKR framework with metric definitions, formulas, targets, and implementation roadmap',
+    whatYouGet: [
+      'Complete KPI/OKR framework',
+      'Metric definitions and formulas',
+      'Target recommendations',
+      'Implementation roadmap',
+    ],
     theme: 'emerald',
     icon: KPIIcon,
     inputs: [
@@ -1340,7 +1355,12 @@ OUTPUT STRUCTURE
     name: 'ML Model Card Generator',
     description: 'Generate comprehensive ML model documentation following industry best practices',
     longDescription: 'Create standardized model cards documenting ML model details, intended use, performance metrics, limitations, and ethical considerations for responsible AI deployment.',
-    whatYouGet: 'Complete model card with technical specs, performance analysis, bias assessment, and maintenance requirements',
+    whatYouGet: [
+      'Complete model card documentation',
+      'Technical specifications',
+      'Performance analysis',
+      'Bias assessment and maintenance requirements',
+    ],
     theme: 'purple',
     icon: ModelCardIcon,
     inputs: [
@@ -1521,7 +1541,12 @@ OUTPUT STRUCTURE
     name: 'SQL Query Optimizer',
     description: 'Analyze and optimize SQL queries for better performance with execution plan analysis',
     longDescription: 'Transform slow SQL queries into optimized versions with detailed explanations of performance bottlenecks, index recommendations, and execution plan analysis.',
-    whatYouGet: 'Optimized SQL query with performance analysis, index recommendations, and before/after comparison',
+    whatYouGet: [
+      'Optimized SQL query',
+      'Performance analysis',
+      'Index recommendations',
+      'Before/after comparison',
+    ],
     theme: 'blue',
     icon: SQLIcon,
     inputs: [
@@ -1666,7 +1691,12 @@ CREATE INDEX idx_name ON table(columns);
     name: 'API Documentation Generator',
     description: 'Generate comprehensive API documentation with OpenAPI specs, examples, and error handling',
     longDescription: 'Create professional API documentation including endpoint specifications, request/response examples, authentication details, error handling, and SDK usage guides.',
-    whatYouGet: 'Complete API documentation with OpenAPI spec, usage examples, and integration guides',
+    whatYouGet: [
+      'Complete API documentation',
+      'OpenAPI specification',
+      'Usage examples',
+      'Integration guides',
+    ],
     theme: 'green',
     icon: APIDocIcon,
     inputs: [
@@ -1852,7 +1882,12 @@ openapi: 3.0.0
     name: 'Architecture Decision Record Writer',
     description: 'Create structured ADRs documenting architectural decisions with context and consequences',
     longDescription: 'Generate professional Architecture Decision Records (ADRs) that document the context, decision, alternatives considered, and consequences of architectural choices.',
-    whatYouGet: 'Complete ADR document with decision context, alternatives analysis, and implementation guidance',
+    whatYouGet: [
+      'Complete ADR document',
+      'Decision context and rationale',
+      'Alternatives analysis',
+      'Implementation guidance',
+    ],
     theme: 'amber',
     icon: ADRIcon,
     inputs: [
@@ -2019,7 +2054,12 @@ OUTPUT STRUCTURE
     name: 'Data Quality Assessment',
     description: 'Analyze data quality issues and create remediation plans with validation rules',
     longDescription: 'Generate comprehensive data quality assessments including profiling analysis, issue identification, validation rules, and remediation recommendations.',
-    whatYouGet: 'Complete data quality report with issue analysis, validation rules, and remediation roadmap',
+    whatYouGet: [
+      'Complete data quality report',
+      'Issue analysis',
+      'Validation rules',
+      'Remediation roadmap',
+    ],
     theme: 'rose',
     icon: KPIIcon,
     inputs: [
@@ -2192,7 +2232,12 @@ SELECT * FROM table WHERE [condition];
     name: 'RAG System Design',
     description: 'Design Retrieval-Augmented Generation systems with architecture and implementation guidance',
     longDescription: 'Create comprehensive RAG system designs including architecture decisions, embedding strategies, retrieval optimization, and evaluation frameworks for AI-powered applications.',
-    whatYouGet: 'Complete RAG architecture design with component specifications, implementation plan, and evaluation strategy',
+    whatYouGet: [
+      'Complete RAG architecture design',
+      'Component specifications',
+      'Implementation plan',
+      'Evaluation strategy',
+    ],
     theme: 'indigo',
     icon: RAGIcon,
     inputs: [
@@ -2381,7 +2426,12 @@ OUTPUT STRUCTURE
     name: 'AI Ethics Review',
     description: 'Conduct ethical assessments of AI systems with bias analysis and mitigation strategies',
     longDescription: 'Perform comprehensive ethical reviews of AI/ML systems including fairness assessment, bias detection, transparency analysis, and responsible AI recommendations.',
-    whatYouGet: 'Complete ethics review with risk assessment, bias analysis, and mitigation recommendations',
+    whatYouGet: [
+      'Complete ethics review',
+      'Risk assessment',
+      'Bias analysis',
+      'Mitigation recommendations',
+    ],
     theme: 'slate',
     icon: EthicsIcon,
     inputs: [
@@ -2584,7 +2634,12 @@ OUTPUT STRUCTURE
     name: 'Process Automation Specification',
     description: 'Create detailed specifications for automating business processes with workflow design',
     longDescription: 'Generate comprehensive process automation specifications including current state analysis, automation opportunities, workflow design, and implementation requirements.',
-    whatYouGet: 'Complete automation spec with workflow diagrams, integration requirements, and ROI analysis',
+    whatYouGet: [
+      'Complete automation specification',
+      'Workflow diagrams',
+      'Integration requirements',
+      'ROI analysis',
+    ],
     theme: 'orange',
     icon: WorkflowIcon,
     inputs: [
@@ -2786,7 +2841,12 @@ OUTPUT STRUCTURE
     name: 'Crisis Communication Playbook',
     description: 'Create crisis communication plans with messaging templates and stakeholder strategies',
     longDescription: 'Generate comprehensive crisis communication playbooks including situation assessment, stakeholder messaging, media response templates, and escalation procedures.',
-    whatYouGet: 'Complete crisis playbook with messaging templates, stakeholder matrix, and response protocols',
+    whatYouGet: [
+      'Complete crisis playbook',
+      'Messaging templates',
+      'Stakeholder matrix',
+      'Response protocols',
+    ],
     theme: 'red',
     icon: CrisisIcon,
     inputs: [
@@ -2998,7 +3058,12 @@ OUTPUT STRUCTURE
     name: 'All-Hands Meeting Script',
     description: 'Create engaging all-hands meeting scripts with talking points and Q&A preparation',
     longDescription: 'Generate comprehensive all-hands meeting scripts including agenda, talking points, visual cues, audience engagement strategies, and anticipated Q&A.',
-    whatYouGet: 'Complete meeting script with agenda, speaker notes, slides guidance, and Q&A preparation',
+    whatYouGet: [
+      'Complete meeting script',
+      'Agenda and speaker notes',
+      'Slides guidance',
+      'Q&A preparation',
+    ],
     theme: 'sky',
     icon: AllHandsIcon,
     inputs: [
@@ -3170,7 +3235,12 @@ OUTPUT STRUCTURE
     name: 'RFP Response Generator',
     description: 'Create compelling RFP/RFI responses with structured proposals and differentiators',
     longDescription: 'Generate professional RFP responses including executive summaries, capability statements, pricing frameworks, and win themes tailored to buyer requirements.',
-    whatYouGet: 'Complete RFP response framework with executive summary, technical response, and pricing guidance',
+    whatYouGet: [
+      'Complete RFP response framework',
+      'Executive summary',
+      'Technical response',
+      'Pricing guidance',
+    ],
     theme: 'teal',
     icon: RFPIcon,
     inputs: [
@@ -3329,7 +3399,12 @@ OUTPUT STRUCTURE
     name: 'Role Transition Playbook',
     description: 'Create comprehensive playbooks for role transitions and knowledge transfer',
     longDescription: 'Generate structured role transition plans including knowledge transfer schedules, stakeholder introductions, critical information handoff, and success criteria.',
-    whatYouGet: 'Complete transition playbook with knowledge transfer plan, stakeholder map, and 30-60-90 day roadmap',
+    whatYouGet: [
+      'Complete transition playbook',
+      'Knowledge transfer plan',
+      'Stakeholder map',
+      '30-60-90 day roadmap',
+    ],
     theme: 'lime',
     icon: TransitionIcon,
     inputs: [
@@ -3504,7 +3579,12 @@ OUTPUT STRUCTURE
     name: 'Skills Development Path',
     description: 'Create personalized learning paths with resources and milestones for skill development',
     longDescription: 'Generate comprehensive skill development plans including learning resources, practice projects, milestones, and assessment criteria for professional growth.',
-    whatYouGet: 'Complete learning path with curated resources, practice projects, and progress milestones',
+    whatYouGet: [
+      'Complete learning path',
+      'Curated resources',
+      'Practice projects',
+      'Progress milestones',
+    ],
     theme: 'fuchsia',
     icon: LearningPathIcon,
     inputs: [

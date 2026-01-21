@@ -31,13 +31,17 @@ import { Button } from './ui/Button';
 import { Progress } from './ui/Progress';
 import {
   runAllPortalTests,
+  runSinglePortalTests,
   getRecentTestRuns,
   getTestResults,
   type TestRun,
   type TestResult,
   type TestProgress,
 } from '../lib/portalTester';
+import { getClientsAsync } from '../lib/clients';
+import type { Client } from '../lib/storage/types';
 import { cn } from '../lib/theme';
+import { Select } from './ui/Select';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -59,6 +63,11 @@ export const PortalTestPanel: React.FC<PortalTestPanelProps> = ({ className }) =
   const [liveResults, setLiveResults] = useState<TestResult[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // Single portal test state
+  const [clients, setClients] = useState<Client[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [loadingClients, setLoadingClients] = useState(false);
+
   // History state
   const [recentRuns, setRecentRuns] = useState<TestRun[]>([]);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
@@ -70,10 +79,27 @@ export const PortalTestPanel: React.FC<PortalTestPanelProps> = ({ className }) =
   const [showFailuresOnly, setShowFailuresOnly] = useState(false);
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
 
-  // Load recent runs on mount
+  // Load recent runs and clients on mount
   useEffect(() => {
     loadRecentRuns();
+    loadClients();
   }, []);
+
+  const loadClients = async () => {
+    setLoadingClients(true);
+    try {
+      const allClients = await getClientsAsync();
+      // Filter to only clients with portals enabled, sorted by name
+      const portalClients = allClients
+        .filter(c => c.portalEnabled)
+        .sort((a, b) => a.companyName.localeCompare(b.companyName));
+      setClients(portalClients);
+    } catch (error) {
+      console.error('Failed to load clients:', error);
+    } finally {
+      setLoadingClients(false);
+    }
+  };
 
   const loadRecentRuns = async () => {
     setLoadingHistory(true);
@@ -98,7 +124,7 @@ export const PortalTestPanel: React.FC<PortalTestPanelProps> = ({ className }) =
     }
   };
 
-  // Start test run
+  // Start test run for all portals
   const handleStartTests = useCallback(async () => {
     setIsRunning(true);
     setProgress(null);
@@ -123,6 +149,35 @@ export const PortalTestPanel: React.FC<PortalTestPanelProps> = ({ className }) =
       abortControllerRef.current = null;
     }
   }, []);
+
+  // Start test run for single portal
+  const handleStartSinglePortalTests = useCallback(async () => {
+    if (!selectedClientId) return;
+
+    setIsRunning(true);
+    setProgress(null);
+    setLiveResults([]);
+    setCurrentRun(null);
+
+    abortControllerRef.current = new AbortController();
+
+    try {
+      const run = await runSinglePortalTests(
+        selectedClientId,
+        (prog) => setProgress(prog),
+        (result) => setLiveResults(prev => [...prev, result]),
+        abortControllerRef.current.signal
+      );
+
+      setCurrentRun(run);
+      await loadRecentRuns(); // Refresh history
+    } catch (error) {
+      console.error('Single portal test run failed:', error);
+    } finally {
+      setIsRunning(false);
+      abortControllerRef.current = null;
+    }
+  }, [selectedClientId]);
 
   // Stop test run
   const handleStopTests = useCallback(() => {
@@ -171,7 +226,7 @@ export const PortalTestPanel: React.FC<PortalTestPanelProps> = ({ className }) =
         <div>
           <h3 className="text-lg font-semibold">Portal Testing</h3>
           <p className="text-sm text-muted-foreground">
-            Verify all client portals work correctly before outreach
+            Verify client portals work correctly before outreach
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -196,6 +251,52 @@ export const PortalTestPanel: React.FC<PortalTestPanelProps> = ({ className }) =
           )}
         </div>
       </div>
+
+      {/* Single Portal Test Section */}
+      {!isRunning && (
+        <div className="rounded-lg border bg-card p-4">
+          <h4 className="font-medium mb-3">Test Single Portal</h4>
+          <div className="flex items-center gap-3">
+            <div className="flex-1 max-w-sm">
+              <Select
+                value={selectedClientId}
+                onChange={(e) => setSelectedClientId(e.target.value)}
+                disabled={loadingClients}
+              >
+                <option value="">
+                  {loadingClients ? 'Loading clients...' : 'Select a client...'}
+                </option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.companyName} ({client.selectedSkillIds.length} skills, {client.selectedWorkflowIds.length} workflows)
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <Button
+              onClick={handleStartSinglePortalTests}
+              disabled={!selectedClientId || isRunning}
+              variant="outline"
+            >
+              <Play className="h-4 w-4 mr-2" />
+              Test One Portal
+            </Button>
+            {selectedClientId && (
+              <a
+                href={`/portal/${clients.find(c => c.id === selectedClientId)?.portalSlug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-primary"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Test a specific client's portal skills and workflows before the full test run
+          </p>
+        </div>
+      )}
 
       {/* Progress Section */}
       {isRunning && progress && (
