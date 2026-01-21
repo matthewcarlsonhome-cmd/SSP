@@ -9,7 +9,7 @@
 
 CREATE TABLE IF NOT EXISTS public.contact_activities (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  client_id TEXT NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
+  client_id UUID NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
   contact_id TEXT NOT NULL,  -- UUID of the contact within the client's contacts array
 
   -- Activity details
@@ -72,7 +72,7 @@ CREATE POLICY "Anyone can manage contact activities"
 
 CREATE TABLE IF NOT EXISTS public.portal_analytics (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  client_id TEXT NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
+  client_id UUID NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
   portal_slug TEXT NOT NULL,
 
   -- Visit details
@@ -178,7 +178,7 @@ CREATE TABLE IF NOT EXISTS public.email_sequence_steps (
 -- Track which contacts are enrolled in which sequences
 CREATE TABLE IF NOT EXISTS public.contact_sequence_enrollments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  client_id TEXT NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
+  client_id UUID NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
   contact_id TEXT NOT NULL,
   sequence_id UUID NOT NULL REFERENCES public.email_sequences(id) ON DELETE CASCADE,
 
@@ -224,7 +224,7 @@ CREATE POLICY "Anyone can manage sequence enrollments"
 
 CREATE TABLE IF NOT EXISTS public.client_research (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  client_id TEXT NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
+  client_id UUID NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
 
   -- Research data
   research_type TEXT NOT NULL CHECK (research_type IN (

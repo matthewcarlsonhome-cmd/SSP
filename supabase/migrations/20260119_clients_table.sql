@@ -3,7 +3,7 @@
 
 -- Create clients table
 CREATE TABLE IF NOT EXISTS public.clients (
-  id TEXT PRIMARY KEY,
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   company_name TEXT NOT NULL,
   industry TEXT NOT NULL DEFAULT 'other',
   website TEXT,
