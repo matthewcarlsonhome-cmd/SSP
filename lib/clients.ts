@@ -45,12 +45,13 @@ interface SupabaseClient {
   estimated_time_savings: string | null;
   estimated_cost_savings: string | null;
   pain_points: string | null;
+  company_technical_info: string | null;
+  key_use_cases: string[] | null;
   contacts: unknown;
   selected_skill_ids: string[] | null;
   selected_workflow_ids: string[] | null;
   custom_headline: string | null;
   custom_message: string | null;
-  linkedin_connect_message: string | null;
   portal_slug: string;
   portal_enabled: boolean;
   status: string;
@@ -78,12 +79,13 @@ function supabaseToClient(row: SupabaseClient): Client {
     estimatedTimeSavings: row.estimated_time_savings || undefined,
     estimatedCostSavings: row.estimated_cost_savings || undefined,
     painPoints: row.pain_points || undefined,
-    contacts: Array.isArray(row.contacts) ? row.contacts as Client['contacts'] : [],
+    companyTechnicalInfo: row.company_technical_info || undefined,
+    keyUseCases: row.key_use_cases || [],
+    contacts: Array.isArray(row.contacts) ? migrateContacts(row.contacts as unknown[]) : [],
     selectedSkillIds: row.selected_skill_ids || [],
     selectedWorkflowIds: row.selected_workflow_ids || [],
     customHeadline: row.custom_headline || undefined,
     customMessage: row.custom_message || undefined,
-    linkedInConnectMessage: row.linkedin_connect_message || undefined,
     portalSlug: row.portal_slug,
     portalEnabled: row.portal_enabled,
     status: row.status as ClientStatus,
@@ -92,6 +94,63 @@ function supabaseToClient(row: SupabaseClient): Client {
     updatedAt: row.updated_at,
     lastContactedAt: row.last_contacted_at || undefined,
   };
+}
+
+/**
+ * Migrate old contact format to new enhanced format
+ * Adds id, contactStatus, and other new fields if missing
+ */
+function migrateContacts(contacts: unknown[]): Client['contacts'] {
+  return contacts.map((contact: unknown, index: number) => {
+    const c = contact as Record<string, unknown>;
+    return {
+      id: (c.id as string) || crypto.randomUUID(),
+      name: (c.name as string) || '',
+      title: c.title as string | undefined,
+      email: c.email as string | undefined,
+      phone: c.phone as string | undefined,
+      linkedinUrl: c.linkedinUrl as string | undefined,
+      isPrimary: c.isPrimary !== undefined ? c.isPrimary as boolean : index === 0,
+      firstContactedAt: c.firstContactedAt as string | undefined,
+      lastContactedAt: c.lastContactedAt as string | undefined,
+      backgroundNotes: c.backgroundNotes as string | undefined,
+      contactStatus: (c.contactStatus as Client['contacts'][0]['contactStatus']) || 'not_contacted',
+      linkedInConnectMessage: c.linkedInConnectMessage as string | undefined,
+      linkedInFollowupMessage: c.linkedInFollowupMessage as string | undefined,
+    };
+  });
+}
+
+/**
+ * Migrate contacts from DEFAULT_TARGET_COMPANIES to new format
+ * Also moves client-level linkedInConnectMessage to the first contact
+ */
+function migrateContactsFromDefaults(contacts: unknown[], clientLevelLinkedInMessage?: string): Client['contacts'] {
+  const migratedContacts = contacts.map((contact: unknown, index: number) => {
+    const c = contact as Record<string, unknown>;
+    return {
+      id: (c.id as string) || crypto.randomUUID(),
+      name: (c.name as string) || '',
+      title: c.title as string | undefined,
+      email: c.email as string | undefined,
+      phone: c.phone as string | undefined,
+      linkedinUrl: c.linkedinUrl as string | undefined,
+      isPrimary: c.isPrimary !== undefined ? c.isPrimary as boolean : index === 0,
+      firstContactedAt: c.firstContactedAt as string | undefined,
+      lastContactedAt: c.lastContactedAt as string | undefined,
+      backgroundNotes: c.backgroundNotes as string | undefined,
+      contactStatus: (c.contactStatus as Client['contacts'][0]['contactStatus']) || 'not_contacted',
+      linkedInConnectMessage: c.linkedInConnectMessage as string | undefined,
+      linkedInFollowupMessage: c.linkedInFollowupMessage as string | undefined,
+    };
+  });
+
+  // Move client-level linkedInConnectMessage to the first contact if not already set
+  if (clientLevelLinkedInMessage && migratedContacts.length > 0 && !migratedContacts[0].linkedInConnectMessage) {
+    migratedContacts[0].linkedInConnectMessage = clientLevelLinkedInMessage;
+  }
+
+  return migratedContacts;
 }
 
 function clientToSupabase(client: Partial<Client>): Record<string, unknown> {
@@ -112,12 +171,13 @@ function clientToSupabase(client: Partial<Client>): Record<string, unknown> {
   if (client.estimatedTimeSavings !== undefined) result.estimated_time_savings = client.estimatedTimeSavings || null;
   if (client.estimatedCostSavings !== undefined) result.estimated_cost_savings = client.estimatedCostSavings || null;
   if (client.painPoints !== undefined) result.pain_points = client.painPoints || null;
+  if (client.companyTechnicalInfo !== undefined) result.company_technical_info = client.companyTechnicalInfo || null;
+  if (client.keyUseCases !== undefined) result.key_use_cases = client.keyUseCases || [];
   if (client.contacts !== undefined) result.contacts = client.contacts || [];
   if (client.selectedSkillIds !== undefined) result.selected_skill_ids = client.selectedSkillIds || [];
   if (client.selectedWorkflowIds !== undefined) result.selected_workflow_ids = client.selectedWorkflowIds || [];
   if (client.customHeadline !== undefined) result.custom_headline = client.customHeadline || null;
   if (client.customMessage !== undefined) result.custom_message = client.customMessage || null;
-  if (client.linkedInConnectMessage !== undefined) result.linkedin_connect_message = client.linkedInConnectMessage || null;
   if (client.portalSlug !== undefined) result.portal_slug = client.portalSlug;
   if (client.portalEnabled !== undefined) result.portal_enabled = client.portalEnabled;
   if (client.status !== undefined) result.status = client.status;
@@ -676,6 +736,12 @@ export async function initializeDefaultClientsAsync(): Promise<Client[]> {
   // Create default clients
   const clients: Client[] = defaultCompanies.map(company => {
     const industry = company.industry || 'other';
+    // Migrate contacts to new format and move client-level linkedInConnectMessage to first contact
+    const oldContacts = company.contacts || [];
+    const migratedContacts = migrateContactsFromDefaults(
+      oldContacts as unknown[],
+      (company as Record<string, unknown>).linkedInConnectMessage as string | undefined
+    );
     return {
       id: generateUuid(),
       companyName: company.companyName || 'Unknown',
@@ -692,11 +758,13 @@ export async function initializeDefaultClientsAsync(): Promise<Client[]> {
       painPoints: company.painPoints,
       estimatedTimeSavings: company.estimatedTimeSavings,
       estimatedCostSavings: company.estimatedCostSavings,
+      companyTechnicalInfo: company.companyTechnicalInfo,
+      keyUseCases: company.keyUseCases || [],
       website: company.website,
       customHeadline: company.customHeadline,
       customMessage: company.customMessage,
       notes: company.notes,
-      contacts: company.contacts || [],
+      contacts: migratedContacts,
       // Use personalized recommendations based on ALL client attributes including company name
       selectedSkillIds: company.selectedSkillIds || getPersonalizedSkillRecommendations({
         companyName: company.companyName,
@@ -744,6 +812,12 @@ export function initializeDefaultClients(): Client[] {
 
   const clients: Client[] = defaultCompanies.map(company => {
     const industry = company.industry || 'other';
+    // Migrate contacts to new format and move client-level linkedInConnectMessage to first contact
+    const oldContacts = company.contacts || [];
+    const migratedContacts = migrateContactsFromDefaults(
+      oldContacts as unknown[],
+      (company as Record<string, unknown>).linkedInConnectMessage as string | undefined
+    );
     return {
       id: generateUuid(),
       companyName: company.companyName || 'Unknown',
@@ -760,11 +834,13 @@ export function initializeDefaultClients(): Client[] {
       painPoints: company.painPoints,
       estimatedTimeSavings: company.estimatedTimeSavings,
       estimatedCostSavings: company.estimatedCostSavings,
+      companyTechnicalInfo: company.companyTechnicalInfo,
+      keyUseCases: company.keyUseCases || [],
       website: company.website,
       customHeadline: company.customHeadline,
       customMessage: company.customMessage,
       notes: company.notes,
-      contacts: company.contacts || [],
+      contacts: migratedContacts,
       // Use personalized recommendations based on ALL client attributes including company name
       selectedSkillIds: company.selectedSkillIds || getPersonalizedSkillRecommendations({
         companyName: company.companyName,
@@ -882,6 +958,7 @@ export function getClientsWithPortals(): Client[] {
 
 /**
  * Export clients to CSV with full skill and workflow names
+ * Includes all contact details (up to 3 contacts per client)
  */
 export function exportClientsToCSV(skillsMap?: Map<string, string>, workflowsMap?: Map<string, string>): string {
   const clients = getClients();
@@ -891,12 +968,10 @@ export function exportClientsToCSV(skillsMap?: Map<string, string>, workflowsMap
     'Status',
     'Priority',
     'Website',
-    'LinkedIn URL',
+    'Company LinkedIn URL',
     'Portal Slug',
     'Portal Enabled',
     'Portal URL',
-    'Primary Contact',
-    'Primary Email',
     'Custom Headline',
     'Custom Message',
     'Location',
@@ -905,19 +980,56 @@ export function exportClientsToCSV(skillsMap?: Map<string, string>, workflowsMap
     'Est. Time Savings',
     'Est. Cost Savings',
     'Pain Points',
+    'Company Technical Info',
+    'Key Use Cases',
+    // Contact 1
+    'Contact 1 Name',
+    'Contact 1 Title',
+    'Contact 1 Email',
+    'Contact 1 Phone',
+    'Contact 1 LinkedIn',
+    'Contact 1 Status',
+    'Contact 1 First Contacted',
+    'Contact 1 Last Contacted',
+    'Contact 1 Background Notes',
+    'Contact 1 Connect Message',
+    'Contact 1 Followup Message',
+    // Contact 2
+    'Contact 2 Name',
+    'Contact 2 Title',
+    'Contact 2 Email',
+    'Contact 2 Phone',
+    'Contact 2 LinkedIn',
+    'Contact 2 Status',
+    'Contact 2 First Contacted',
+    'Contact 2 Last Contacted',
+    'Contact 2 Background Notes',
+    'Contact 2 Connect Message',
+    'Contact 2 Followup Message',
+    // Contact 3
+    'Contact 3 Name',
+    'Contact 3 Title',
+    'Contact 3 Email',
+    'Contact 3 Phone',
+    'Contact 3 LinkedIn',
+    'Contact 3 Status',
+    'Contact 3 First Contacted',
+    'Contact 3 Last Contacted',
+    'Contact 3 Background Notes',
+    'Contact 3 Connect Message',
+    'Contact 3 Followup Message',
+    // Skills & Workflows
     'Skills Count',
     'Skill IDs',
     'Skill Names',
     'Workflows Count',
     'Workflow IDs',
     'Workflow Names',
-    'Last Contacted',
+    'Internal Notes',
     'Created',
   ];
 
   const rows = clients.map(c => {
-    const primary = c.contacts.find(contact => contact.isPrimary) || c.contacts[0];
-
     // Build skill names list
     const skillNames = skillsMap
       ? c.selectedSkillIds.map(id => skillsMap.get(id) || id).join('; ')
@@ -933,6 +1045,31 @@ export function exportClientsToCSV(skillsMap?: Map<string, string>, workflowsMap
       ? `${typeof window !== 'undefined' ? window.location.origin : ''}/#/portal/${c.portalSlug}`
       : '';
 
+    // Get contacts (pad to 3)
+    const contacts = [...c.contacts];
+    while (contacts.length < 3) {
+      contacts.push({
+        id: '',
+        name: '',
+        contactStatus: 'not_contacted',
+      });
+    }
+
+    // Build contact fields for all 3 contacts
+    const contactFields = contacts.slice(0, 3).flatMap(contact => [
+      contact.name || '',
+      contact.title || '',
+      contact.email || '',
+      contact.phone || '',
+      contact.linkedinUrl || '',
+      contact.contactStatus || '',
+      contact.firstContactedAt || '',
+      contact.lastContactedAt || '',
+      contact.backgroundNotes || '',
+      contact.linkedInConnectMessage || '',
+      contact.linkedInFollowupMessage || '',
+    ]);
+
     return [
       c.companyName,
       c.industry,
@@ -943,8 +1080,6 @@ export function exportClientsToCSV(skillsMap?: Map<string, string>, workflowsMap
       c.portalSlug,
       c.portalEnabled ? 'Yes' : 'No',
       portalUrl,
-      primary?.name || '',
-      primary?.email || '',
       c.customHeadline || '',
       c.customMessage || '',
       c.location || '',
@@ -953,13 +1088,16 @@ export function exportClientsToCSV(skillsMap?: Map<string, string>, workflowsMap
       c.estimatedTimeSavings || '',
       c.estimatedCostSavings || '',
       c.painPoints || '',
+      c.companyTechnicalInfo || '',
+      (c.keyUseCases || []).join('; '),
+      ...contactFields,
       c.selectedSkillIds.length,
       c.selectedSkillIds.join('; '),
       skillNames,
       c.selectedWorkflowIds.length,
       c.selectedWorkflowIds.join('; '),
       workflowNames,
-      c.lastContactedAt || '',
+      c.notes || '',
       c.createdAt,
     ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
   });

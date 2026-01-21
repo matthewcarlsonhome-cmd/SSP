@@ -800,14 +800,28 @@ export type ClientIndustry =
 export type ClientPriority = 'HIGH' | 'MEDIUM' | 'LOW' | 'RESEARCH';
 
 /**
- * Client contact information
+ * Contact status for tracking outreach progress
+ */
+export type ContactStatus = 'not_contacted' | 'connected' | 'responded' | 'meeting_scheduled';
+
+/**
+ * Client contact information with enhanced tracking
+ * Supports up to 3 contacts per client with per-contact messaging
  */
 export interface ClientContact {
+  id: string;                    // UUID for each contact
   name: string;
   title?: string;
   email?: string;
   phone?: string;
+  linkedinUrl?: string;          // Contact's personal LinkedIn URL
   isPrimary?: boolean;
+  firstContactedAt?: string;     // ISO date of first outreach
+  lastContactedAt?: string;      // ISO date of last outreach
+  backgroundNotes?: string;      // Research notes about this person
+  contactStatus: ContactStatus;  // Outreach status for this contact
+  linkedInConnectMessage?: string;     // 300 char first connect message
+  linkedInFollowupMessage?: string;    // Longer post-connect message with skill references
 }
 
 /**
@@ -837,17 +851,21 @@ export interface Client {
   estimatedCostSavings?: string;  // e.g., "$4,500-$11,200"
   painPoints?: string;            // Key challenges to address
 
-  // Contacts
+  // Technical research
+  companyTechnicalInfo?: string;  // Technical stack, key use cases, research notes
+  keyUseCases?: string[];         // Array of identified use cases for quick scanning
+
+  // Contacts (supports 1-3 contacts with per-contact messaging)
   contacts: ClientContact[];
 
   // Selected skills and workflows for this client
   selectedSkillIds: string[];
   selectedWorkflowIds: string[];
 
-  // Custom messaging
+  // Custom messaging (portal-level)
   customHeadline?: string;
   customMessage?: string;
-  linkedInConnectMessage?: string;  // Short LinkedIn connection request note (300 char max)
+  // Note: LinkedIn messages are now per-contact in the contacts array
 
   // Portal settings
   portalSlug: string;  // URL-friendly identifier for their portal page
