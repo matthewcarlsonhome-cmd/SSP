@@ -21,7 +21,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@google/genai": "^0.14.0",
+    "@google/genai": "^1.38.0",
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.86.0",
     "lucide-react": "^0.395.0",
