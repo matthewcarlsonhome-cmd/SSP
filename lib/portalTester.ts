@@ -64,6 +64,41 @@ function findLibrarySkill(skillId: string): LibrarySkill | undefined {
   return undefined;
 }
 
+/**
+ * Unified skill lookup result - can be either a static Skill or LibrarySkill
+ */
+type UnifiedSkillResult =
+  | { type: 'static'; skill: Skill }
+  | { type: 'library'; skill: LibrarySkill }
+  | null;
+
+/**
+ * Find a skill by ID, checking both static SKILLS and library skills
+ */
+function findSkillUnified(skillId: string): UnifiedSkillResult {
+  // First check static SKILLS
+  const staticSkill = SKILLS[skillId];
+  if (staticSkill) {
+    return { type: 'static', skill: staticSkill };
+  }
+
+  // Then check library skills (with prefix fallback)
+  const librarySkill = findLibrarySkill(skillId);
+  if (librarySkill) {
+    return { type: 'library', skill: librarySkill };
+  }
+
+  return null;
+}
+
+/**
+ * Get skill name from unified result
+ */
+function getSkillName(result: UnifiedSkillResult): string {
+  if (!result) return 'Unknown';
+  return result.type === 'static' ? result.skill.name : result.skill.name;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════════════════════════════════════
@@ -584,14 +619,14 @@ export async function runAllPortalTests(
   }
 
   // Collect UNIQUE skills and workflows across all clients
-  // Map: skillId -> { skill, clients[] } or workflowId -> { workflow, clients[] }
-  const uniqueSkills = new Map<string, { skill: Skill | null; clients: Client[] }>();
+  // Map: skillId -> { skillResult (static or library), clients[] } or workflowId -> { workflow, clients[] }
+  const uniqueSkills = new Map<string, { skillResult: UnifiedSkillResult; clients: Client[] }>();
   const uniqueWorkflows = new Map<string, { workflow: Workflow | null; clients: Client[] }>();
 
   for (const client of clients) {
     for (const skillId of client.selectedSkillIds) {
       if (!uniqueSkills.has(skillId)) {
-        uniqueSkills.set(skillId, { skill: SKILLS[skillId] || null, clients: [] });
+        uniqueSkills.set(skillId, { skillResult: findSkillUnified(skillId), clients: [] });
       }
       uniqueSkills.get(skillId)!.clients.push(client);
     }
@@ -629,7 +664,7 @@ export async function runAllPortalTests(
 
   try {
     // Test each unique skill ONCE
-    for (const [skillId, { skill, clients: affectedClients }] of uniqueSkills) {
+    for (const [skillId, { skillResult, clients: affectedClients }] of uniqueSkills) {
       if (abortSignal?.aborted) {
         await updateTestRun(runId, { status: 'cancelled' });
         break;
@@ -639,8 +674,8 @@ export async function runAllPortalTests(
       const testClient = affectedClients[0];
       const clientNames = affectedClients.map(c => c.companyName).join(', ');
 
-      if (!skill) {
-        // Skip if skill not found
+      if (!skillResult) {
+        // Skip if skill not found in either static SKILLS or library
         await saveTestResult({
           runId,
           clientId: testClient.id,
@@ -650,17 +685,19 @@ export async function runAllPortalTests(
           itemId: skillId,
           itemName: skillId,
           status: 'skipped',
-          errorMessage: 'Skill not found',
+          errorMessage: 'Skill not found in static skills or library',
         });
         completedTests++;
         continue;
       }
 
+      const skillName = getSkillName(skillResult);
+
       // Report progress
       onProgress?.({
         runId,
         currentClient: `${affectedClients.length} clients`,
-        currentItem: skill.name,
+        currentItem: skillName,
         currentItemType: 'skill',
         completedTests,
         totalTests,
@@ -669,8 +706,10 @@ export async function runAllPortalTests(
         percentComplete: Math.round((completedTests / totalTests) * 100),
       });
 
-      // Run test using first client's portal
-      const result = await testSkill(testClient, skillId, skill);
+      // Run test using first client's portal - use appropriate test function based on skill type
+      const result = skillResult.type === 'static'
+        ? await testSkill(testClient, skillId, skillResult.skill)
+        : await testLibrarySkill(testClient, skillId, skillResult.skill);
 
       // Track tokens
       totalInputTokens += result.inputTokens;
@@ -687,7 +726,7 @@ export async function runAllPortalTests(
         portalSlug: testClient.portalSlug,
         testType: 'skill',
         itemId: skillId,
-        itemName: skill.name,
+        itemName: skillName,
         status: result.success ? 'passed' : 'failed',
         errorMessage: result.error,
         durationMs: result.durationMs,
@@ -895,10 +934,11 @@ export async function runSinglePortalTests(
         break;
       }
 
-      const skill = SKILLS[skillId];
+      // Look up skill in both static SKILLS and library
+      const skillResult = findSkillUnified(skillId);
 
-      if (!skill) {
-        // Skip if skill not found
+      if (!skillResult) {
+        // Skip if skill not found in either static SKILLS or library
         await saveTestResult({
           runId,
           clientId: client.id,
@@ -908,17 +948,19 @@ export async function runSinglePortalTests(
           itemId: skillId,
           itemName: skillId,
           status: 'skipped',
-          errorMessage: 'Skill not found',
+          errorMessage: 'Skill not found in static skills or library',
         });
         completedTests++;
         continue;
       }
 
+      const skillName = getSkillName(skillResult);
+
       // Report progress
       onProgress?.({
         runId,
         currentClient: client.companyName,
-        currentItem: skill.name,
+        currentItem: skillName,
         currentItemType: 'skill',
         completedTests,
         totalTests,
@@ -927,8 +969,10 @@ export async function runSinglePortalTests(
         percentComplete: Math.round((completedTests / totalTests) * 100),
       });
 
-      // Run test
-      const result = await testSkill(client, skillId, skill);
+      // Run test - use appropriate test function based on skill type
+      const result = skillResult.type === 'static'
+        ? await testSkill(client, skillId, skillResult.skill)
+        : await testLibrarySkill(client, skillId, skillResult.skill);
 
       // Track tokens
       totalInputTokens += result.inputTokens;
@@ -943,7 +987,7 @@ export async function runSinglePortalTests(
         portalSlug: client.portalSlug,
         testType: 'skill',
         itemId: skillId,
-        itemName: skill.name,
+        itemName: skillName,
         status: result.success ? 'passed' : 'failed',
         errorMessage: result.error,
         durationMs: result.durationMs,
