@@ -1,0 +1,44 @@
+# Netlify Configuration
+# Build settings and security headers for SkillEngine
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Security Headers - Applied to all routes
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Prevent clickjacking by disallowing iframe embedding
+    X-Frame-Options = "DENY"
+
+    # Prevent MIME type sniffing
+    X-Content-Type-Options = "nosniff"
+
+    # Enable XSS filter in browsers
+    X-XSS-Protection = "1; mode=block"
+
+    # Control referrer information sent with requests
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+    # Disable unnecessary browser features
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+    # Content Security Policy
+    # - self: Allow resources from same origin
+    # - unsafe-inline/unsafe-eval: Required for Vite/React development patterns
+    # - Supabase: Backend API calls
+    # - AI APIs: Anthropic, OpenAI, Google AI
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com;"
+
+# Cache static assets
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# SPA fallback - redirect all routes to index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
