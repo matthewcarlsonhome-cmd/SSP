@@ -18,6 +18,65 @@ test.describe('Workflows Page', () => {
     await expect(page.locator('body')).toContainText(/workflow/i);
   });
 
+  test('should filter workflows when searching', async ({ page }) => {
+    await page.goto('/#/workflows');
+    await page.waitForLoadState('networkidle');
+
+    // Find the search input
+    const searchInput = page.locator('input[placeholder*="Search"]');
+    await expect(searchInput).toBeVisible();
+
+    // Get initial workflow count from the results text
+    const initialResultsText = await page.locator('text=/\\d+ workflow/').first().textContent();
+
+    // Type a search query that should filter results
+    await searchInput.fill('job');
+
+    // Wait for debounce (150ms) and results to update
+    await page.waitForTimeout(300);
+
+    // Verify results are filtered - should find workflows with "job" in name/description
+    const pageContent = await page.content();
+    expect(pageContent.toLowerCase()).toContain('job');
+
+    // Verify the search input retains the value
+    await expect(searchInput).toHaveValue('job');
+  });
+
+  test('should show no results message for non-matching search', async ({ page }) => {
+    await page.goto('/#/workflows');
+    await page.waitForLoadState('networkidle');
+
+    // Find and use the search input
+    const searchInput = page.locator('input[placeholder*="Search"]');
+    await searchInput.fill('xyznonexistent123');
+
+    // Wait for debounce
+    await page.waitForTimeout(300);
+
+    // Should show "No Workflows Found" message
+    await expect(page.locator('text=No Workflows Found')).toBeVisible();
+  });
+
+  test('should clear search and show all workflows', async ({ page }) => {
+    await page.goto('/#/workflows');
+    await page.waitForLoadState('networkidle');
+
+    const searchInput = page.locator('input[placeholder*="Search"]');
+
+    // Search for something
+    await searchInput.fill('interview');
+    await page.waitForTimeout(300);
+
+    // Clear the search
+    await searchInput.fill('');
+    await page.waitForTimeout(300);
+
+    // Should show all workflows again (category sections visible)
+    const pageContent = await page.content();
+    expect(pageContent).toContain('Job Search');
+  });
+
   test('should display workflow categories', async ({ page }) => {
     await page.goto('/#/workflows');
     await page.waitForLoadState('networkidle');

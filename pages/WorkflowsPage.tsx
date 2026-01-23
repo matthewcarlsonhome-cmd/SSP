@@ -142,15 +142,37 @@ const WorkflowsPage: React.FC = () => {
       }
     }
 
-    // Filter by search
+    // Filter by search - comprehensive search across all workflow content
     if (debouncedSearchQuery) {
       const query = debouncedSearchQuery.toLowerCase();
-      workflows = workflows.filter(
-        (w) =>
+      workflows = workflows.filter((w) => {
+        // Search in name, description, and long description
+        if (
           w.name.toLowerCase().includes(query) ||
           w.description.toLowerCase().includes(query) ||
           w.longDescription.toLowerCase().includes(query)
-      );
+        ) {
+          return true;
+        }
+
+        // Search in outputs (what you'll get)
+        if (w.outputs.some((output) => output.toLowerCase().includes(query))) {
+          return true;
+        }
+
+        // Search in step names and descriptions
+        if (
+          w.steps.some(
+            (step) =>
+              step.name.toLowerCase().includes(query) ||
+              step.description.toLowerCase().includes(query)
+          )
+        ) {
+          return true;
+        }
+
+        return false;
+      });
     }
 
     return workflows;
@@ -191,14 +213,23 @@ const WorkflowsPage: React.FC = () => {
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="relative flex-1 md:w-64">
+              <div className="relative flex-1 md:w-72">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search workflows..."
+                  placeholder="Search workflows, steps, outputs..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 pr-10"
                 />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -375,9 +406,10 @@ const WorkflowsPage: React.FC = () => {
           <main className="flex-1 min-w-0">
             {/* Results Header */}
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm text-muted-foreground">
                   {filteredWorkflows.length} {filteredWorkflows.length === 1 ? 'workflow' : 'workflows'}
+                  {debouncedSearchQuery && ` matching "${debouncedSearchQuery}"`}
                 </span>
                 {selectedCategory && (
                   <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-medium flex items-center gap-1">
@@ -389,6 +421,15 @@ const WorkflowsPage: React.FC = () => {
                       <X className="h-3 w-3" />
                     </button>
                   </span>
+                )}
+                {hasActiveFilters && (
+                  <button
+                    onClick={clearFilters}
+                    className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
+                  >
+                    <X className="h-3 w-3" />
+                    Clear all
+                  </button>
                 )}
               </div>
             </div>
