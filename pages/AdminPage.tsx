@@ -1466,13 +1466,9 @@ const SkillRegistrySeedPanel: React.FC = () => {
           ) : (
             <>
               <Database className="h-4 w-4 mr-2" />
-              Seed Skills
+              Seed New Skills
             </>
           )}
-        </Button>
-        <Button variant="outline" onClick={() => handleSeed(true)} disabled={isSeeding}>
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Force Reseed All
         </Button>
         <Button variant="ghost" onClick={loadStats} disabled={isLoadingStats}>
           <RefreshCw className={`h-4 w-4 ${isLoadingStats ? 'animate-spin' : ''}`} />
@@ -1480,8 +1476,7 @@ const SkillRegistrySeedPanel: React.FC = () => {
       </div>
 
       <p className="text-xs text-muted-foreground mt-3">
-        <strong>Seed Skills</strong>: Adds new skills, preserves improved ones. <br />
-        <strong>Force Reseed</strong>: Overwrites all skills including improvements.
+        Adds skills that don't exist yet. Skills that have been improved (version {'>'} 1) are never overwritten.
       </p>
     </div>
   );
