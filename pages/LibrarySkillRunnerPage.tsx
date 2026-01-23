@@ -319,7 +319,7 @@ const LibrarySkillRunnerPage: React.FC = () => {
         const stream = streamPortalProxy({
           prompt: userPrompt,
           systemPrompt: skill.prompts.systemInstruction,
-          maxTokens: skill.config.maxTokens || 2048,
+          maxTokens: skill.config?.maxTokens || 2048,
           portalSlug: portalSlug || undefined,
         });
 

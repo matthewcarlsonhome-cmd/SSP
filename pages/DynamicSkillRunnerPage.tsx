@@ -290,9 +290,9 @@ const DynamicSkillRunnerPage: React.FC = () => {
         systemInstruction: skill.prompts.systemInstruction,
         userPromptTemplate: skill.prompts.userPromptTemplate,
         outputFormat: skill.prompts.outputFormat,
-        recommendedModel: skill.config.recommendedModel,
-        maxTokens: skill.config.maxTokens,
-        temperature: skill.config.temperature,
+        recommendedModel: skill.config?.recommendedModel ?? 'any',
+        maxTokens: skill.config?.maxTokens ?? 4096,
+        temperature: skill.config?.temperature ?? 0.4,
         inputs: skill.inputs,
       });
 
@@ -552,13 +552,13 @@ const DynamicSkillRunnerPage: React.FC = () => {
                     <span className="text-muted-foreground">Output:</span> {skill.prompts.outputFormat}
                   </div>
                   <div className="bg-muted/50 rounded p-2">
-                    <span className="text-muted-foreground">Model:</span> {skill.config.recommendedModel}
+                    <span className="text-muted-foreground">Model:</span> {skill.config?.recommendedModel ?? 'any'}
                   </div>
                   <div className="bg-muted/50 rounded p-2">
-                    <span className="text-muted-foreground">Max Tokens:</span> {skill.config.maxTokens}
+                    <span className="text-muted-foreground">Max Tokens:</span> {skill.config?.maxTokens ?? 4096}
                   </div>
                   <div className="bg-muted/50 rounded p-2">
-                    <span className="text-muted-foreground">Temperature:</span> {skill.config.temperature}
+                    <span className="text-muted-foreground">Temperature:</span> {skill.config?.temperature ?? 0.4}
                   </div>
                 </div>
               </div>

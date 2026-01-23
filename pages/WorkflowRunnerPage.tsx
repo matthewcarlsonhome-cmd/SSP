@@ -478,8 +478,8 @@ const WorkflowRunnerPage: React.FC = () => {
         const result = await geminiModel.generateContentStream({
           contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
           generationConfig: {
-            temperature: librarySkill.config.temperature,
-            maxOutputTokens: Math.max(librarySkill.config.maxTokens, 16384),
+            temperature: librarySkill.config?.temperature ?? 0.4,
+            maxOutputTokens: Math.max(librarySkill.config?.maxTokens ?? 4096, 16384),
           },
         });
 
@@ -507,7 +507,7 @@ const WorkflowRunnerPage: React.FC = () => {
           },
           body: JSON.stringify({
             model: CLAUDE_MODELS[claudeModel],
-            max_tokens: librarySkill.config.maxTokens,
+            max_tokens: librarySkill.config?.maxTokens ?? 4096,
             system: systemPrompt,
             messages: [{ role: 'user', content: userPrompt }],
             stream: true,
