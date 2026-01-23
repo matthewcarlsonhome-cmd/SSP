@@ -755,6 +755,9 @@ function extractAllStaticSkills(): LibrarySkill[] {
       useCases.push('onboarding');
     }
 
+    // Look up tags from BUILTIN_SKILL_TAGS if available for proper level assignment
+    const builtinTags = BUILTIN_SKILL_TAGS[id];
+
     return {
       id: skill.id,
       name: skill.name,
@@ -763,10 +766,10 @@ function extractAllStaticSkills(): LibrarySkill[] {
       whatYouGet: skill.whatYouGet || [],
       estimatedTimeSaved: '15-30 minutes',
       tags: {
-        category,
-        useCases,
-        level: 'intermediate' as SkillLevel,
-        roles: [],
+        category: builtinTags?.category || category,
+        useCases: builtinTags?.useCases || useCases,
+        level: builtinTags?.level || ('intermediate' as SkillLevel),
+        roles: builtinTags?.roles || [],
       },
       source: 'builtin' as const,
       theme: {
