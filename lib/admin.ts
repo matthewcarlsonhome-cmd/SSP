@@ -49,6 +49,14 @@ let adminEmailsCacheTime = 0;
 const ADMIN_EMAILS_CACHE_TTL = 60000; // 1 minute cache
 
 /**
+ * Clear admin emails cache - useful for testing
+ */
+export function clearAdminEmailsCache(): void {
+  cachedAdminEmails = null;
+  adminEmailsCacheTime = 0;
+}
+
+/**
  * Get admin emails from localStorage (fallback)
  */
 export function getAdminEmailsFromLocalStorage(): string[] {

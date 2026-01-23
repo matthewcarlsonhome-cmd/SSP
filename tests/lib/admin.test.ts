@@ -35,10 +35,16 @@ import {
   getAdminStats,
   exportEmailsToCSV,
   exportSkillUsageToCSV,
+  clearAdminEmailsCache,
 } from '../../lib/admin';
 import type { AppUser, RoleConfig } from '../../lib/storage/types';
 
 describe('Admin Email Management', () => {
+  beforeEach(() => {
+    // Clear the module-level cache before each test
+    clearAdminEmailsCache();
+  });
+
   describe('getAdminEmails', () => {
     it('returns empty array when no admins configured', () => {
       const emails = getAdminEmails();
