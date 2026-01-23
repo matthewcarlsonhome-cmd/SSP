@@ -80,7 +80,8 @@ import { useEmailSegments } from '../hooks/useEmailSegments';
 import { useSkillUsageStats } from '../hooks/useSkillUsageStats';
 import { sendEmail } from '../lib/emailSegmentation';
 import type { EmailSendRequest } from '../lib/emailSegmentation/types';
-import { UserCheck } from 'lucide-react';
+import { UserCheck, Database } from 'lucide-react';
+import { seedSkillRegistry, getSkillRegistryStats } from '../lib/admin/seedSkillRegistry';
 
 type TabId = 'overview' | 'users' | 'clients' | 'emails' | 'email-targeting' | 'roles' | 'usage' | 'api-test' | 'settings';
 
@@ -836,6 +837,9 @@ const AdminPage: React.FC = () => {
               </Button>
             </div>
 
+            {/* Seed Skill Registry */}
+            <SkillRegistrySeedPanel />
+
             {/* Future: More settings */}
             <div className="rounded-xl border bg-card p-6">
               <h3 className="text-lg font-semibold mb-2">Feature Flags</h3>
@@ -1309,6 +1313,176 @@ const ApiTestPanel: React.FC = () => {
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Skill Registry Seed Panel Component
+// ═══════════════════════════════════════════════════════════════════════════
+
+const SkillRegistrySeedPanel: React.FC = () => {
+  const { addToast } = useToast();
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [stats, setStats] = useState<{
+    totalSkills: number;
+    improvedSkills: number;
+    byType: Record<string, number>;
+  } | null>(null);
+  const [lastResult, setLastResult] = useState<{
+    success: boolean;
+    message: string;
+    details?: string;
+  } | null>(null);
+
+  // Load stats on mount
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  const loadStats = async () => {
+    setIsLoadingStats(true);
+    try {
+      const result = await getSkillRegistryStats();
+      setStats(result);
+    } catch (err) {
+      console.error('Failed to load stats:', err);
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
+
+  const handleSeed = async (force: boolean = false) => {
+    setIsSeeding(true);
+    setLastResult(null);
+
+    try {
+      const result = await seedSkillRegistry(force);
+
+      if (result.success) {
+        setLastResult({
+          success: true,
+          message: `Successfully seeded ${result.totalUpserted} skills to the database.`,
+          details: `Static: ${result.details.static.extracted}, Role Templates: ${result.details.roleTemplate.extracted}, Professional: ${result.details.professional.extracted}${result.totalSkipped > 0 ? `, Skipped: ${result.totalSkipped} (improved)` : ''}`,
+        });
+        addToast(`Seeded ${result.totalUpserted} skills`, 'success');
+      } else {
+        setLastResult({
+          success: false,
+          message: `Seeding completed with errors. Upserted: ${result.totalUpserted}, Errors: ${result.totalErrors}`,
+          details: result.errorMessages.slice(0, 5).join('\n'),
+        });
+        addToast('Seeding completed with errors', 'error');
+      }
+
+      // Refresh stats
+      await loadStats();
+    } catch (err) {
+      setLastResult({
+        success: false,
+        message: `Failed to seed: ${err instanceof Error ? err.message : String(err)}`,
+      });
+      addToast('Failed to seed skill registry', 'error');
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border bg-card p-6">
+      <div className="flex items-center gap-3 mb-2">
+        <Database className="h-5 w-5 text-blue-500" />
+        <h3 className="text-lg font-semibold">Skill Registry</h3>
+      </div>
+      <p className="text-sm text-muted-foreground mb-4">
+        Seed all skill prompts from code to the database. The database is the single source of truth for all prompts.
+      </p>
+
+      {/* Current Stats */}
+      {isLoadingStats ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading registry stats...
+        </div>
+      ) : stats ? (
+        <div className="grid grid-cols-3 gap-4 mb-4 p-3 rounded-lg bg-muted/50">
+          <div>
+            <p className="text-2xl font-bold">{stats.totalSkills}</p>
+            <p className="text-xs text-muted-foreground">Total Skills</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-green-600">{stats.improvedSkills}</p>
+            <p className="text-xs text-muted-foreground">Improved</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-blue-600">
+              {Object.values(stats.byType).reduce((a, b) => a + b, 0) > 0
+                ? Object.entries(stats.byType)
+                    .map(([type, count]) => `${count}`)
+                    .join(' / ')
+                : '0'}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {Object.keys(stats.byType).join(' / ') || 'By Type'}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Last Result */}
+      {lastResult && (
+        <div
+          className={`mb-4 p-3 rounded-lg ${
+            lastResult.success
+              ? 'bg-green-500/10 border border-green-500/30'
+              : 'bg-red-500/10 border border-red-500/30'
+          }`}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            {lastResult.success ? (
+              <Check className="h-4 w-4 text-green-600" />
+            ) : (
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+            )}
+            <span className={`text-sm font-medium ${lastResult.success ? 'text-green-600' : 'text-red-600'}`}>
+              {lastResult.message}
+            </span>
+          </div>
+          {lastResult.details && (
+            <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{lastResult.details}</p>
+          )}
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-3">
+        <Button onClick={() => handleSeed(false)} disabled={isSeeding}>
+          {isSeeding ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Seeding...
+            </>
+          ) : (
+            <>
+              <Database className="h-4 w-4 mr-2" />
+              Seed Skills
+            </>
+          )}
+        </Button>
+        <Button variant="outline" onClick={() => handleSeed(true)} disabled={isSeeding}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Force Reseed All
+        </Button>
+        <Button variant="ghost" onClick={loadStats} disabled={isLoadingStats}>
+          <RefreshCw className={`h-4 w-4 ${isLoadingStats ? 'animate-spin' : ''}`} />
+        </Button>
+      </div>
+
+      <p className="text-xs text-muted-foreground mt-3">
+        <strong>Seed Skills</strong>: Adds new skills, preserves improved ones. <br />
+        <strong>Force Reseed</strong>: Overwrites all skills including improvements.
+      </p>
     </div>
   );
 };
