@@ -938,7 +938,7 @@ const SkillCard: React.FC<SkillCardProps> = ({ skill, onLaunch, compact, isRecen
         {skill.source === 'builtin' && (
           <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-xs">Built-in</span>
         )}
-        {skill.config.useWebSearch && (
+        {skill.config?.useWebSearch && (
           <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 text-xs flex items-center gap-1">
             <Search className="h-3 w-3" />
             Web

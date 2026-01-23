@@ -671,8 +671,9 @@ function extractProfessionalSkills(): LibrarySkill[] {
       theme: skill.theme,
       role: roleInfo,
       prompts: skill.prompts,
-      executionConfig: {
-        model: 'claude-sonnet-4-20250514',
+      config: {
+        recommendedModel: 'any',
+        useWebSearch: false,
         maxTokens: 4096,
         temperature: 0.7,
       },
