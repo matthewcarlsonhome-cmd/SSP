@@ -15,6 +15,7 @@ import { supabase } from '../supabase';
 import { getLibrarySkill } from '../skillLibrary';
 import { getSkill } from '../skills/registry';
 import { logger } from '../logger';
+import { promptCache } from './promptCache';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -278,9 +279,19 @@ export async function skillExistsInRegistry(skillId: string): Promise<boolean> {
 
 /**
  * Get the current system prompt for a skill from the registry
- * This returns the potentially-improved prompt if one exists
+ * Uses caching to reduce database queries.
+ *
+ * IMPORTANT: The database is the single source of truth for all prompts.
+ * All skills must be registered in skill_registry before use.
  */
 export async function getSkillPrompt(skillId: string): Promise<SkillPrompt | null> {
+  // Check cache first
+  const cached = promptCache.get(skillId);
+  if (cached !== undefined) {
+    return cached; // Returns null if skill doesn't exist, SkillPrompt if it does
+  }
+
+  // Cache miss - fetch from database
   try {
     const { data, error } = await supabase
       .from('skill_registry')
@@ -289,18 +300,40 @@ export async function getSkillPrompt(skillId: string): Promise<SkillPrompt | nul
       .single();
 
     if (error || !data) {
+      // Cache the miss to avoid repeated DB queries for non-existent skills
+      promptCache.set(skillId, null);
       return null;
     }
 
-    return {
+    const prompt: SkillPrompt = {
       systemInstruction: data.current_system_instruction,
       userPromptTemplate: data.current_user_prompt_template,
       version: data.current_version,
     };
+
+    // Cache the result
+    promptCache.set(skillId, prompt);
+
+    return prompt;
   } catch (err) {
     logger.error('Failed to get skill prompt', { error: err instanceof Error ? err.message : String(err) });
     return null;
   }
+}
+
+/**
+ * Invalidate cached prompt for a skill
+ * Call this after prompt improvements or updates
+ */
+export function invalidateSkillPromptCache(skillId: string): void {
+  promptCache.invalidate(skillId);
+}
+
+/**
+ * Get cache statistics for monitoring
+ */
+export function getPromptCacheStats() {
+  return promptCache.getStats();
 }
 
 /**
@@ -323,7 +356,10 @@ export async function getSkillVersion(skillId: string): Promise<number> {
 
 /**
  * Register a skill in the registry (or update if exists)
- * Used during initialization and when creating new skills
+ * Used during initialization and when creating new skills.
+ *
+ * NOTE: This uses ignoreDuplicates: true to avoid overwriting existing prompts
+ * that may have been improved. Use updateSkillPrompt() to update existing skills.
  */
 export async function registerSkill(
   skillId: string,
@@ -346,7 +382,7 @@ export async function registerSkill(
       },
       {
         onConflict: 'id',
-        ignoreDuplicates: false,
+        ignoreDuplicates: true, // Don't overwrite improved prompts
       }
     );
 
@@ -355,10 +391,76 @@ export async function registerSkill(
       return { success: false, error: error.message };
     }
 
+    // Invalidate cache to pick up the new registration
+    promptCache.invalidate(skillId);
+
     return { success: true };
   } catch (err) {
     logger.error('Skill registration error', { error: err instanceof Error ? err.message : String(err) });
     return { success: false, error: 'Failed to register skill' };
+  }
+}
+
+/**
+ * Update a skill's prompts in the registry
+ * This increments the version and invalidates the cache
+ */
+export async function updateSkillPrompt(
+  skillId: string,
+  systemInstruction: string,
+  userPromptTemplate: string,
+  changeReason: string = 'manual-update'
+): Promise<{ success: boolean; newVersion?: number; error?: string }> {
+  try {
+    // Get current version
+    const { data: current } = await supabase
+      .from('skill_registry')
+      .select('current_version, current_system_instruction, current_user_prompt_template')
+      .eq('id', skillId)
+      .single();
+
+    if (!current) {
+      return { success: false, error: 'Skill not found in registry' };
+    }
+
+    const newVersion = current.current_version + 1;
+
+    // Save current version to history before updating
+    await supabase.from('skill_version_history').insert({
+      skill_id: skillId,
+      version_number: current.current_version,
+      system_instruction: current.current_system_instruction,
+      user_prompt_template: current.current_user_prompt_template,
+      created_by: 'system',
+      change_reason: `Before: ${changeReason}`,
+    });
+
+    // Update the skill with new prompts
+    const { error } = await supabase
+      .from('skill_registry')
+      .update({
+        current_system_instruction: systemInstruction,
+        current_user_prompt_template: userPromptTemplate,
+        current_version: newVersion,
+        last_improved_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', skillId);
+
+    if (error) {
+      logger.error('Failed to update skill prompt', { error: error.message });
+      return { success: false, error: error.message };
+    }
+
+    // Invalidate cache
+    promptCache.invalidate(skillId);
+
+    logger.info(`Updated skill ${skillId} to version ${newVersion}`, { changeReason });
+
+    return { success: true, newVersion };
+  } catch (err) {
+    logger.error('Skill prompt update error', { error: err instanceof Error ? err.message : String(err) });
+    return { success: false, error: 'Failed to update skill prompt' };
   }
 }
 

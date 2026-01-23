@@ -964,3 +964,25 @@ export function getSkillCountByCategory(): Record<SkillCategory, number> {
 
   return counts;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LAZY LOADING EXPORTS
+// For scalable, on-demand skill loading
+// ═══════════════════════════════════════════════════════════════════════════
+
+export {
+  // Metadata (lightweight, for browsing)
+  loadSkillMetadata,
+  getSkillMetadata,
+  getAllSkillMetadata,
+  // Full definitions (on-demand)
+  loadFullSkillDefinition,
+  loadExecutableSkill,
+  // Cache management
+  clearSkillCaches,
+  preloadSkillMetadata,
+  // Types
+  type SkillMetadata,
+  type FullSkillDefinition,
+  type ExecutableSkill,
+} from './lazyLoader';
