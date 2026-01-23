@@ -967,7 +967,9 @@ export function getSkillCountByCategory(): Record<SkillCategory, number> {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LAZY LOADING EXPORTS
-// For scalable, on-demand skill loading
+// ═══════════════════════════════════════════════════════════════════════════
+// LAZY LOADER EXPORTS (TypeScript-based, being deprecated)
+// For scalable, on-demand skill loading from TypeScript definitions
 // ═══════════════════════════════════════════════════════════════════════════
 
 export {
@@ -986,3 +988,86 @@ export {
   type FullSkillDefinition,
   type ExecutableSkill,
 } from './lazyLoader';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DB-FIRST LOADER EXPORTS (NEW - Database as single source of truth)
+// Use these functions for the new architecture where skills are loaded
+// entirely from the database. This is the recommended approach.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export {
+  // Metadata loading (from database)
+  loadAllSkillMetadata as loadAllSkillMetadataFromDb,
+  getSkillMetadata as getSkillMetadataFromDb,
+  getAllSkillMetadataArray as getAllSkillMetadataFromDb,
+  // Full skill loading (from database)
+  loadExecutableSkill as loadExecutableSkillFromDb,
+  loadExecutableSkills as loadExecutableSkillsFromDb,
+  // Filtering (uses cached DB data)
+  filterSkills as filterSkillsFromDb,
+  // Usage tracking
+  trackSkillUsage,
+  // Cache management
+  clearAllCaches as clearDbSkillCaches,
+  clearSkillCache as clearSingleDbSkillCache,
+  preloadSkillMetadata as preloadDbSkillMetadata,
+  // Conversion helpers (for backward compatibility)
+  toLibrarySkill,
+  toExecutableLibrarySkill,
+  // Types
+  type DbSkillMetadata,
+  type DbExecutableSkill,
+  type SkillFilters as DbSkillFilters,
+} from './dbLoader';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DB-FIRST ASYNC WRAPPERS
+// These provide the same interface as the sync functions above,
+// but load from the database instead of TypeScript definitions.
+// ═══════════════════════════════════════════════════════════════════════════
+
+import {
+  loadAllSkillMetadata,
+  loadExecutableSkill as dbLoadExecutableSkill,
+  toLibrarySkill,
+  toExecutableLibrarySkill,
+} from './dbLoader';
+
+/**
+ * Get all library skills from the database (async)
+ * This is the DB-first equivalent of getAllLibrarySkills()
+ */
+export async function getAllLibrarySkillsAsync(): Promise<LibrarySkill[]> {
+  const metadata = await loadAllSkillMetadata();
+  return Array.from(metadata.values()).map(toLibrarySkill);
+}
+
+/**
+ * Get a single skill by ID from the database (async)
+ * This is the DB-first equivalent of getLibrarySkill()
+ */
+export async function getLibrarySkillAsync(id: string): Promise<LibrarySkill | undefined> {
+  const metadata = await loadAllSkillMetadata();
+  const dbSkill = metadata.get(id);
+  return dbSkill ? toLibrarySkill(dbSkill) : undefined;
+}
+
+/**
+ * Get an executable skill with prompts from the database (async)
+ * This is the primary function for executing skills in DB-first mode
+ */
+export async function getExecutableSkillAsync(id: string): Promise<LibrarySkill | null> {
+  const dbSkill = await dbLoadExecutableSkill(id);
+  return dbSkill ? toExecutableLibrarySkill(dbSkill) : null;
+}
+
+/**
+ * Filter skills from the database (async)
+ * This is the DB-first equivalent of filterSkills()
+ */
+export async function filterLibrarySkillsAsync(
+  filters: LibraryFilters
+): Promise<LibrarySkill[]> {
+  const allSkills = await getAllLibrarySkillsAsync();
+  return filterSkills(allSkills, filters);
+}
