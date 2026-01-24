@@ -35,6 +35,7 @@ import {
   Key,
   Target,
   Send,
+  FileCode,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -82,6 +83,7 @@ import { sendEmail } from '../lib/emailSegmentation';
 import type { EmailSendRequest } from '../lib/emailSegmentation/types';
 import { UserCheck, Database } from 'lucide-react';
 import { seedSkillRegistry, getSkillRegistryStats } from '../lib/admin/seedSkillRegistry';
+import { getAllLibrarySkillsAsync } from '../lib/skillLibrary';
 
 type TabId = 'overview' | 'users' | 'clients' | 'emails' | 'email-targeting' | 'roles' | 'usage' | 'api-test' | 'settings';
 
@@ -122,6 +124,9 @@ const AdminPage: React.FC = () => {
   // Email targeting state
   const [showEmailComposer, setShowEmailComposer] = useState(false);
   const [emailSending, setEmailSending] = useState(false);
+
+  // System prompts download state
+  const [isDownloadingPrompts, setIsDownloadingPrompts] = useState(false);
 
   // Email segmentation hooks
   const emailSegments = useEmailSegments();
@@ -169,6 +174,43 @@ const AdminPage: React.FC = () => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     addToast('Usage data exported', 'success');
+  };
+
+  const handleDownloadSystemPrompts = async () => {
+    setIsDownloadingPrompts(true);
+    try {
+      const skills = await getAllLibrarySkillsAsync();
+      const promptsExport = skills.map(skill => ({
+        id: skill.id,
+        name: skill.name,
+        description: skill.description,
+        category: skill.tags.category,
+        source: skill.source,
+        prompts: {
+          systemInstruction: skill.prompts.systemInstruction,
+          userPromptTemplate: skill.prompts.userPromptTemplate,
+          outputFormat: skill.prompts.outputFormat,
+        },
+        config: skill.config,
+      }));
+
+      const json = JSON.stringify(promptsExport, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `skillengine-system-prompts-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      addToast(`Exported ${skills.length} skill prompts`, 'success');
+    } catch (error) {
+      console.error('Error downloading system prompts:', error);
+      addToast('Failed to download system prompts', 'error');
+    } finally {
+      setIsDownloadingPrompts(false);
+    }
   };
 
   const handleUpdateEmailStatus = (email: string, status: CapturedEmail['followUpStatus']) => {
@@ -834,6 +876,31 @@ const AdminPage: React.FC = () => {
               <Button onClick={() => navigate('/admin/improvements')}>
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Open Improvement Dashboard
+              </Button>
+            </div>
+
+            {/* System Prompts Export */}
+            <div className="rounded-xl border bg-card p-6">
+              <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+                <FileCode className="h-5 w-5" />
+                System Prompts Export
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Download all skill system prompts as JSON. This includes system instructions,
+                user prompt templates, and configuration for every skill in the library.
+              </p>
+              <Button onClick={handleDownloadSystemPrompts} disabled={isDownloadingPrompts}>
+                {isDownloadingPrompts ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Downloading...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download All System Prompts
+                  </>
+                )}
               </Button>
             </div>
 

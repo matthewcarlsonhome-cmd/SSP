@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Moon, Sun, Briefcase, Users, LogIn, LogOut, Loader2, ChevronDown, LayoutDashboard, Package, Menu, X, Settings, FileSpreadsheet, MessageSquare, Calculator, Mail, Building2, Trophy, Target, BarChart3, Bot, Bell, Lock, TrendingUp, Calendar, User, Wand2, Download, Shield, BookOpen, Layers } from 'lucide-react';
+import { Moon, Sun, Briefcase, Users, LogIn, LogOut, Loader2, ChevronDown, LayoutDashboard, Package, Menu, X, Settings, FileSpreadsheet, Trophy, Lock, User, Wand2, Download, Shield, BookOpen, Layers, Import, FolderOpen, CreditCard } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme.tsx';
 import { useAuth } from '../hooks/useAuth.tsx';
 import { useToast } from '../hooks/useToast.tsx';
@@ -191,113 +191,66 @@ const Header: React.FC = () => {
                         </div>
                       </Link>
 
-                      {/* Track Progress */}
+                      {/* My Content */}
                       <div className="border-t my-2" />
-                      <p className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Track Progress</p>
-                      <Link to="/job-tracker" onClick={() => setShowToolsMenu(false)}>
+                      <p className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">My Content</p>
+                      <Link to="/my-skills" onClick={() => setShowToolsMenu(false)}>
                         <div className="flex items-center gap-3 px-3 py-2 rounded hover:bg-muted transition-colors">
-                          <Briefcase className="h-4 w-4 text-blue-500" />
-                          <span className="text-sm">Job Tracker</span>
+                          <FolderOpen className="h-4 w-4 text-blue-500" />
+                          <div>
+                            <span className="text-sm font-medium">My Skills</span>
+                            <p className="text-xs text-muted-foreground">Your saved & created skills</p>
+                          </div>
                         </div>
                       </Link>
-                      <Link to="/daily-planner" onClick={() => setShowToolsMenu(false)}>
-                        <div className="flex items-center gap-3 px-3 py-2 rounded hover:bg-muted transition-colors">
-                          <Calendar className="h-4 w-4 text-sky-500" />
-                          <span className="text-sm">Daily Planner</span>
-                        </div>
-                      </Link>
-                      <Link to="/follow-ups" onClick={() => setShowToolsMenu(false)}>
-                        <div className="flex items-center gap-3 px-3 py-2 rounded hover:bg-muted transition-colors">
-                          <Bell className="h-4 w-4 text-red-500" />
-                          <span className="text-sm">Follow-up Reminders</span>
-                        </div>
-                      </Link>
-                      <Link to="/progress" onClick={() => setShowToolsMenu(false)}>
-                        <div className="flex items-center gap-3 px-3 py-2 rounded hover:bg-muted transition-colors">
-                          <BarChart3 className="h-4 w-4 text-indigo-500" />
-                          <span className="text-sm">Progress Report</span>
-                        </div>
-                      </Link>
-
-                      {/* Interview Prep */}
-                      <div className="border-t my-2" />
-                      <p className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Interview Prep</p>
-                      <Link to="/mock-interview" onClick={() => setShowToolsMenu(false)}>
-                        <div className="flex items-center gap-3 px-3 py-2 rounded hover:bg-muted transition-colors">
-                          <Bot className="h-4 w-4 text-violet-500" />
-                          <span className="text-sm">Mock Interview</span>
-                        </div>
-                      </Link>
-                      <Link to="/interview-bank" onClick={() => setShowToolsMenu(false)}>
-                        <div className="flex items-center gap-3 px-3 py-2 rounded hover:bg-muted transition-colors">
-                          <MessageSquare className="h-4 w-4 text-green-500" />
-                          <span className="text-sm">Interview Q&A Bank</span>
-                        </div>
-                      </Link>
-                      <Link to="/company-notes" onClick={() => setShowToolsMenu(false)}>
-                        <div className="flex items-center gap-3 px-3 py-2 rounded hover:bg-muted transition-colors">
-                          <Building2 className="h-4 w-4 text-orange-500" />
-                          <span className="text-sm">Company Research</span>
-                        </div>
-                      </Link>
-
-                      {/* Networking & Outreach */}
-                      <div className="border-t my-2" />
-                      <p className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Networking</p>
-                      <Link to="/networking" onClick={() => setShowToolsMenu(false)}>
-                        <div className="flex items-center gap-3 px-3 py-2 rounded hover:bg-muted transition-colors">
-                          <Mail className="h-4 w-4 text-cyan-500" />
-                          <span className="text-sm">Outreach Templates</span>
-                        </div>
-                      </Link>
-                      <Link to="/referral-network" onClick={() => setShowToolsMenu(false)}>
-                        <div className="flex items-center gap-3 px-3 py-2 rounded hover:bg-muted transition-colors">
-                          <Users className="h-4 w-4 text-blue-400" />
-                          <span className="text-sm">Referral Network</span>
-                        </div>
-                      </Link>
-
-                      {/* Research & Analysis */}
-                      <div className="border-t my-2" />
-                      <p className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Research</p>
-                      <Link to="/salary-calculator" onClick={() => setShowToolsMenu(false)}>
-                        <div className="flex items-center gap-3 px-3 py-2 rounded hover:bg-muted transition-colors">
-                          <Calculator className="h-4 w-4 text-purple-500" />
-                          <span className="text-sm">Salary Calculator</span>
-                        </div>
-                      </Link>
-                      <Link to="/market-insights" onClick={() => setShowToolsMenu(false)}>
-                        <div className="flex items-center gap-3 px-3 py-2 rounded hover:bg-muted transition-colors">
-                          <TrendingUp className="h-4 w-4 text-teal-500" />
-                          <span className="text-sm">Market Insights</span>
-                        </div>
-                      </Link>
-                      <Link to="/skills-gap" onClick={() => setShowToolsMenu(false)}>
-                        <div className="flex items-center gap-3 px-3 py-2 rounded hover:bg-muted transition-colors">
-                          <Target className="h-4 w-4 text-pink-500" />
-                          <span className="text-sm">Skills Gap Analyzer</span>
-                        </div>
-                      </Link>
-
-                      {/* Utilities */}
-                      <div className="border-t my-2" />
-                      <p className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Utilities</p>
                       <Link to="/autofill-vault" onClick={() => setShowToolsMenu(false)}>
                         <div className="flex items-center gap-3 px-3 py-2 rounded hover:bg-muted transition-colors">
                           <Lock className="h-4 w-4 text-emerald-500" />
-                          <span className="text-sm">Auto-Fill Vault</span>
+                          <div>
+                            <span className="text-sm font-medium">Auto-Fill Vault</span>
+                            <p className="text-xs text-muted-foreground">Store reusable data snippets</p>
+                          </div>
                         </div>
                       </Link>
+
+                      {/* Power Tools */}
+                      <div className="border-t my-2" />
+                      <p className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Power Tools</p>
                       <Link to="/batch" onClick={() => setShowToolsMenu(false)}>
                         <div className="flex items-center gap-3 px-3 py-2 rounded hover:bg-muted transition-colors">
                           <FileSpreadsheet className="h-4 w-4 text-amber-500" />
-                          <span className="text-sm">Batch Processing</span>
+                          <div>
+                            <span className="text-sm font-medium">Batch Processing</span>
+                            <p className="text-xs text-muted-foreground">Run skills on multiple items</p>
+                          </div>
+                        </div>
+                      </Link>
+                      <Link to="/community/import" onClick={() => setShowToolsMenu(false)}>
+                        <div className="flex items-center gap-3 px-3 py-2 rounded hover:bg-muted transition-colors">
+                          <Import className="h-4 w-4 text-cyan-500" />
+                          <div>
+                            <span className="text-sm font-medium">Import Skills</span>
+                            <p className="text-xs text-muted-foreground">Import from JSON or URL</p>
+                          </div>
                         </div>
                       </Link>
                       <Link to="/export-skills" onClick={() => setShowToolsMenu(false)}>
                         <div className="flex items-center gap-3 px-3 py-2 rounded hover:bg-muted transition-colors">
                           <Download className="h-4 w-4 text-orange-500" />
-                          <span className="text-sm">Export Skills</span>
+                          <div>
+                            <span className="text-sm font-medium">Export Skills</span>
+                            <p className="text-xs text-muted-foreground">Download skills as JSON</p>
+                          </div>
+                        </div>
+                      </Link>
+
+                      {/* Account & More */}
+                      <div className="border-t my-2" />
+                      <p className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Account & More</p>
+                      <Link to="/pricing" onClick={() => setShowToolsMenu(false)}>
+                        <div className="flex items-center gap-3 px-3 py-2 rounded hover:bg-muted transition-colors">
+                          <CreditCard className="h-4 w-4 text-green-500" />
+                          <span className="text-sm">Pricing & Plans</span>
                         </div>
                       </Link>
                       <Link to="/achievements" onClick={() => setShowToolsMenu(false)}>
@@ -538,113 +491,51 @@ const Header: React.FC = () => {
               </Button>
             </Link>
 
-            {/* Track Progress */}
+            {/* My Content */}
             <div className="border-t my-2" />
-            <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">Track Progress</p>
-            <Link to="/job-tracker">
-              <Button variant={isActive('/job-tracker') ? 'secondary' : 'ghost'} className="w-full justify-start gap-2">
-                <Briefcase className="h-4 w-4 text-blue-500" />
-                Job Tracker
+            <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">My Content</p>
+            <Link to="/my-skills">
+              <Button variant={isActive('/my-skills') ? 'secondary' : 'ghost'} className="w-full justify-start gap-2">
+                <FolderOpen className="h-4 w-4 text-blue-500" />
+                My Skills
               </Button>
             </Link>
-            <Link to="/daily-planner">
-              <Button variant={isActive('/daily-planner') ? 'secondary' : 'ghost'} className="w-full justify-start gap-2">
-                <Calendar className="h-4 w-4 text-sky-500" />
-                Daily Planner
-              </Button>
-            </Link>
-            <Link to="/follow-ups">
-              <Button variant={isActive('/follow-ups') ? 'secondary' : 'ghost'} className="w-full justify-start gap-2">
-                <Bell className="h-4 w-4 text-red-500" />
-                Follow-up Reminders
-              </Button>
-            </Link>
-            <Link to="/progress">
-              <Button variant={isActive('/progress') ? 'secondary' : 'ghost'} className="w-full justify-start gap-2">
-                <BarChart3 className="h-4 w-4 text-indigo-500" />
-                Progress Report
-              </Button>
-            </Link>
-
-            {/* Interview Prep */}
-            <div className="border-t my-2" />
-            <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">Interview Prep</p>
-            <Link to="/mock-interview">
-              <Button variant={isActive('/mock-interview') ? 'secondary' : 'ghost'} className="w-full justify-start gap-2">
-                <Bot className="h-4 w-4 text-violet-500" />
-                Mock Interview
-              </Button>
-            </Link>
-            <Link to="/interview-bank">
-              <Button variant={isActive('/interview-bank') ? 'secondary' : 'ghost'} className="w-full justify-start gap-2">
-                <MessageSquare className="h-4 w-4 text-green-500" />
-                Interview Q&A Bank
-              </Button>
-            </Link>
-            <Link to="/company-notes">
-              <Button variant={isActive('/company-notes') ? 'secondary' : 'ghost'} className="w-full justify-start gap-2">
-                <Building2 className="h-4 w-4 text-orange-500" />
-                Company Research
-              </Button>
-            </Link>
-
-            {/* Networking */}
-            <div className="border-t my-2" />
-            <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">Networking</p>
-            <Link to="/networking">
-              <Button variant={isActive('/networking') ? 'secondary' : 'ghost'} className="w-full justify-start gap-2">
-                <Mail className="h-4 w-4 text-cyan-500" />
-                Outreach Templates
-              </Button>
-            </Link>
-            <Link to="/referral-network">
-              <Button variant={isActive('/referral-network') ? 'secondary' : 'ghost'} className="w-full justify-start gap-2">
-                <Users className="h-4 w-4 text-blue-400" />
-                Referral Network
-              </Button>
-            </Link>
-
-            {/* Research */}
-            <div className="border-t my-2" />
-            <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">Research</p>
-            <Link to="/salary-calculator">
-              <Button variant={isActive('/salary-calculator') ? 'secondary' : 'ghost'} className="w-full justify-start gap-2">
-                <Calculator className="h-4 w-4 text-purple-500" />
-                Salary Calculator
-              </Button>
-            </Link>
-            <Link to="/market-insights">
-              <Button variant={isActive('/market-insights') ? 'secondary' : 'ghost'} className="w-full justify-start gap-2">
-                <TrendingUp className="h-4 w-4 text-teal-500" />
-                Market Insights
-              </Button>
-            </Link>
-            <Link to="/skills-gap">
-              <Button variant={isActive('/skills-gap') ? 'secondary' : 'ghost'} className="w-full justify-start gap-2">
-                <Target className="h-4 w-4 text-pink-500" />
-                Skills Gap Analyzer
-              </Button>
-            </Link>
-
-            {/* Utilities */}
-            <div className="border-t my-2" />
-            <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">Utilities</p>
             <Link to="/autofill-vault">
               <Button variant={isActive('/autofill-vault') ? 'secondary' : 'ghost'} className="w-full justify-start gap-2">
                 <Lock className="h-4 w-4 text-emerald-500" />
                 Auto-Fill Vault
               </Button>
             </Link>
+
+            {/* Power Tools */}
+            <div className="border-t my-2" />
+            <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">Power Tools</p>
             <Link to="/batch">
               <Button variant={isActive('/batch') ? 'secondary' : 'ghost'} className="w-full justify-start gap-2">
                 <FileSpreadsheet className="h-4 w-4 text-amber-500" />
                 Batch Processing
               </Button>
             </Link>
+            <Link to="/community/import">
+              <Button variant={isActive('/community/import') ? 'secondary' : 'ghost'} className="w-full justify-start gap-2">
+                <Import className="h-4 w-4 text-cyan-500" />
+                Import Skills
+              </Button>
+            </Link>
             <Link to="/export-skills">
               <Button variant={isActive('/export-skills') ? 'secondary' : 'ghost'} className="w-full justify-start gap-2">
                 <Download className="h-4 w-4 text-orange-500" />
                 Export Skills
+              </Button>
+            </Link>
+
+            {/* Account & More */}
+            <div className="border-t my-2" />
+            <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">Account & More</p>
+            <Link to="/pricing">
+              <Button variant={isActive('/pricing') ? 'secondary' : 'ghost'} className="w-full justify-start gap-2">
+                <CreditCard className="h-4 w-4 text-green-500" />
+                Pricing & Plans
               </Button>
             </Link>
             <Link to="/achievements">

@@ -194,7 +194,7 @@ const SkillRunnerPage: React.FC = () => {
     additionalInfoText,
     refreshProfileFromStorage,
   } = useAppContext();
-  const { user, appUser } = useAuth();
+  const { user, appUser, isAdmin } = useAuth();
   const timing = useRequestTiming();
 
   // Portal mode detection (for anonymous portal visitors)
@@ -783,23 +783,26 @@ const SkillRunnerPage: React.FC = () => {
               {isFavorited ? 'Favorited' : 'Add to Favorites'}
             </Button>
 
-            <SectionDivider />
-
-            {/* View Prompts Toggle */}
-            <button
-              onClick={() => setShowPrompts(!showPrompts)}
-              className="flex items-center justify-between w-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <span className="flex items-center gap-2">
-                <Code className="h-4 w-4" />
-                View Skill Prompts
-              </span>
-              {showPrompts ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </button>
+            {/* View Prompts Toggle - Admin Only */}
+            {isAdmin && (
+              <>
+                <SectionDivider />
+                <button
+                  onClick={() => setShowPrompts(!showPrompts)}
+                  className="flex items-center justify-between w-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <Code className="h-4 w-4" />
+                    View Skill Prompts
+                  </span>
+                  {showPrompts ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </button>
+              </>
+            )}
           </InfoCard>
 
-          {/* Prompts Panel */}
-          {showPrompts && (
+          {/* Prompts Panel - Admin Only */}
+          {isAdmin && showPrompts && (
             <div className={cn(cards.padded, 'space-y-4')}>
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold flex items-center gap-2">
