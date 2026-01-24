@@ -75,6 +75,8 @@ import { EmailSegmentationPanel } from '../components/EmailSegmentationPanel';
 import { EmailComposer } from '../components/EmailComposer';
 import { UserManagementPanel } from '../components/UserManagementPanel';
 import { ClientManagementPanel } from '../components/ClientManagementPanel';
+import { ProspectingPanel } from '../components/ProspectingPanel';
+import { ContactQueuePanel } from '../components/ContactQueuePanel';
 import { PortalTestPanel } from '../components/PortalTestPanel';
 import { PortalAnalyticsDashboard } from '../components/PortalAnalyticsDashboard';
 import { useEmailSegments } from '../hooks/useEmailSegments';
@@ -511,12 +513,33 @@ const AdminPage: React.FC = () => {
                 Manage B2B client outreach with curated skill and workflow selections. Create dedicated portal pages for each client.
               </p>
             </div>
-            <ClientManagementPanel
-              onViewPortal={(client) => {
-                // Open portal in new tab
-                window.open(`/#/portal/${client.portalSlug}`, '_blank');
+
+            {/* Contact Queue - Priority outreach list */}
+            <ContactQueuePanel
+              onRefreshClients={() => {
+                // Refresh will happen automatically through the panel
               }}
             />
+
+            {/* Prospect Discovery - Bulk import new prospects */}
+            <div className="border-t pt-6">
+              <ProspectingPanel
+                onProspectsCreated={(count) => {
+                  addToast(`Created ${count} new prospects`, 'success');
+                }}
+              />
+            </div>
+
+            {/* Full Client Management */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold mb-4">All Clients</h3>
+              <ClientManagementPanel
+                onViewPortal={(client) => {
+                  // Open portal in new tab
+                  window.open(`/#/portal/${client.portalSlug}`, '_blank');
+                }}
+              />
+            </div>
 
             {/* Portal Analytics Section */}
             <div className="border-t pt-6">
