@@ -6,10 +6,13 @@
  *
  * Uses Supabase for persistent storage when available,
  * falls back to localStorage for offline/unconfigured scenarios.
+ *
+ * SECURITY: Client data is stored in Supabase only (not bundled in JS).
+ * Manage clients through the admin interface.
  */
 
 import type { Client, ClientStatus, ClientIndustry } from './storage/types';
-import { DEFAULT_TARGET_COMPANIES as defaultCompanies } from './storage/types';
+// SECURITY: DEFAULT_TARGET_COMPANIES import removed - use Supabase for client data
 import {
   getRecommendedSkills,
   getRecommendedWorkflows,
@@ -716,8 +719,11 @@ export function toggleClientPortal(id: string, enabled: boolean): Client | null 
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Initialize with default target companies if no clients exist
- * Auto-applies curated skills and workflows based on company industry
+ * Initialize clients from Supabase or localStorage.
+ *
+ * SECURITY FIX: Hardcoded client data has been removed.
+ * Clients must be added through the admin interface or Supabase.
+ * Returns empty array if no clients exist (no auto-seeding).
  */
 export async function initializeDefaultClientsAsync(): Promise<Client[]> {
   // Check Supabase first
@@ -733,143 +739,24 @@ export async function initializeDefaultClientsAsync(): Promise<Client[]> {
   const localExisting = getClientsFromLocalStorage();
   if (localExisting.length > 0) return localExisting;
 
-  // Create default clients
-  const clients: Client[] = defaultCompanies.map(company => {
-    const industry = company.industry || 'other';
-    // Migrate contacts to new format and move client-level linkedInConnectMessage to first contact
-    const oldContacts = company.contacts || [];
-    const migratedContacts = migrateContactsFromDefaults(
-      oldContacts as unknown[],
-      (company as Record<string, unknown>).linkedInConnectMessage as string | undefined
-    );
-    return {
-      id: generateUuid(),
-      companyName: company.companyName || 'Unknown',
-      industry,
-      companyType: company.companyType,
-      services: company.services,
-      revenue: company.revenue,
-      employeeCount: company.employeeCount,
-      location: company.location,
-      priority: company.priority,
-      logoUrl: company.logoUrl,
-      linkedInUrl: company.linkedInUrl,
-      description: company.description,
-      painPoints: company.painPoints,
-      estimatedTimeSavings: company.estimatedTimeSavings,
-      estimatedCostSavings: company.estimatedCostSavings,
-      companyTechnicalInfo: company.companyTechnicalInfo,
-      keyUseCases: company.keyUseCases || [],
-      website: company.website,
-      customHeadline: company.customHeadline,
-      customMessage: company.customMessage,
-      notes: company.notes,
-      contacts: migratedContacts,
-      // Use personalized recommendations based on ALL client attributes including company name
-      selectedSkillIds: company.selectedSkillIds || getPersonalizedSkillRecommendations({
-        companyName: company.companyName,
-        industry,
-        painPoints: company.painPoints,
-        services: company.services,
-        description: company.description,
-        companyType: company.companyType,
-        employeeCount: company.employeeCount,
-        revenue: company.revenue,
-      }),
-      selectedWorkflowIds: company.selectedWorkflowIds || getPersonalizedWorkflowRecommendations({
-        companyName: company.companyName,
-        industry,
-        painPoints: company.painPoints,
-        services: company.services,
-        description: company.description,
-        companyType: company.companyType,
-      }),
-      portalSlug: generateSlug(company.companyName || 'unknown'),
-      portalEnabled: false,
-      status: 'prospect' as ClientStatus,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-  });
-
-  // Save to localStorage
-  saveClientsToLocalStorage(clients);
-
-  // Save to Supabase if configured
-  if (isSupabaseConfigured()) {
-    await Promise.all(clients.map(c => saveClientToSupabase(c)));
-  }
-
-  return clients;
+  // SECURITY: Return empty array - no hardcoded data seeding
+  // Clients must be added through admin interface or Supabase
+  logger.info('No clients found. Add clients via admin interface or Supabase.');
+  return [];
 }
 
 /**
- * Initialize with default target companies (sync version)
+ * Initialize clients (sync version).
+ *
+ * SECURITY FIX: Hardcoded client data has been removed.
+ * Returns existing clients or empty array if none exist.
  */
 export function initializeDefaultClients(): Client[] {
   const existing = getClients();
   if (existing.length > 0) return existing;
 
-  const clients: Client[] = defaultCompanies.map(company => {
-    const industry = company.industry || 'other';
-    // Migrate contacts to new format and move client-level linkedInConnectMessage to first contact
-    const oldContacts = company.contacts || [];
-    const migratedContacts = migrateContactsFromDefaults(
-      oldContacts as unknown[],
-      (company as Record<string, unknown>).linkedInConnectMessage as string | undefined
-    );
-    return {
-      id: generateUuid(),
-      companyName: company.companyName || 'Unknown',
-      industry,
-      companyType: company.companyType,
-      services: company.services,
-      revenue: company.revenue,
-      employeeCount: company.employeeCount,
-      location: company.location,
-      priority: company.priority,
-      logoUrl: company.logoUrl,
-      linkedInUrl: company.linkedInUrl,
-      description: company.description,
-      painPoints: company.painPoints,
-      estimatedTimeSavings: company.estimatedTimeSavings,
-      estimatedCostSavings: company.estimatedCostSavings,
-      companyTechnicalInfo: company.companyTechnicalInfo,
-      keyUseCases: company.keyUseCases || [],
-      website: company.website,
-      customHeadline: company.customHeadline,
-      customMessage: company.customMessage,
-      notes: company.notes,
-      contacts: migratedContacts,
-      // Use personalized recommendations based on ALL client attributes including company name
-      selectedSkillIds: company.selectedSkillIds || getPersonalizedSkillRecommendations({
-        companyName: company.companyName,
-        industry,
-        painPoints: company.painPoints,
-        services: company.services,
-        description: company.description,
-        companyType: company.companyType,
-        employeeCount: company.employeeCount,
-        revenue: company.revenue,
-      }),
-      selectedWorkflowIds: company.selectedWorkflowIds || getPersonalizedWorkflowRecommendations({
-        companyName: company.companyName,
-        industry,
-        painPoints: company.painPoints,
-        services: company.services,
-        description: company.description,
-        companyType: company.companyType,
-      }),
-      portalSlug: generateSlug(company.companyName || 'unknown'),
-      portalEnabled: false,
-      status: 'prospect' as ClientStatus,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-  });
-
-  saveClients(clients);
-  return clients;
+  // SECURITY: Return empty array - no hardcoded data seeding
+  return [];
 }
 
 /**
@@ -1257,194 +1144,24 @@ export function resetClientSelectionsToDefaults(clientId: string): Client | null
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// REFRESH FROM DEFAULTS - Sync with updated DEFAULT_TARGET_COMPANIES
+// REFRESH FROM DEFAULTS - DEPRECATED
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Refresh clients from DEFAULT_TARGET_COMPANIES
- * - Adds new companies that don't exist
- * - Updates existing companies with new data (contacts, customizations, etc.)
- * - Updates skill/workflow selections to current industry defaults
- * Returns { added: number, updated: number }
+ * @deprecated SECURITY FIX: Hardcoded client data has been removed.
+ * This function is kept for backwards compatibility but no longer seeds clients.
+ * Manage clients through the admin interface or Supabase directly.
  */
 export async function refreshClientsFromDefaults(): Promise<{ added: number; updated: number }> {
-  const clients = getClients();
-  const existingByName = new Map(clients.map(c => [c.companyName.toLowerCase(), c]));
-
-  let added = 0;
-  let updated = 0;
-
-  for (const company of defaultCompanies) {
-    const companyName = company.companyName || 'Unknown';
-    const existing = existingByName.get(companyName.toLowerCase());
-    const industry = company.industry || 'other';
-
-    if (existing) {
-      // Update existing client with new data from defaults
-      let hasChanges = false;
-
-      // Update contacts if provided in defaults
-      if (company.contacts && company.contacts.length > 0) {
-        existing.contacts = company.contacts;
-        hasChanges = true;
-      }
-
-      // Update custom headline/message if provided
-      if (company.customHeadline && company.customHeadline !== existing.customHeadline) {
-        existing.customHeadline = company.customHeadline;
-        hasChanges = true;
-      }
-      if (company.customMessage && company.customMessage !== existing.customMessage) {
-        existing.customMessage = company.customMessage;
-        hasChanges = true;
-      }
-
-      // Update LinkedIn URL if provided
-      if (company.linkedInUrl && company.linkedInUrl !== existing.linkedInUrl) {
-        existing.linkedInUrl = company.linkedInUrl;
-        hasChanges = true;
-      }
-
-      // Update other fields
-      if (company.logoUrl && !existing.logoUrl) {
-        existing.logoUrl = company.logoUrl;
-        hasChanges = true;
-      }
-      if (company.painPoints && !existing.painPoints) {
-        existing.painPoints = company.painPoints;
-        hasChanges = true;
-      }
-      if (company.estimatedTimeSavings && !existing.estimatedTimeSavings) {
-        existing.estimatedTimeSavings = company.estimatedTimeSavings;
-        hasChanges = true;
-      }
-      if (company.estimatedCostSavings && !existing.estimatedCostSavings) {
-        existing.estimatedCostSavings = company.estimatedCostSavings;
-        hasChanges = true;
-      }
-
-      // Update skill/workflow selections - prefer curated selections from defaults, fall back to personalized recommendations
-      const newSkills = company.selectedSkillIds && company.selectedSkillIds.length > 0
-        ? company.selectedSkillIds
-        : getPersonalizedSkillRecommendations({
-            companyName: existing.companyName,
-            industry,
-            painPoints: existing.painPoints || company.painPoints,
-            services: existing.services || company.services,
-            description: existing.description || company.description,
-            companyType: existing.companyType || company.companyType,
-            employeeCount: existing.employeeCount || company.employeeCount,
-            revenue: existing.revenue || company.revenue,
-          });
-      const newWorkflows = company.selectedWorkflowIds && company.selectedWorkflowIds.length > 0
-        ? company.selectedWorkflowIds
-        : getPersonalizedWorkflowRecommendations({
-            companyName: existing.companyName,
-            industry,
-            painPoints: existing.painPoints || company.painPoints,
-            services: existing.services || company.services,
-            description: existing.description || company.description,
-            companyType: existing.companyType || company.companyType,
-          });
-
-      if (JSON.stringify(existing.selectedSkillIds.sort()) !== JSON.stringify(newSkills.sort())) {
-        existing.selectedSkillIds = newSkills;
-        hasChanges = true;
-      }
-      if (JSON.stringify(existing.selectedWorkflowIds.sort()) !== JSON.stringify(newWorkflows.sort())) {
-        existing.selectedWorkflowIds = newWorkflows;
-        hasChanges = true;
-      }
-
-      if (hasChanges) {
-        existing.updatedAt = new Date().toISOString();
-        updated++;
-      }
-    } else {
-      // Add new client
-      const newClient: Client = {
-        id: generateUuid(),
-        companyName,
-        industry,
-        companyType: company.companyType,
-        services: company.services,
-        revenue: company.revenue,
-        employeeCount: company.employeeCount,
-        location: company.location,
-        priority: company.priority,
-        logoUrl: company.logoUrl,
-        linkedInUrl: company.linkedInUrl,
-        description: company.description,
-        painPoints: company.painPoints,
-        estimatedTimeSavings: company.estimatedTimeSavings,
-        estimatedCostSavings: company.estimatedCostSavings,
-        website: company.website,
-        customHeadline: company.customHeadline,
-        customMessage: company.customMessage,
-        notes: company.notes,
-        contacts: company.contacts || [],
-        // Use curated selections from defaults if available, otherwise generate personalized recommendations
-        selectedSkillIds: company.selectedSkillIds && company.selectedSkillIds.length > 0
-          ? company.selectedSkillIds
-          : getPersonalizedSkillRecommendations({
-              companyName,
-              industry,
-              painPoints: company.painPoints,
-              services: company.services,
-              description: company.description,
-              companyType: company.companyType,
-              employeeCount: company.employeeCount,
-              revenue: company.revenue,
-            }),
-        selectedWorkflowIds: company.selectedWorkflowIds && company.selectedWorkflowIds.length > 0
-          ? company.selectedWorkflowIds
-          : getPersonalizedWorkflowRecommendations({
-              companyName,
-              industry,
-              painPoints: company.painPoints,
-              services: company.services,
-              description: company.description,
-              companyType: company.companyType,
-            }),
-        portalSlug: generateSlug(companyName),
-        portalEnabled: false,
-        status: 'prospect' as ClientStatus,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      // Ensure slug is unique
-      let slug = newClient.portalSlug;
-      let counter = 1;
-      while (clients.some(c => c.portalSlug === slug)) {
-        slug = `${newClient.portalSlug}-${counter}`;
-        counter++;
-      }
-      newClient.portalSlug = slug;
-
-      clients.push(newClient);
-      existingByName.set(companyName.toLowerCase(), newClient);
-      added++;
-    }
-  }
-
-  // Save all changes
-  if (added > 0 || updated > 0) {
-    saveClientsToLocalStorage(clients);
-
-    // Sync to Supabase if configured
-    if (isSupabaseConfigured()) {
-      await Promise.all(clients.map(c => saveClientToSupabase(c)));
-    }
-  }
-
-  logger.info('Refreshed clients from defaults', { added, updated, total: clients.length });
-  return { added, updated };
+  logger.warn('refreshClientsFromDefaults is deprecated - hardcoded client data removed for security');
+  return { added: 0, updated: 0 };
 }
 
 /**
- * Force reinitialize all clients from DEFAULT_TARGET_COMPANIES
- * WARNING: This will delete all existing clients and recreate from defaults
+ * Clear all clients from localStorage and Supabase.
+ *
+ * SECURITY FIX: This no longer reseeds from hardcoded data.
+ * After clearing, add clients through the admin interface.
  */
 export async function forceReinitializeClients(): Promise<Client[]> {
   // Clear existing clients
@@ -1455,8 +1172,8 @@ export async function forceReinitializeClients(): Promise<Client[]> {
     await supabase.from('clients').delete().neq('id', '');
   }
 
-  // Reinitialize from defaults
-  return initializeDefaultClientsAsync();
+  logger.info('All clients cleared. Add new clients via admin interface.');
+  return [];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1545,70 +1262,18 @@ export function applyPersuasiveMessageToClient(clientId: string): Client | null 
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// APPLY CURATED SKILLS - Update only companies with curated selections
+// APPLY CURATED SKILLS - DEPRECATED
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Apply curated skill/workflow selections from DEFAULT_TARGET_COMPANIES
- * ONLY updates companies that have curated selections defined - leaves all other clients untouched
+ * @deprecated SECURITY FIX: Hardcoded client data has been removed.
+ * Curated selections must be managed through the admin interface or Supabase.
  *
- * @returns Number of clients updated
+ * @returns 0 (no updates)
  */
 export async function applyCuratedSelectionsToClients(): Promise<number> {
-  const clients = getClients();
-  let updatedCount = 0;
-
-  // Build a map of companies with curated selections from defaults
-  const curatedCompanies = new Map<string, { skills: string[]; workflows: string[] }>();
-  for (const company of defaultCompanies) {
-    if (company.selectedSkillIds && company.selectedSkillIds.length > 0) {
-      curatedCompanies.set(company.companyName?.toLowerCase() || '', {
-        skills: company.selectedSkillIds,
-        workflows: company.selectedWorkflowIds || [],
-      });
-    }
-  }
-
-  logger.info('Applying curated selections', {
-    curatedCompanyCount: curatedCompanies.size,
-    companies: Array.from(curatedCompanies.keys())
-  });
-
-  // Update only clients that have curated selections
-  for (const client of clients) {
-    const curated = curatedCompanies.get(client.companyName.toLowerCase());
-    if (curated) {
-      const skillsChanged = JSON.stringify(client.selectedSkillIds.sort()) !== JSON.stringify(curated.skills.sort());
-      const workflowsChanged = JSON.stringify(client.selectedWorkflowIds.sort()) !== JSON.stringify(curated.workflows.sort());
-
-      if (skillsChanged || workflowsChanged) {
-        client.selectedSkillIds = curated.skills;
-        client.selectedWorkflowIds = curated.workflows;
-        client.updatedAt = new Date().toISOString();
-        updatedCount++;
-        logger.info('Updated curated selections for client', {
-          companyName: client.companyName,
-          skillCount: curated.skills.length,
-          workflowCount: curated.workflows.length
-        });
-      }
-    }
-  }
-
-  // Save to localStorage
-  if (updatedCount > 0) {
-    saveClientsToLocalStorage(clients);
-
-    // Sync to Supabase if configured
-    if (isSupabaseConfigured()) {
-      // Only sync the updated clients
-      const updatedClients = clients.filter(c => curatedCompanies.has(c.companyName.toLowerCase()));
-      await Promise.all(updatedClients.map(c => saveClientToSupabase(c)));
-    }
-  }
-
-  logger.info('Applied curated selections', { updatedCount, totalClients: clients.length });
-  return updatedCount;
+  logger.warn('applyCuratedSelectionsToClients is deprecated - hardcoded client data removed for security');
+  return 0;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
