@@ -610,8 +610,26 @@ export const SKILL_COLLECTIONS: SkillCollection[] = [
 // ═══════════════════════════════════════════════════════════════════════════
 // SKILL LIBRARY SINGLETON
 // ═══════════════════════════════════════════════════════════════════════════
+//
+// ⚠️  DEPRECATION NOTICE ⚠️
+// ─────────────────────────────────────────────────────────────────────────────
+// The TypeScript-based skill loading (getAllLibrarySkills, getLibrarySkill, etc.)
+// is DEPRECATED. Use the async database functions instead:
+//
+// OLD (deprecated):
+//   const skills = getAllLibrarySkills();
+//   const skill = getLibrarySkill(id);
+//
+// NEW (recommended):
+//   const skills = await getAllLibrarySkillsAsync();
+//   const skill = await getExecutableSkillAsync(id);
+//
+// The database is the SINGLE SOURCE OF TRUTH for all skill data.
+// TypeScript skill definitions are for SEEDING ONLY.
+// ═══════════════════════════════════════════════════════════════════════════
 
 let _allSkills: LibrarySkill[] | null = null;
+let _deprecationWarningShown = false;
 
 /**
  * Convert professional skills to LibrarySkill format
@@ -790,8 +808,21 @@ function extractAllStaticSkills(): LibrarySkill[] {
 /**
  * Get all skills from all sources (static + role templates + professional)
  * Community skills are loaded separately from Supabase
+ *
+ * @deprecated Use getAllLibrarySkillsAsync() instead.
+ * The database is the single source of truth for skill data.
  */
 export function getAllLibrarySkills(): LibrarySkill[] {
+  // Show deprecation warning once
+  if (!_deprecationWarningShown && typeof console !== 'undefined') {
+    console.warn(
+      '⚠️  DEPRECATION WARNING: getAllLibrarySkills() is deprecated.\n' +
+      '   Use getAllLibrarySkillsAsync() for database-first architecture.\n' +
+      '   The database is the SINGLE SOURCE OF TRUTH for all skill data.'
+    );
+    _deprecationWarningShown = true;
+  }
+
   if (!_allSkills) {
     // Use extractAllStaticSkills to include ALL 73 static skills with correct IDs
     const staticSkills = extractAllStaticSkills();
@@ -804,6 +835,9 @@ export function getAllLibrarySkills(): LibrarySkill[] {
 
 /**
  * Get a single skill by ID
+ *
+ * @deprecated Use getExecutableSkillAsync(id) instead.
+ * The database is the single source of truth for skill data.
  */
 export function getLibrarySkill(id: string): LibrarySkill | undefined {
   return getAllLibrarySkills().find((s) => s.id === id);

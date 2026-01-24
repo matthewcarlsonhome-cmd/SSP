@@ -25,6 +25,16 @@ import type { SkillCategory, SkillLevel, SkillUseCase, SkillSource } from './typ
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
+ * Russellian axiom types
+ */
+export type RussellianAxiom = 'READ' | 'TRANSFORM' | 'WRITE' | 'DECIDE' | 'GENERATE' | 'WAIT' | 'VALIDATE';
+
+/**
+ * Wittgensteinian language game types
+ */
+export type WittgensteinianGame = 'analysis' | 'generation' | 'optimization' | 'coaching' | 'research' | 'translation';
+
+/**
  * Skill metadata for browsing (lightweight, loaded upfront)
  * Matches the skill_library view
  */
@@ -70,6 +80,29 @@ export interface DbSkillMetadata {
   recommended_model: 'gemini' | 'claude' | 'any' | null;
   use_web_search: boolean | null;
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RUSSELLIAN FORMAL VALIDATION (optional metadata)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** Primitive axioms: READ, TRANSFORM, WRITE, DECIDE, GENERATE, WAIT, VALIDATE */
+  axioms: RussellianAxiom[] | null;
+
+  /** Type level 0-5 for stratification */
+  type_level: number | null;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WITTGENSTEINIAN CONTEXTUAL VALIDATION (optional metadata)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** Language games: analysis, generation, optimization, coaching, research, translation */
+  language_games: WittgensteinianGame[] | null;
+
+  /** Family resemblance clusters for fuzzy categorization */
+  family_clusters: string[] | null;
+
+  /** Broader practice context (e.g., 'job-seeking', 'software-development') */
+  form_of_life: string | null;
+
   // Metrics
   use_count: number | null;
   total_grades: number | null;
@@ -84,11 +117,57 @@ export interface DbSkillMetadata {
  * Full skill with prompts (for execution)
  */
 export interface DbExecutableSkill extends DbSkillMetadata {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CORE EXECUTION FIELDS (these drive skill execution - UNCHANGED)
+  // ═══════════════════════════════════════════════════════════════════════════
   current_system_instruction: string;
   current_user_prompt_template: string;
   current_version: number;
   max_tokens: number | null;
   temperature: number | null;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADDITIONAL RUSSELLIAN METADATA (optional enrichment)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** Cryptographic derivation certificate proving valid composition */
+  validation_certificate: {
+    axiom_chain: RussellianAxiom[];
+    validated_at: string;
+    hash: string;
+    validator_version: string;
+  } | null;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADDITIONAL WITTGENSTEINIAN METADATA (optional enrichment)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** Domain vocabulary terms this skill uses */
+  vocabulary_terms: string[] | null;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ATOMIC COMPOSITION METADATA (optional, for future composition)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** Declarative recipe for atomic prompt composition */
+  prompt_recipe: {
+    role: string;
+    expertise: string[];
+    methodologies: string[];
+    output: string;
+    constraints: string[];
+    customSections?: Array<{
+      title: string;
+      content: string;
+      position: 'before-methodology' | 'after-methodology' | 'before-output' | 'after-output';
+    }>;
+  } | null;
+
+  /** Hash of current prompt for cache invalidation */
+  prompt_hash: string | null;
+
+  /** Byte size of current prompt for performance monitoring */
+  prompt_byte_size: number | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
