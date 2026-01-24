@@ -53,7 +53,7 @@ const CommunitySkillRunnerPage: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const { selectedApi, setSelectedApi } = useAppContext();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   const [communitySkill, setCommunitySkill] = useState<CommunitySkill | null>(null);
   const [loading, setLoading] = useState(true);
@@ -525,19 +525,21 @@ const CommunitySkillRunnerPage: React.FC = () => {
               </span>
             </div>
 
-            {/* View Prompts Toggle */}
-            <div className="mt-6 pt-4 border-t">
-              <button
-                onClick={() => setShowPrompts(!showPrompts)}
-                className="flex items-center justify-between w-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <span className="flex items-center gap-2">
-                  <Code className="h-4 w-4" />
-                  View Skill Prompts
-                </span>
-                {showPrompts ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </button>
-            </div>
+            {/* View Prompts Toggle - Admin Only */}
+            {isAdmin && (
+              <div className="mt-6 pt-4 border-t">
+                <button
+                  onClick={() => setShowPrompts(!showPrompts)}
+                  className="flex items-center justify-between w-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <Code className="h-4 w-4" />
+                    View Skill Prompts
+                  </span>
+                  {showPrompts ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </button>
+              </div>
+            )}
 
             {/* Rate This Skill */}
             <div className="mt-4 pt-4 border-t">
@@ -575,8 +577,8 @@ const CommunitySkillRunnerPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Prompts Panel */}
-          {showPrompts && (
+          {/* Prompts Panel - Admin Only */}
+          {isAdmin && showPrompts && (
             <div className="mt-4 rounded-xl border bg-card p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold flex items-center gap-2">

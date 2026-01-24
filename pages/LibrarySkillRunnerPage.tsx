@@ -19,6 +19,7 @@ import remarkGfm from 'remark-gfm';
 import { executeDynamicSkill } from '../lib/skills/dynamic';
 import type { ChatGPTModelType } from '../lib/chatgpt';
 import { useToast } from '../hooks/useToast';
+import { useAuth } from '../hooks/useAuth';
 import { usePortalMode } from '../hooks/usePortalMode';
 import type { DynamicSkill, DynamicFormInput, SavedOutput, SkillExecution, FavoriteSkill } from '../lib/storage/types';
 import type { LibrarySkill } from '../lib/skillLibrary/types';
@@ -63,6 +64,7 @@ const LibrarySkillRunnerPage: React.FC = () => {
   const navigate = useNavigate();
   const { skillId } = useParams<{ skillId: string }>();
   const { addToast } = useToast();
+  const { isAdmin } = useAuth();
 
   // Portal mode detection (for anonymous portal visitors)
   const {
@@ -604,23 +606,25 @@ const LibrarySkillRunnerPage: React.FC = () => {
               </Button>
             </div>
 
-            {/* View Prompts Toggle */}
-            <div className="mt-4 pt-4 border-t">
-              <button
-                onClick={() => setShowPrompts(!showPrompts)}
-                className="flex items-center justify-between w-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <span className="flex items-center gap-2">
-                  <Code className="h-4 w-4" />
-                  View Skill Prompts
-                </span>
-                {showPrompts ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </button>
-            </div>
+            {/* View Prompts Toggle - Admin Only */}
+            {isAdmin && (
+              <div className="mt-4 pt-4 border-t">
+                <button
+                  onClick={() => setShowPrompts(!showPrompts)}
+                  className="flex items-center justify-between w-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <Code className="h-4 w-4" />
+                    View Skill Prompts
+                  </span>
+                  {showPrompts ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Prompts Panel */}
-          {showPrompts && (
+          {/* Prompts Panel - Admin Only */}
+          {isAdmin && showPrompts && (
             <div className="mt-4 rounded-xl border bg-card p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold flex items-center gap-2">
