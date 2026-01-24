@@ -140,9 +140,14 @@ WHERE form_of_life IS NOT NULL;
 
 -- ───────────────────────────────────────────────────────────────────────────
 -- 5. UPDATE skill_library VIEW TO INCLUDE NEW COLUMNS
+-- Must DROP and recreate because PostgreSQL doesn't allow column reordering
 -- ───────────────────────────────────────────────────────────────────────────
 
-CREATE OR REPLACE VIEW skill_library AS
+-- Drop existing view first
+DROP VIEW IF EXISTS skill_library;
+
+-- Recreate with new columns
+CREATE VIEW skill_library AS
 SELECT
   id,
   name,
@@ -187,6 +192,8 @@ ORDER BY use_count DESC, name ASC;
 
 -- Re-grant read access
 GRANT SELECT ON skill_library TO anon, authenticated;
+
+COMMENT ON VIEW skill_library IS 'Public view of skills for browsing (excludes prompt content, includes Russellian/Wittgensteinian metadata)';
 
 -- ───────────────────────────────────────────────────────────────────────────
 -- 6. HELPER FUNCTION: Validate Skill Axiom Composition
