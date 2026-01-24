@@ -243,9 +243,10 @@ async function getClientsFromSupabase(): Promise<Client[]> {
 async function saveClientToSupabase(client: Client): Promise<Client | null> {
   if (!supabase) return null;
 
-  const supabaseData = clientToSupabase(client);
-  supabaseData.id = client.id;
-  supabaseData.created_at = client.createdAt;
+  const ensuredClient = ensureClientUuid(client);
+  const supabaseData = clientToSupabase(ensuredClient);
+  supabaseData.id = ensuredClient.id;
+  supabaseData.created_at = ensuredClient.createdAt;
   supabaseData.updated_at = new Date().toISOString();
 
   const { data, error } = await supabase
@@ -415,8 +416,46 @@ export function generateSlug(companyName: string): string {
 /**
  * Generate a unique ID
  */
-function generateId(): string {
-  return `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+function generateUuid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  const bytes = new Uint8Array(16);
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+
+  // Per RFC 4122 section 4.4
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // Version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // Variant 10
+
+  const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0'));
+  return `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-${hex.slice(6, 8).join('')}-${hex.slice(8, 10).join('')}-${hex.slice(10, 16).join('')}`;
+}
+
+function isValidUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function ensureClientUuid(client: Client): Client {
+  if (isValidUuid(client.id)) {
+    return client;
+  }
+
+  const updatedClient = { ...client, id: generateUuid() };
+  const clients = getClientsFromLocalStorage();
+  const index = clients.findIndex(c => c.id === client.id);
+  if (index !== -1) {
+    clients[index] = updatedClient;
+    saveClientsToLocalStorage(clients);
+  }
+
+  return updatedClient;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -430,7 +469,7 @@ export async function createClientAsync(data: Partial<Client>): Promise<Client> 
   const clients = getClients();
 
   const newClient: Client = {
-    id: generateId(),
+    id: generateUuid(),
     companyName: data.companyName || 'New Company',
     industry: data.industry || 'other',
     website: data.website,
@@ -488,7 +527,7 @@ export function createClient(data: Partial<Client>): Client {
   const clients = getClients();
 
   const newClient: Client = {
-    id: generateId(),
+    id: generateUuid(),
     companyName: data.companyName || 'New Company',
     industry: data.industry || 'other',
     website: data.website,
