@@ -105,6 +105,12 @@ const CATEGORY_LABELS: Record<ScanCategory, string> = {
   session: 'Session',
   environment: 'Environment',
   configuration: 'Configuration',
+  cookies: 'Cookies',
+  headers: 'Headers',
+  content: 'Content',
+  forms: 'Forms',
+  network: 'Network',
+  scripts: 'Scripts',
 };
 
 const GRADE_COLORS: Record<string, string> = {
@@ -128,12 +134,25 @@ export const SecurityScannerPanel: React.FC<SecurityScannerPanelProps> = ({ clas
 
   // Scan options
   const [scanOptions, setScanOptions] = useState<SecurityScannerOptions>({
+    // Core checks
     includeApiKeys: true,
     includeStorage: true,
     includePermissions: true,
     includeSession: true,
     includeEnvironment: true,
     includeConfiguration: true,
+    // High-priority checks
+    includeCookies: true,
+    includeHeaders: true,
+    includeMixedContent: true,
+    includeSRI: true,
+    // Medium-priority checks
+    includeForms: true,
+    includeThirdPartyScripts: true,
+    // Lower-priority checks
+    includeNetwork: true,
+    includeServiceWorkers: true,
+    includeDOMSecurity: true,
   });
 
   // History state
@@ -334,28 +353,108 @@ export const SecurityScannerPanel: React.FC<SecurityScannerPanelProps> = ({ clas
       {/* Scan Options */}
       <div className="rounded-xl border bg-card p-6">
         <h3 className="font-medium mb-4">Scan Options</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {[
-            { key: 'includeApiKeys', label: 'API Keys' },
-            { key: 'includeStorage', label: 'Storage Patterns' },
-            { key: 'includePermissions', label: 'Permissions' },
-            { key: 'includeSession', label: 'Session Security' },
-            { key: 'includeEnvironment', label: 'Environment' },
-            { key: 'includeConfiguration', label: 'Configuration' },
-          ].map(option => (
-            <label
-              key={option.key}
-              className="flex items-center gap-2 text-sm cursor-pointer"
-            >
-              <Checkbox
-                checked={scanOptions[option.key as keyof SecurityScannerOptions]}
-                onCheckedChange={(checked) =>
-                  setScanOptions(prev => ({ ...prev, [option.key]: checked }))
-                }
-              />
-              {option.label}
-            </label>
-          ))}
+
+        {/* Core Security Checks */}
+        <div className="mb-4">
+          <h4 className="text-sm font-medium text-muted-foreground mb-2">Core Security</h4>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {[
+              { key: 'includeApiKeys', label: 'API Keys' },
+              { key: 'includeStorage', label: 'Storage & IndexedDB' },
+              { key: 'includePermissions', label: 'Permissions' },
+              { key: 'includeSession', label: 'Session Security' },
+              { key: 'includeEnvironment', label: 'Environment' },
+              { key: 'includeConfiguration', label: 'Configuration' },
+            ].map(option => (
+              <label
+                key={option.key}
+                className="flex items-center gap-2 text-sm cursor-pointer"
+              >
+                <Checkbox
+                  checked={scanOptions[option.key as keyof SecurityScannerOptions]}
+                  onCheckedChange={(checked) =>
+                    setScanOptions(prev => ({ ...prev, [option.key]: checked }))
+                  }
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* High Priority Checks */}
+        <div className="mb-4">
+          <h4 className="text-sm font-medium text-muted-foreground mb-2">High Priority</h4>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {[
+              { key: 'includeCookies', label: 'Cookie Security' },
+              { key: 'includeHeaders', label: 'Security Headers' },
+              { key: 'includeMixedContent', label: 'Mixed Content' },
+              { key: 'includeSRI', label: 'Subresource Integrity' },
+            ].map(option => (
+              <label
+                key={option.key}
+                className="flex items-center gap-2 text-sm cursor-pointer"
+              >
+                <Checkbox
+                  checked={scanOptions[option.key as keyof SecurityScannerOptions]}
+                  onCheckedChange={(checked) =>
+                    setScanOptions(prev => ({ ...prev, [option.key]: checked }))
+                  }
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Medium Priority Checks */}
+        <div className="mb-4">
+          <h4 className="text-sm font-medium text-muted-foreground mb-2">Medium Priority</h4>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {[
+              { key: 'includeForms', label: 'Form Security' },
+              { key: 'includeThirdPartyScripts', label: 'Third-Party Scripts' },
+            ].map(option => (
+              <label
+                key={option.key}
+                className="flex items-center gap-2 text-sm cursor-pointer"
+              >
+                <Checkbox
+                  checked={scanOptions[option.key as keyof SecurityScannerOptions]}
+                  onCheckedChange={(checked) =>
+                    setScanOptions(prev => ({ ...prev, [option.key]: checked }))
+                  }
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Lower Priority Checks */}
+        <div className="mb-4">
+          <h4 className="text-sm font-medium text-muted-foreground mb-2">Defense in Depth</h4>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {[
+              { key: 'includeNetwork', label: 'Network & Redirects' },
+              { key: 'includeServiceWorkers', label: 'Service Workers' },
+              { key: 'includeDOMSecurity', label: 'DOM Security' },
+            ].map(option => (
+              <label
+                key={option.key}
+                className="flex items-center gap-2 text-sm cursor-pointer"
+              >
+                <Checkbox
+                  checked={scanOptions[option.key as keyof SecurityScannerOptions]}
+                  onCheckedChange={(checked) =>
+                    setScanOptions(prev => ({ ...prev, [option.key]: checked }))
+                  }
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
         </div>
 
         {/* Run/Stop Button */}
