@@ -12,6 +12,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Shield,
+  ShieldAlert,
   Users,
   Mail,
   Settings,
@@ -79,6 +80,7 @@ import { ProspectingPanel } from '../components/ProspectingPanel';
 import { ContactQueuePanel } from '../components/ContactQueuePanel';
 import { PortalTestPanel } from '../components/PortalTestPanel';
 import { PortalAnalyticsDashboard } from '../components/PortalAnalyticsDashboard';
+import { SecurityScannerPanel } from '../components/SecurityScannerPanel';
 import { useEmailSegments } from '../hooks/useEmailSegments';
 import { useSkillUsageStats } from '../hooks/useSkillUsageStats';
 import { sendEmail } from '../lib/emailSegmentation';
@@ -87,7 +89,7 @@ import { UserCheck, Database } from 'lucide-react';
 import { seedSkillRegistry, getSkillRegistryStats } from '../lib/admin/seedSkillRegistry';
 import { getAllLibrarySkillsAsync } from '../lib/skillLibrary';
 
-type TabId = 'overview' | 'users' | 'clients' | 'emails' | 'email-targeting' | 'roles' | 'usage' | 'api-test' | 'settings';
+type TabId = 'overview' | 'users' | 'clients' | 'emails' | 'email-targeting' | 'roles' | 'usage' | 'api-test' | 'security' | 'settings';
 
 const ROLE_ICONS: Record<UserRole, React.FC<{ className?: string }>> = {
   free: Users,
@@ -296,6 +298,7 @@ const AdminPage: React.FC = () => {
     { id: 'roles', label: 'Role Config', icon: Crown },
     { id: 'usage', label: 'Skill Usage', icon: BarChart3 },
     { id: 'api-test', label: 'API Test', icon: Key },
+    { id: 'security', label: 'Security', icon: ShieldAlert },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
@@ -864,6 +867,11 @@ const AdminPage: React.FC = () => {
         {/* API Test Tab */}
         {activeTab === 'api-test' && (
           <ApiTestPanel />
+        )}
+
+        {/* Security Tab */}
+        {activeTab === 'security' && (
+          <SecurityScannerPanel />
         )}
 
         {/* Settings Tab */}
