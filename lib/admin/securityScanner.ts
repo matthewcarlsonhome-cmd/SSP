@@ -24,7 +24,13 @@ export type ScanCategory =
   | 'permissions'
   | 'session'
   | 'environment'
-  | 'configuration';
+  | 'configuration'
+  | 'cookies'
+  | 'headers'
+  | 'content'
+  | 'forms'
+  | 'network'
+  | 'scripts';
 
 export interface SecurityFinding {
   id: string;
@@ -72,6 +78,18 @@ export interface SecurityScannerOptions {
   includeSession?: boolean;
   includeEnvironment?: boolean;
   includeConfiguration?: boolean;
+  // New high-priority checks
+  includeCookies?: boolean;
+  includeHeaders?: boolean;
+  includeMixedContent?: boolean;
+  includeSRI?: boolean;
+  // Medium-priority checks
+  includeForms?: boolean;
+  includeThirdPartyScripts?: boolean;
+  // Lower-priority checks
+  includeNetwork?: boolean;
+  includeServiceWorkers?: boolean;
+  includeDOMSecurity?: boolean;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -619,6 +637,860 @@ function checkEnvironment(): SecurityFinding[] {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// HIGH PRIORITY SECURITY CHECKS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Check cookie security (Secure, HttpOnly, SameSite flags)
+ */
+function checkCookieSecurity(): SecurityFinding[] {
+  const findings: SecurityFinding[] = [];
+
+  try {
+    const cookies = document.cookie.split(';').filter(c => c.trim());
+
+    if (cookies.length === 0) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'cookies',
+        severity: 'info',
+        title: 'No Cookies Detected',
+        description: 'No cookies are accessible via JavaScript (document.cookie is empty).',
+        location: 'document.cookie',
+        recommendation: 'This is expected if all cookies have HttpOnly flag set (good security practice).',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    } else {
+      // If cookies are visible, they don't have HttpOnly
+      cookies.forEach(cookie => {
+        const [name] = cookie.trim().split('=');
+        const nameLower = name.toLowerCase();
+
+        // Check for sensitive-looking cookies without HttpOnly
+        const isSensitive = nameLower.includes('session') ||
+                           nameLower.includes('auth') ||
+                           nameLower.includes('token') ||
+                           nameLower.includes('jwt') ||
+                           nameLower.includes('user');
+
+        if (isSensitive) {
+          findings.push({
+            id: crypto.randomUUID(),
+            category: 'cookies',
+            severity: 'high',
+            title: 'Sensitive Cookie Missing HttpOnly',
+            description: `Cookie "${name}" appears to contain sensitive data but is accessible via JavaScript (missing HttpOnly flag).`,
+            location: `Cookie: ${name}`,
+            recommendation: 'Set HttpOnly flag on sensitive cookies to prevent XSS attacks from stealing session data.',
+            detectedAt: new Date().toISOString(),
+            resolved: false,
+          });
+        }
+      });
+
+      // General warning about JavaScript-accessible cookies
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'cookies',
+        severity: 'low',
+        title: 'JavaScript-Accessible Cookies Found',
+        description: `${cookies.length} cookie(s) are accessible via JavaScript. Ensure sensitive cookies have HttpOnly flag.`,
+        location: 'document.cookie',
+        recommendation: 'Review all cookies and ensure session/auth cookies have HttpOnly, Secure, and SameSite flags.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    }
+
+    // Check for SameSite in production (via meta tag hint or URL)
+    const isProduction = window.location.protocol === 'https:';
+    if (isProduction && cookies.length > 0) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'cookies',
+        severity: 'medium',
+        title: 'Cookie SameSite Attribute Review Recommended',
+        description: 'Ensure cookies have SameSite=Strict or SameSite=Lax to prevent CSRF attacks.',
+        location: 'Server Cookie Headers',
+        recommendation: 'Set SameSite attribute on all cookies. Use "Strict" for sensitive cookies, "Lax" for general cookies.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    }
+  } catch (e) {
+    logger.error('Error checking cookie security', { error: e instanceof Error ? e.message : String(e) });
+  }
+
+  return findings;
+}
+
+/**
+ * Check IndexedDB for sensitive data
+ */
+function checkIndexedDBSecurity(): SecurityFinding[] {
+  const findings: SecurityFinding[] = [];
+
+  try {
+    // List IndexedDB databases (if supported)
+    if (window.indexedDB && 'databases' in window.indexedDB) {
+      // Note: indexedDB.databases() is async but we can't await here
+      // We'll check for common patterns in known app databases
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'storage',
+        severity: 'info',
+        title: 'IndexedDB Available',
+        description: 'IndexedDB is available for this application. Manual review recommended for sensitive data storage.',
+        location: 'IndexedDB',
+        recommendation: 'Review IndexedDB stores for API keys, tokens, or PII. Consider encryption for sensitive data.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    }
+
+    // Check for Supabase or Firebase local persistence
+    const sensitiveDBNames = ['firebaseLocalStorage', 'supabase', 'auth', 'localforage'];
+    sensitiveDBNames.forEach(dbName => {
+      const request = window.indexedDB.open(dbName);
+      request.onsuccess = () => {
+        const db = request.result;
+        if (db.objectStoreNames.length > 0) {
+          // Database exists and has stores
+          findings.push({
+            id: crypto.randomUUID(),
+            category: 'storage',
+            severity: 'medium',
+            title: `IndexedDB "${dbName}" Contains Data`,
+            description: `Found IndexedDB database "${dbName}" with ${db.objectStoreNames.length} object stores.`,
+            location: `IndexedDB: ${dbName}`,
+            recommendation: 'Review stored data for sensitive information. Ensure proper encryption for credentials.',
+            detectedAt: new Date().toISOString(),
+            resolved: false,
+          });
+        }
+        db.close();
+      };
+      request.onerror = () => {
+        // Database doesn't exist or can't be opened, which is fine
+      };
+    });
+  } catch (e) {
+    logger.error('Error checking IndexedDB security', { error: e instanceof Error ? e.message : String(e) });
+  }
+
+  return findings;
+}
+
+/**
+ * Check for mixed content (HTTP resources on HTTPS pages)
+ */
+function checkMixedContent(): SecurityFinding[] {
+  const findings: SecurityFinding[] = [];
+
+  try {
+    const isHTTPS = window.location.protocol === 'https:';
+
+    if (!isHTTPS) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'content',
+        severity: 'info',
+        title: 'Not Running Over HTTPS',
+        description: 'Mixed content check skipped as page is not served over HTTPS.',
+        location: 'window.location.protocol',
+        recommendation: 'Deploy to HTTPS for production to enable full security checks.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+      return findings;
+    }
+
+    // Check all scripts
+    const scripts = document.querySelectorAll('script[src]');
+    scripts.forEach(script => {
+      const src = script.getAttribute('src') || '';
+      if (src.startsWith('http://')) {
+        findings.push({
+          id: crypto.randomUUID(),
+          category: 'content',
+          severity: 'critical',
+          title: 'Mixed Content: Insecure Script',
+          description: `Script loaded over HTTP: ${src.substring(0, 100)}`,
+          location: src,
+          recommendation: 'Change to HTTPS or use protocol-relative URLs. Insecure scripts may be blocked by browsers.',
+          detectedAt: new Date().toISOString(),
+          resolved: false,
+        });
+      }
+    });
+
+    // Check all stylesheets
+    const stylesheets = document.querySelectorAll('link[rel="stylesheet"]');
+    stylesheets.forEach(link => {
+      const href = link.getAttribute('href') || '';
+      if (href.startsWith('http://')) {
+        findings.push({
+          id: crypto.randomUUID(),
+          category: 'content',
+          severity: 'high',
+          title: 'Mixed Content: Insecure Stylesheet',
+          description: `Stylesheet loaded over HTTP: ${href.substring(0, 100)}`,
+          location: href,
+          recommendation: 'Change to HTTPS. Insecure stylesheets may be blocked by browsers.',
+          detectedAt: new Date().toISOString(),
+          resolved: false,
+        });
+      }
+    });
+
+    // Check images
+    const images = document.querySelectorAll('img[src]');
+    let insecureImages = 0;
+    images.forEach(img => {
+      const src = img.getAttribute('src') || '';
+      if (src.startsWith('http://')) {
+        insecureImages++;
+      }
+    });
+    if (insecureImages > 0) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'content',
+        severity: 'medium',
+        title: 'Mixed Content: Insecure Images',
+        description: `${insecureImages} image(s) loaded over HTTP.`,
+        location: 'Document images',
+        recommendation: 'Change image URLs to HTTPS to avoid browser warnings and potential content blocking.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    }
+
+    // Check iframes
+    const iframes = document.querySelectorAll('iframe[src]');
+    iframes.forEach(iframe => {
+      const src = iframe.getAttribute('src') || '';
+      if (src.startsWith('http://')) {
+        findings.push({
+          id: crypto.randomUUID(),
+          category: 'content',
+          severity: 'high',
+          title: 'Mixed Content: Insecure IFrame',
+          description: `IFrame loaded over HTTP: ${src.substring(0, 100)}`,
+          location: src,
+          recommendation: 'Change to HTTPS. Insecure iframes may be blocked and pose security risks.',
+          detectedAt: new Date().toISOString(),
+          resolved: false,
+        });
+      }
+    });
+
+    if (findings.filter(f => f.category === 'content' && f.severity !== 'info').length === 0) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'content',
+        severity: 'info',
+        title: 'No Mixed Content Detected',
+        description: 'All resources appear to be loaded over HTTPS.',
+        location: 'Document resources',
+        recommendation: 'Continue monitoring for mixed content during development.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    }
+  } catch (e) {
+    logger.error('Error checking mixed content', { error: e instanceof Error ? e.message : String(e) });
+  }
+
+  return findings;
+}
+
+/**
+ * Check for clickjacking protection (X-Frame-Options, CSP frame-ancestors)
+ */
+function checkClickjackingProtection(): SecurityFinding[] {
+  const findings: SecurityFinding[] = [];
+
+  try {
+    // Check for CSP frame-ancestors in meta tag
+    const cspMeta = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
+    const cspContent = cspMeta?.getAttribute('content') || '';
+    const hasFrameAncestors = cspContent.toLowerCase().includes('frame-ancestors');
+
+    // Check for X-Frame-Options meta tag (though server header is preferred)
+    const xfoMeta = document.querySelector('meta[http-equiv="X-Frame-Options"]');
+
+    if (!hasFrameAncestors && !xfoMeta) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'headers',
+        severity: 'high',
+        title: 'Missing Clickjacking Protection',
+        description: 'No X-Frame-Options or CSP frame-ancestors directive found in meta tags.',
+        location: 'Document head',
+        recommendation: 'Add CSP frame-ancestors directive or X-Frame-Options header to prevent clickjacking attacks. Server headers are preferred over meta tags.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    } else if (hasFrameAncestors) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'headers',
+        severity: 'info',
+        title: 'Clickjacking Protection Enabled (CSP)',
+        description: 'CSP frame-ancestors directive found, providing clickjacking protection.',
+        location: 'CSP meta tag',
+        recommendation: 'Ensure frame-ancestors is set to "none" or specific trusted origins only.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    } else if (xfoMeta) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'headers',
+        severity: 'info',
+        title: 'Clickjacking Protection Enabled (X-Frame-Options)',
+        description: 'X-Frame-Options meta tag found. Note: Server header is more reliable.',
+        location: 'X-Frame-Options meta tag',
+        recommendation: 'Consider migrating to CSP frame-ancestors as X-Frame-Options is being deprecated.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    }
+  } catch (e) {
+    logger.error('Error checking clickjacking protection', { error: e instanceof Error ? e.message : String(e) });
+  }
+
+  return findings;
+}
+
+/**
+ * Check for Subresource Integrity (SRI) on external scripts/styles
+ */
+function checkSRI(): SecurityFinding[] {
+  const findings: SecurityFinding[] = [];
+
+  try {
+    const externalScripts = document.querySelectorAll('script[src]');
+    let scriptsWithoutSRI = 0;
+    const externalScriptUrls: string[] = [];
+
+    externalScripts.forEach(script => {
+      const src = script.getAttribute('src') || '';
+      const integrity = script.getAttribute('integrity');
+
+      // Check if it's an external CDN script
+      const isExternal = src.startsWith('http') && !src.includes(window.location.hostname);
+
+      if (isExternal && !integrity) {
+        scriptsWithoutSRI++;
+        externalScriptUrls.push(src.substring(0, 80));
+      }
+    });
+
+    if (scriptsWithoutSRI > 0) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'scripts',
+        severity: 'medium',
+        title: 'External Scripts Missing SRI',
+        description: `${scriptsWithoutSRI} external script(s) lack Subresource Integrity hashes.`,
+        location: externalScriptUrls.slice(0, 3).join(', ') + (externalScriptUrls.length > 3 ? '...' : ''),
+        recommendation: 'Add integrity attributes with SHA-384 or SHA-512 hashes to external scripts to prevent CDN compromise attacks.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    }
+
+    const externalStyles = document.querySelectorAll('link[rel="stylesheet"]');
+    let stylesWithoutSRI = 0;
+
+    externalStyles.forEach(link => {
+      const href = link.getAttribute('href') || '';
+      const integrity = link.getAttribute('integrity');
+
+      const isExternal = href.startsWith('http') && !href.includes(window.location.hostname);
+
+      if (isExternal && !integrity) {
+        stylesWithoutSRI++;
+      }
+    });
+
+    if (stylesWithoutSRI > 0) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'scripts',
+        severity: 'low',
+        title: 'External Stylesheets Missing SRI',
+        description: `${stylesWithoutSRI} external stylesheet(s) lack Subresource Integrity hashes.`,
+        location: 'Document stylesheets',
+        recommendation: 'Add integrity attributes to external stylesheets for defense in depth.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    }
+
+    if (scriptsWithoutSRI === 0 && stylesWithoutSRI === 0) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'scripts',
+        severity: 'info',
+        title: 'SRI Check Passed',
+        description: 'All external resources have SRI hashes or no external CDN resources detected.',
+        location: 'External resources',
+        recommendation: 'Continue using SRI for all CDN-hosted resources.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    }
+  } catch (e) {
+    logger.error('Error checking SRI', { error: e instanceof Error ? e.message : String(e) });
+  }
+
+  return findings;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MEDIUM PRIORITY SECURITY CHECKS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Check security headers via meta tags and document properties
+ */
+function checkSecurityHeaders(): SecurityFinding[] {
+  const findings: SecurityFinding[] = [];
+
+  try {
+    // Check Referrer Policy
+    const referrerMeta = document.querySelector('meta[name="referrer"]');
+    const referrerPolicy = referrerMeta?.getAttribute('content');
+
+    if (!referrerPolicy) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'headers',
+        severity: 'medium',
+        title: 'Missing Referrer Policy',
+        description: 'No referrer-policy meta tag found. URL information may leak to external sites.',
+        location: 'Document head',
+        recommendation: 'Add <meta name="referrer" content="strict-origin-when-cross-origin"> or more restrictive policy.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    } else if (referrerPolicy === 'unsafe-url' || referrerPolicy === 'no-referrer-when-downgrade') {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'headers',
+        severity: 'medium',
+        title: 'Weak Referrer Policy',
+        description: `Referrer policy "${referrerPolicy}" may leak sensitive URL information.`,
+        location: 'meta[name="referrer"]',
+        recommendation: 'Use "strict-origin-when-cross-origin" or "no-referrer" for better privacy.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    } else {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'headers',
+        severity: 'info',
+        title: 'Referrer Policy Configured',
+        description: `Referrer policy set to "${referrerPolicy}".`,
+        location: 'meta[name="referrer"]',
+        recommendation: 'Referrer policy is configured. Review if it meets your privacy requirements.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    }
+
+    // Check Permissions/Feature Policy via meta tag or iframe allow attribute
+    const permissionsMeta = document.querySelector('meta[http-equiv="Permissions-Policy"]') ||
+                           document.querySelector('meta[http-equiv="Feature-Policy"]');
+
+    if (!permissionsMeta) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'headers',
+        severity: 'low',
+        title: 'No Permissions Policy',
+        description: 'No Permissions-Policy meta tag found. Browser features are not explicitly restricted.',
+        location: 'Document head',
+        recommendation: 'Consider adding Permissions-Policy to restrict access to sensitive browser APIs (geolocation, camera, microphone).',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    }
+  } catch (e) {
+    logger.error('Error checking security headers', { error: e instanceof Error ? e.message : String(e) });
+  }
+
+  return findings;
+}
+
+/**
+ * Check form security (autocomplete, password fields)
+ */
+function checkFormSecurity(): SecurityFinding[] {
+  const findings: SecurityFinding[] = [];
+
+  try {
+    const forms = document.querySelectorAll('form');
+    const passwordInputs = document.querySelectorAll('input[type="password"]');
+    const sensitiveInputs = document.querySelectorAll(
+      'input[name*="password"], input[name*="secret"], input[name*="token"], ' +
+      'input[name*="api"], input[name*="key"], input[name*="ssn"], input[name*="credit"]'
+    );
+
+    // Check password fields
+    passwordInputs.forEach((input, index) => {
+      const hasAutocomplete = input.hasAttribute('autocomplete');
+      const autocompleteValue = input.getAttribute('autocomplete') || '';
+
+      // Check for proper autocomplete hints
+      if (!hasAutocomplete) {
+        findings.push({
+          id: crypto.randomUUID(),
+          category: 'forms',
+          severity: 'low',
+          title: 'Password Field Missing Autocomplete',
+          description: `Password field ${index + 1} doesn't have autocomplete attribute set.`,
+          location: `Password input ${index + 1}`,
+          recommendation: 'Set autocomplete="new-password" for registration or "current-password" for login fields.',
+          detectedAt: new Date().toISOString(),
+          resolved: false,
+        });
+      }
+    });
+
+    // Check sensitive input fields
+    sensitiveInputs.forEach((input) => {
+      const name = input.getAttribute('name') || '';
+      const autocomplete = input.getAttribute('autocomplete') || '';
+      const type = input.getAttribute('type') || 'text';
+
+      if (autocomplete !== 'off' && type !== 'password') {
+        findings.push({
+          id: crypto.randomUUID(),
+          category: 'forms',
+          severity: 'medium',
+          title: 'Sensitive Field Without autocomplete="off"',
+          description: `Input field "${name}" appears sensitive but allows browser autocomplete.`,
+          location: `input[name="${name}"]`,
+          recommendation: 'Add autocomplete="off" to prevent browser from caching sensitive data.',
+          detectedAt: new Date().toISOString(),
+          resolved: false,
+        });
+      }
+    });
+
+    // Check forms for action security
+    forms.forEach((form, index) => {
+      const action = form.getAttribute('action') || '';
+      const method = (form.getAttribute('method') || 'get').toLowerCase();
+
+      // Check for forms submitting sensitive data via GET
+      const hasSensitiveFields = form.querySelector('input[type="password"], input[name*="token"]');
+      if (hasSensitiveFields && method === 'get') {
+        findings.push({
+          id: crypto.randomUUID(),
+          category: 'forms',
+          severity: 'high',
+          title: 'Sensitive Form Using GET Method',
+          description: `Form ${index + 1} contains sensitive fields but uses GET method, exposing data in URL.`,
+          location: `Form ${index + 1}`,
+          recommendation: 'Change form method to POST for forms containing passwords or sensitive data.',
+          detectedAt: new Date().toISOString(),
+          resolved: false,
+        });
+      }
+
+      // Check for insecure form action
+      if (action.startsWith('http://') && window.location.protocol === 'https:') {
+        findings.push({
+          id: crypto.randomUUID(),
+          category: 'forms',
+          severity: 'critical',
+          title: 'Form Submits to Insecure URL',
+          description: `Form ${index + 1} action points to HTTP URL while page is HTTPS.`,
+          location: action,
+          recommendation: 'Change form action to HTTPS to prevent credential theft.',
+          detectedAt: new Date().toISOString(),
+          resolved: false,
+        });
+      }
+    });
+
+    if (findings.filter(f => f.category === 'forms').length === 0) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'forms',
+        severity: 'info',
+        title: 'Form Security Check Passed',
+        description: 'No major form security issues detected.',
+        location: 'Document forms',
+        recommendation: 'Continue following form security best practices.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    }
+  } catch (e) {
+    logger.error('Error checking form security', { error: e instanceof Error ? e.message : String(e) });
+  }
+
+  return findings;
+}
+
+/**
+ * Inventory third-party scripts
+ */
+function checkThirdPartyScripts(): SecurityFinding[] {
+  const findings: SecurityFinding[] = [];
+
+  try {
+    const scripts = document.querySelectorAll('script[src]');
+    const currentHost = window.location.hostname;
+    const thirdPartyScripts: { domain: string; url: string }[] = [];
+    const knownSafe = [
+      'cdn.jsdelivr.net',
+      'unpkg.com',
+      'cdnjs.cloudflare.com',
+      'fonts.googleapis.com',
+      'www.googletagmanager.com',
+      'www.google-analytics.com',
+      'connect.facebook.net',
+      'platform.twitter.com',
+      'cdn.segment.com',
+    ];
+
+    scripts.forEach(script => {
+      const src = script.getAttribute('src') || '';
+      try {
+        const url = new URL(src, window.location.href);
+        if (url.hostname !== currentHost && url.hostname !== 'localhost') {
+          thirdPartyScripts.push({
+            domain: url.hostname,
+            url: src,
+          });
+        }
+      } catch {
+        // Invalid URL, skip
+      }
+    });
+
+    if (thirdPartyScripts.length > 0) {
+      const unknownScripts = thirdPartyScripts.filter(s => !knownSafe.includes(s.domain));
+
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'scripts',
+        severity: 'info',
+        title: 'Third-Party Scripts Detected',
+        description: `Found ${thirdPartyScripts.length} third-party script(s) from ${new Set(thirdPartyScripts.map(s => s.domain)).size} domain(s).`,
+        location: [...new Set(thirdPartyScripts.map(s => s.domain))].slice(0, 5).join(', '),
+        recommendation: 'Regularly audit third-party scripts and ensure they are from trusted sources.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+
+      if (unknownScripts.length > 0) {
+        findings.push({
+          id: crypto.randomUUID(),
+          category: 'scripts',
+          severity: 'medium',
+          title: 'Unknown Third-Party Scripts',
+          description: `${unknownScripts.length} script(s) from non-standard CDN domains require review.`,
+          location: [...new Set(unknownScripts.map(s => s.domain))].slice(0, 5).join(', '),
+          recommendation: 'Review unknown scripts for legitimacy. Consider self-hosting critical dependencies.',
+          detectedAt: new Date().toISOString(),
+          resolved: false,
+        });
+      }
+    }
+
+    // Check for inline scripts with potential issues
+    const inlineScripts = document.querySelectorAll('script:not([src])');
+    if (inlineScripts.length > 10) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'scripts',
+        severity: 'low',
+        title: 'Many Inline Scripts',
+        description: `${inlineScripts.length} inline scripts detected. This may complicate CSP implementation.`,
+        location: 'Document scripts',
+        recommendation: 'Consider moving inline scripts to external files for easier CSP management.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    }
+  } catch (e) {
+    logger.error('Error checking third-party scripts', { error: e instanceof Error ? e.message : String(e) });
+  }
+
+  return findings;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOWER PRIORITY SECURITY CHECKS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Check WebSocket security
+ */
+function checkNetworkSecurity(): SecurityFinding[] {
+  const findings: SecurityFinding[] = [];
+
+  try {
+    const isHTTPS = window.location.protocol === 'https:';
+
+    // We can't easily detect WebSocket usage, but we can provide guidance
+    if (isHTTPS) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'network',
+        severity: 'info',
+        title: 'WebSocket Security Reminder',
+        description: 'Ensure all WebSocket connections use wss:// instead of ws:// in production.',
+        location: 'WebSocket connections',
+        recommendation: 'Audit code for WebSocket usage and verify all connections use secure wss:// protocol.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    }
+
+    // Check for potential open redirect parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const redirectParams = ['redirect', 'return', 'returnUrl', 'next', 'url', 'goto', 'destination', 'redir'];
+
+    redirectParams.forEach(param => {
+      const value = urlParams.get(param) || urlParams.get(param.toLowerCase());
+      if (value) {
+        // Check if it's an external URL
+        try {
+          const url = new URL(value, window.location.href);
+          if (url.hostname !== window.location.hostname) {
+            findings.push({
+              id: crypto.randomUUID(),
+              category: 'network',
+              severity: 'high',
+              title: 'Potential Open Redirect',
+              description: `URL parameter "${param}" contains external URL: ${value.substring(0, 50)}`,
+              location: `URL parameter: ${param}`,
+              recommendation: 'Validate and whitelist redirect destinations. Never redirect to arbitrary external URLs.',
+              detectedAt: new Date().toISOString(),
+              resolved: false,
+            });
+          }
+        } catch {
+          // Not a valid URL, might be relative path which is safer
+        }
+      }
+    });
+  } catch (e) {
+    logger.error('Error checking network security', { error: e instanceof Error ? e.message : String(e) });
+  }
+
+  return findings;
+}
+
+/**
+ * Check Service Worker registrations
+ */
+function checkServiceWorkers(): SecurityFinding[] {
+  const findings: SecurityFinding[] = [];
+
+  try {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        if (registrations.length > 0) {
+          findings.push({
+            id: crypto.randomUUID(),
+            category: 'configuration',
+            severity: 'info',
+            title: 'Service Workers Registered',
+            description: `${registrations.length} Service Worker(s) registered for this origin.`,
+            location: 'navigator.serviceWorker',
+            recommendation: 'Review Service Worker scripts for security. Ensure they don\'t cache sensitive data inappropriately.',
+            detectedAt: new Date().toISOString(),
+            resolved: false,
+          });
+        }
+      }).catch(() => {
+        // SW API not available or blocked
+      });
+    }
+  } catch (e) {
+    logger.error('Error checking Service Workers', { error: e instanceof Error ? e.message : String(e) });
+  }
+
+  return findings;
+}
+
+/**
+ * Check for potential DOM clobbering vulnerabilities
+ */
+function checkDOMSecurity(): SecurityFinding[] {
+  const findings: SecurityFinding[] = [];
+
+  try {
+    // Check for elements with IDs that could clobber important globals
+    const dangerousIds = [
+      'document', 'window', 'location', 'navigator', 'history',
+      'localStorage', 'sessionStorage', 'fetch', 'XMLHttpRequest',
+      'eval', 'Function', 'Array', 'Object', 'String', 'Number',
+      'console', 'alert', 'confirm', 'prompt'
+    ];
+
+    const clobberedIds: string[] = [];
+    dangerousIds.forEach(id => {
+      const element = document.getElementById(id);
+      if (element) {
+        clobberedIds.push(id);
+      }
+      // Also check name attribute
+      const namedElements = document.getElementsByName(id);
+      if (namedElements.length > 0) {
+        clobberedIds.push(`${id} (name)`);
+      }
+    });
+
+    if (clobberedIds.length > 0) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'configuration',
+        severity: 'medium',
+        title: 'Potential DOM Clobbering',
+        description: `Elements found with IDs/names that could shadow global objects: ${clobberedIds.join(', ')}`,
+        location: 'Document elements',
+        recommendation: 'Avoid using JavaScript global names as element IDs. This can cause unexpected behavior or security issues.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    }
+
+    // Check for dangerous attributes
+    const dangerousElements = document.querySelectorAll('[onclick], [onerror], [onload], [onmouseover]');
+    if (dangerousElements.length > 0) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'configuration',
+        severity: 'low',
+        title: 'Inline Event Handlers Detected',
+        description: `${dangerousElements.length} element(s) with inline event handlers found.`,
+        location: 'Document elements',
+        recommendation: 'Use addEventListener instead of inline handlers for better CSP compatibility and maintainability.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    }
+  } catch (e) {
+    logger.error('Error checking DOM security', { error: e instanceof Error ? e.message : String(e) });
+  }
+
+  return findings;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // MAIN SCANNER FUNCTION
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -637,6 +1509,18 @@ export async function runSecurityScan(
     includeSession = true,
     includeEnvironment = true,
     includeConfiguration = true,
+    // New high-priority checks (default enabled)
+    includeCookies = true,
+    includeHeaders = true,
+    includeMixedContent = true,
+    includeSRI = true,
+    // Medium-priority checks (default enabled)
+    includeForms = true,
+    includeThirdPartyScripts = true,
+    // Lower-priority checks (default enabled)
+    includeNetwork = true,
+    includeServiceWorkers = true,
+    includeDOMSecurity = true,
   } = options;
 
   const startedAt = new Date().toISOString();
@@ -644,11 +1528,26 @@ export async function runSecurityScan(
   const allFindings: SecurityFinding[] = [];
 
   const checks = [
+    // Original checks
     { enabled: includeApiKeys, name: 'API Keys', fn: checkApiKeyExposure },
     { enabled: includeStorage, name: 'Storage Patterns', fn: checkStoragePatterns },
+    { enabled: includeStorage, name: 'IndexedDB Security', fn: checkIndexedDBSecurity },
     { enabled: includePermissions, name: 'Permissions', fn: checkPermissions },
     { enabled: includeSession, name: 'Session Security', fn: checkSession },
     { enabled: includeEnvironment || includeConfiguration, name: 'Environment', fn: checkEnvironment },
+    // High-priority checks
+    { enabled: includeCookies, name: 'Cookie Security', fn: checkCookieSecurity },
+    { enabled: includeHeaders, name: 'Security Headers', fn: checkSecurityHeaders },
+    { enabled: includeHeaders, name: 'Clickjacking Protection', fn: checkClickjackingProtection },
+    { enabled: includeMixedContent, name: 'Mixed Content', fn: checkMixedContent },
+    { enabled: includeSRI, name: 'Subresource Integrity', fn: checkSRI },
+    // Medium-priority checks
+    { enabled: includeForms, name: 'Form Security', fn: checkFormSecurity },
+    { enabled: includeThirdPartyScripts, name: 'Third-Party Scripts', fn: checkThirdPartyScripts },
+    // Lower-priority checks
+    { enabled: includeNetwork, name: 'Network Security', fn: checkNetworkSecurity },
+    { enabled: includeServiceWorkers, name: 'Service Workers', fn: checkServiceWorkers },
+    { enabled: includeDOMSecurity, name: 'DOM Security', fn: checkDOMSecurity },
   ].filter(c => c.enabled);
 
   const totalChecks = checks.length;

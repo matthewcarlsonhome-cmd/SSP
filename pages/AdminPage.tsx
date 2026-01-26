@@ -81,6 +81,8 @@ import { ContactQueuePanel } from '../components/ContactQueuePanel';
 import { PortalTestPanel } from '../components/PortalTestPanel';
 import { PortalAnalyticsDashboard } from '../components/PortalAnalyticsDashboard';
 import { SecurityScannerPanel } from '../components/SecurityScannerPanel';
+import { ClientOverviewDashboard } from '../components/ClientOverviewDashboard';
+import { ClientImportExportPanel } from '../components/ClientImportExportPanel';
 import { useEmailSegments } from '../hooks/useEmailSegments';
 import { useSkillUsageStats } from '../hooks/useSkillUsageStats';
 import { sendEmail } from '../lib/emailSegmentation';
@@ -88,6 +90,8 @@ import type { EmailSendRequest } from '../lib/emailSegmentation/types';
 import { UserCheck, Database } from 'lucide-react';
 import { seedSkillRegistry, getSkillRegistryStats } from '../lib/admin/seedSkillRegistry';
 import { getAllLibrarySkillsAsync } from '../lib/skillLibrary';
+import { getClientsAsync, createClientAsync } from '../lib/clients';
+import type { Client } from '../lib/storage/types';
 
 type TabId = 'overview' | 'users' | 'clients' | 'emails' | 'email-targeting' | 'roles' | 'usage' | 'api-test' | 'security' | 'settings';
 
@@ -132,6 +136,10 @@ const AdminPage: React.FC = () => {
   // System prompts download state
   const [isDownloadingPrompts, setIsDownloadingPrompts] = useState(false);
 
+  // Client admin state
+  const [clients, setClients] = useState<Client[]>([]);
+  const [isLoadingClients, setIsLoadingClients] = useState(false);
+
   // Email segmentation hooks
   const emailSegments = useEmailSegments();
   const skillUsageStats = useSkillUsageStats();
@@ -143,6 +151,39 @@ const AdminPage: React.FC = () => {
       addToast('Admin access required', 'error');
     }
   }, [adminSetupComplete, isAdmin, navigate, addToast]);
+
+  // Load clients when clients tab is active
+  useEffect(() => {
+    if (activeTab === 'clients') {
+      loadClients();
+    }
+  }, [activeTab]);
+
+  const loadClients = async () => {
+    setIsLoadingClients(true);
+    try {
+      const loadedClients = await getClientsAsync();
+      setClients(loadedClients);
+    } catch (error) {
+      console.error('Failed to load clients:', error);
+      addToast('Failed to load clients', 'error');
+    } finally {
+      setIsLoadingClients(false);
+    }
+  };
+
+  const handleImportClients = async (importedClients: Partial<Client>[]) => {
+    try {
+      for (const clientData of importedClients) {
+        await createClientAsync(clientData);
+      }
+      await loadClients();
+      addToast(`Imported ${importedClients.length} clients successfully`, 'success');
+    } catch (error) {
+      console.error('Failed to import clients:', error);
+      addToast('Failed to import some clients', 'error');
+    }
+  };
 
   const refreshData = () => {
     setStats(getAdminStats());
@@ -517,19 +558,35 @@ const AdminPage: React.FC = () => {
               </p>
             </div>
 
-            {/* Contact Queue - Priority outreach list */}
-            <ContactQueuePanel
-              onRefreshClients={() => {
-                // Refresh will happen automatically through the panel
-              }}
+            {/* Client Overview Dashboard - Key metrics and stats */}
+            <ClientOverviewDashboard
+              clients={clients}
+              onRefresh={loadClients}
+              isLoading={isLoadingClients}
             />
+
+            {/* Contact Queue - Priority outreach list */}
+            <div className="border-t pt-6">
+              <ContactQueuePanel
+                onRefreshClients={loadClients}
+              />
+            </div>
 
             {/* Prospect Discovery - Bulk import new prospects */}
             <div className="border-t pt-6">
               <ProspectingPanel
                 onProspectsCreated={(count) => {
                   addToast(`Created ${count} new prospects`, 'success');
+                  loadClients();
                 }}
+              />
+            </div>
+
+            {/* Import/Export Section */}
+            <div className="border-t pt-6">
+              <ClientImportExportPanel
+                clients={clients}
+                onImport={handleImportClients}
               />
             </div>
 

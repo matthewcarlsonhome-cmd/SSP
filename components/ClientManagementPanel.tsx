@@ -55,6 +55,7 @@ import {
   getClientPortalUrl,
   getClientStats,
 } from '../lib/clients';
+import { isSupabaseConfigured } from '../lib/supabase';
 import { getAllLibrarySkills } from '../lib/skillLibrary';
 import { WORKFLOWS } from '../lib/workflows';
 import type { Client, ClientStatus, ClientIndustry, ClientPriority, ClientContact, ContactStatus } from '../lib/storage/types';
@@ -202,7 +203,7 @@ export const ClientManagementPanel: React.FC<ClientManagementPanelProps> = ({
         const isSignificantUpdate = 'selectedSkillIds' in updates ||
                                      'selectedWorkflowIds' in updates ||
                                      'portalEnabled' in updates;
-        if (isSignificantUpdate && supabaseConfigured) {
+        if (isSignificantUpdate && isSupabaseConfigured()) {
           addToast('Client synced to database', 'success');
         }
       } else {
