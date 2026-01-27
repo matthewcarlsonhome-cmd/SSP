@@ -7,6 +7,7 @@
  * - Permission configuration audit
  * - Session security analysis
  * - Environment variable leak detection
+ * - Multi-page scanning across all SPA routes
  */
 
 import { supabase } from '../supabase';
@@ -43,6 +44,8 @@ export interface SecurityFinding {
   detectedAt: string;
   resolved: boolean;
   resolvedAt?: string;
+  /** Route where the finding was detected (multi-page scan only) */
+  route?: string;
 }
 
 export interface ScanResult {
@@ -61,6 +64,10 @@ export interface ScanResult {
   };
   status: 'completed' | 'failed' | 'cancelled';
   error?: string;
+  /** Whether this was a multi-page scan */
+  multiPage?: boolean;
+  /** Routes scanned during a multi-page scan */
+  scannedRoutes?: string[];
 }
 
 export interface ScanProgress {
@@ -69,6 +76,8 @@ export interface ScanProgress {
   completed: number;
   total: number;
   percentage: number;
+  /** Current route being scanned (multi-page scan only) */
+  currentRoute?: string;
 }
 
 export interface SecurityScannerOptions {
@@ -91,6 +100,74 @@ export interface SecurityScannerOptions {
   includeServiceWorkers?: boolean;
   includeDOMSecurity?: boolean;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUTE MANIFEST
+// Complete listing of all navigable SPA routes for multi-page scanning.
+// Parameterized routes (e.g. /skill/:id) are excluded since they require
+// dynamic data. Static routes cover all major pages and features.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface RouteEntry {
+  path: string;
+  label: string;
+  group: string;
+}
+
+export const ROUTE_MANIFEST: RouteEntry[] = [
+  // Core pages
+  { path: '/', label: 'Home', group: 'Core' },
+  { path: '/dashboard', label: 'Dashboard', group: 'Core' },
+  { path: '/welcome', label: 'Welcome', group: 'Core' },
+  { path: '/profile', label: 'User Profile', group: 'Core' },
+
+  // Skills & Library
+  { path: '/skills', label: 'Browse Skills', group: 'Skills' },
+  { path: '/role-templates', label: 'Role Templates', group: 'Skills' },
+  { path: '/my-skills', label: 'My Skills', group: 'Skills' },
+  { path: '/library', label: 'Skill Library', group: 'Skills' },
+  { path: '/discover', label: 'Skill Discovery', group: 'Skills' },
+
+  // Custom skill generation
+  { path: '/analyze', label: 'Analyze Role', group: 'Custom Skills' },
+
+  // Community
+  { path: '/community', label: 'Community Skills', group: 'Community' },
+  { path: '/community/import', label: 'Import Skill', group: 'Community' },
+
+  // Batch & Export
+  { path: '/batch', label: 'Batch Processing', group: 'Batch & Export' },
+  { path: '/export-skills', label: 'Export Skills', group: 'Batch & Export' },
+
+  // Workflows
+  { path: '/workflows', label: 'Workflows', group: 'Workflows' },
+
+  // Job search tools
+  { path: '/job-tracker', label: 'Job Tracker', group: 'Job Tools' },
+  { path: '/interview-bank', label: 'Interview Bank', group: 'Job Tools' },
+  { path: '/salary-calculator', label: 'Salary Calculator', group: 'Job Tools' },
+  { path: '/networking', label: 'Networking Templates', group: 'Job Tools' },
+  { path: '/company-notes', label: 'Company Notes', group: 'Job Tools' },
+  { path: '/skills-gap', label: 'Skills Gap', group: 'Job Tools' },
+  { path: '/progress', label: 'Progress Report', group: 'Job Tools' },
+  { path: '/achievements', label: 'Achievements', group: 'Job Tools' },
+  { path: '/mock-interview', label: 'Mock Interview', group: 'Job Tools' },
+  { path: '/follow-ups', label: 'Follow-ups', group: 'Job Tools' },
+  { path: '/autofill-vault', label: 'AutoFill Vault', group: 'Job Tools' },
+  { path: '/referral-network', label: 'Referral Network', group: 'Job Tools' },
+  { path: '/market-insights', label: 'Market Insights', group: 'Job Tools' },
+  { path: '/daily-planner', label: 'Daily Planner', group: 'Job Tools' },
+
+  // Utility & Admin
+  { path: '/api-keys', label: 'API Key Instructions', group: 'Utility' },
+  { path: '/docs/platform-keys-setup', label: 'Platform Keys Setup', group: 'Utility' },
+  { path: '/settings', label: 'Settings', group: 'Utility' },
+  { path: '/pricing', label: 'Pricing', group: 'Utility' },
+  { path: '/account', label: 'Account', group: 'Utility' },
+  { path: '/admin', label: 'Admin Panel', group: 'Admin' },
+  { path: '/admin/improvements', label: 'Admin Improvements', group: 'Admin' },
+  { path: '/dev/playground', label: 'Dev Playground', group: 'Admin' },
+];
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STORAGE
@@ -1767,18 +1844,25 @@ export async function runSecurityScan(
  * Export findings to CSV
  */
 export function exportFindingsToCSV(findings: SecurityFinding[]): string {
-  const headers = ['Severity', 'Category', 'Title', 'Description', 'Location', 'Recommendation', 'Detected At', 'Resolved'];
+  const hasRoutes = findings.some(f => f.route);
+  const headers = hasRoutes
+    ? ['Severity', 'Category', 'Route', 'Title', 'Description', 'Location', 'Recommendation', 'Detected At', 'Resolved']
+    : ['Severity', 'Category', 'Title', 'Description', 'Location', 'Recommendation', 'Detected At', 'Resolved'];
 
-  const rows = findings.map(f => [
-    f.severity,
-    f.category,
-    f.title,
-    f.description,
-    f.location || '',
-    f.recommendation,
-    f.detectedAt,
-    f.resolved ? 'Yes' : 'No',
-  ]);
+  const rows = findings.map(f => {
+    const base = [
+      f.severity,
+      f.category,
+      ...(hasRoutes ? [f.route || 'global'] : []),
+      f.title,
+      f.description,
+      f.location || '',
+      f.recommendation,
+      f.detectedAt,
+      f.resolved ? 'Yes' : 'No',
+    ];
+    return base;
+  });
 
   const csvContent = [
     headers.join(','),
@@ -1833,4 +1917,331 @@ export function calculateSecurityScore(summary: ScanResult['summary']): {
  */
 export function clearScanHistory(): void {
   localStorage.removeItem(STORAGE_KEY);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MULTI-PAGE SCANNING
+// Navigates to every route in the SPA and runs DOM-dependent checks on each
+// page, then aggregates all findings. Global checks (localStorage, cookies,
+// session, etc.) only run once since they are page-independent.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * DOM-dependent checks that may produce different results on different pages.
+ * These inspect the actual rendered DOM (scripts, forms, iframes, etc.)
+ */
+function getPageSpecificChecks(options: SecurityScannerOptions) {
+  const {
+    includeMixedContent = true,
+    includeSRI = true,
+    includeForms = true,
+    includeThirdPartyScripts = true,
+    includeDOMSecurity = true,
+  } = options;
+
+  return [
+    { enabled: includeMixedContent, name: 'Mixed Content', fn: checkMixedContent },
+    { enabled: includeSRI, name: 'Subresource Integrity', fn: checkSRI },
+    { enabled: includeForms, name: 'Form Security', fn: checkFormSecurity },
+    { enabled: includeThirdPartyScripts, name: 'Third-Party Scripts', fn: checkThirdPartyScripts },
+    { enabled: includeDOMSecurity, name: 'DOM Security', fn: checkDOMSecurity },
+  ].filter(c => c.enabled);
+}
+
+/**
+ * Global checks that are page-independent (they inspect localStorage,
+ * cookies, headers — not the rendered DOM tree). These only need to run once.
+ */
+function getGlobalChecks(options: SecurityScannerOptions) {
+  const {
+    includeApiKeys = true,
+    includeStorage = true,
+    includePermissions = true,
+    includeSession = true,
+    includeEnvironment = true,
+    includeConfiguration = true,
+    includeCookies = true,
+    includeHeaders = true,
+    includeNetwork = true,
+    includeServiceWorkers = true,
+  } = options;
+
+  return [
+    { enabled: includeApiKeys, name: 'API Keys', fn: checkApiKeyExposure },
+    { enabled: includeStorage, name: 'Storage Patterns', fn: checkStoragePatterns },
+    { enabled: includeStorage, name: 'IndexedDB Security', fn: checkIndexedDBSecurity },
+    { enabled: includePermissions, name: 'Permissions', fn: checkPermissions },
+    { enabled: includeSession, name: 'Session Security', fn: checkSession },
+    { enabled: includeEnvironment || includeConfiguration, name: 'Environment', fn: checkEnvironment },
+    { enabled: includeCookies, name: 'Cookie Security', fn: checkCookieSecurity },
+    { enabled: includeHeaders, name: 'Security Headers', fn: checkSecurityHeaders },
+    { enabled: includeHeaders, name: 'Clickjacking Protection', fn: checkClickjackingProtection },
+    { enabled: includeNetwork, name: 'Network Security', fn: checkNetworkSecurity },
+    { enabled: includeServiceWorkers, name: 'Service Workers', fn: checkServiceWorkers },
+  ].filter(c => c.enabled);
+}
+
+/**
+ * Navigate to a hash route and wait for the page to render.
+ * Uses a combination of hashchange event and timeout-based polling
+ * to detect when navigation and rendering are complete.
+ */
+function navigateToRoute(path: string): Promise<void> {
+  return new Promise((resolve) => {
+    const targetHash = `#${path}`;
+
+    // If already on this route, just wait a tick for any re-render
+    if (window.location.hash === targetHash) {
+      setTimeout(resolve, 200);
+      return;
+    }
+
+    const onHashChange = () => {
+      window.removeEventListener('hashchange', onHashChange);
+      // Wait for React to render the new page content
+      setTimeout(resolve, 500);
+    };
+
+    window.addEventListener('hashchange', onHashChange);
+
+    // Set the hash to trigger navigation
+    window.location.hash = targetHash;
+
+    // Safety timeout in case hashchange doesn't fire (e.g. same route)
+    setTimeout(() => {
+      window.removeEventListener('hashchange', onHashChange);
+      resolve();
+    }, 2000);
+  });
+}
+
+/**
+ * Deduplicate findings that are identical across pages.
+ * Two findings are considered duplicates if they have the same title,
+ * category, severity, and description. When duplicates are found,
+ * the route info is merged into a single finding.
+ */
+function deduplicateFindings(findings: SecurityFinding[]): SecurityFinding[] {
+  const seen = new Map<string, SecurityFinding>();
+
+  for (const finding of findings) {
+    // Create a signature based on content (not id or route)
+    const sig = `${finding.category}|${finding.severity}|${finding.title}|${finding.description}`;
+
+    if (seen.has(sig)) {
+      // Merge route info
+      const existing = seen.get(sig)!;
+      if (finding.route && existing.route && !existing.route.includes(finding.route)) {
+        existing.route = `${existing.route}, ${finding.route}`;
+      }
+    } else {
+      seen.set(sig, { ...finding });
+    }
+  }
+
+  return Array.from(seen.values());
+}
+
+export interface MultiPageScanOptions extends SecurityScannerOptions {
+  /** Specific routes to scan (defaults to full ROUTE_MANIFEST) */
+  routes?: RouteEntry[];
+}
+
+/**
+ * Run a multi-page security scan.
+ *
+ * This navigates to every route in the SPA and runs DOM-dependent checks
+ * on each page, then runs global (page-independent) checks once.
+ * Findings are aggregated and deduplicated across all pages.
+ */
+export async function runMultiPageScan(
+  options: MultiPageScanOptions = {},
+  onProgress?: (progress: ScanProgress) => void,
+  abortSignal?: AbortSignal
+): Promise<ScanResult> {
+  const startedAt = new Date().toISOString();
+  const startTime = Date.now();
+  const allFindings: SecurityFinding[] = [];
+
+  // Save the current route so we can restore it after scanning
+  const originalHash = window.location.hash;
+
+  // Pre-fetch server headers once for all checks
+  clearServerHeadersCache();
+  await fetchServerHeaders();
+
+  const routesToScan = options.routes || ROUTE_MANIFEST;
+  const globalChecks = getGlobalChecks(options);
+  const pageChecks = getPageSpecificChecks(options);
+
+  // Total work = global checks + (page checks per route)
+  const totalSteps = globalChecks.length + (routesToScan.length * pageChecks.length);
+  let completedSteps = 0;
+  const scannedRoutes: string[] = [];
+
+  try {
+    // ─── Phase 1: Run global (page-independent) checks once ───
+    onProgress?.({
+      phase: 'global',
+      currentCheck: 'Running global checks...',
+      completed: completedSteps,
+      total: totalSteps,
+      percentage: 0,
+    });
+
+    for (const check of globalChecks) {
+      if (abortSignal?.aborted) throw new Error('Scan cancelled');
+
+      onProgress?.({
+        phase: 'global',
+        currentCheck: check.name,
+        completed: completedSteps,
+        total: totalSteps,
+        percentage: Math.round((completedSteps / totalSteps) * 100),
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+      const findings = check.fn();
+      // Global findings have no specific route
+      allFindings.push(...findings);
+      completedSteps++;
+    }
+
+    // ─── Phase 2: Navigate to each route and run DOM checks ───
+    for (const route of routesToScan) {
+      if (abortSignal?.aborted) throw new Error('Scan cancelled');
+
+      onProgress?.({
+        phase: 'multi-page',
+        currentCheck: `Navigating to ${route.label}...`,
+        completed: completedSteps,
+        total: totalSteps,
+        percentage: Math.round((completedSteps / totalSteps) * 100),
+        currentRoute: route.path,
+      });
+
+      // Navigate to the route
+      await navigateToRoute(route.path);
+      scannedRoutes.push(route.path);
+
+      // Run each page-specific check on this page
+      for (const check of pageChecks) {
+        if (abortSignal?.aborted) throw new Error('Scan cancelled');
+
+        onProgress?.({
+          phase: 'multi-page',
+          currentCheck: `${route.label}: ${check.name}`,
+          completed: completedSteps,
+          total: totalSteps,
+          percentage: Math.round((completedSteps / totalSteps) * 100),
+          currentRoute: route.path,
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+        const findings = check.fn();
+        // Tag each finding with the route where it was found
+        const taggedFindings = findings.map(f => ({
+          ...f,
+          route: route.path,
+          location: f.location ? `[${route.label}] ${f.location}` : `[${route.label}]`,
+        }));
+        allFindings.push(...taggedFindings);
+        completedSteps++;
+      }
+    }
+
+    // ─── Phase 3: Restore original route ───
+    onProgress?.({
+      phase: 'finalizing',
+      currentCheck: 'Restoring original page...',
+      completed: completedSteps,
+      total: totalSteps,
+      percentage: 99,
+    });
+
+    // Navigate back to the original route
+    if (originalHash && originalHash !== window.location.hash) {
+      window.location.hash = originalHash;
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    // ─── Phase 4: Deduplicate and finalize ───
+    const deduplicatedFindings = deduplicateFindings(allFindings);
+
+    onProgress?.({
+      phase: 'complete',
+      currentCheck: 'Done',
+      completed: totalSteps,
+      total: totalSteps,
+      percentage: 100,
+    });
+
+    const completedAt = new Date().toISOString();
+    const duration = Date.now() - startTime;
+
+    const summary = {
+      total: deduplicatedFindings.length,
+      critical: deduplicatedFindings.filter(f => f.severity === 'critical').length,
+      high: deduplicatedFindings.filter(f => f.severity === 'high').length,
+      medium: deduplicatedFindings.filter(f => f.severity === 'medium').length,
+      low: deduplicatedFindings.filter(f => f.severity === 'low').length,
+      info: deduplicatedFindings.filter(f => f.severity === 'info').length,
+    };
+
+    const result: ScanResult = {
+      id: crypto.randomUUID(),
+      startedAt,
+      completedAt,
+      duration,
+      findings: deduplicatedFindings,
+      summary,
+      status: 'completed',
+      multiPage: true,
+      scannedRoutes,
+    };
+
+    // Save to history
+    const history = getScanHistory();
+    history.unshift(result);
+    saveScanHistory(history);
+
+    return result;
+  } catch (error) {
+    // Restore original route on error
+    if (originalHash) {
+      window.location.hash = originalHash;
+    }
+
+    const completedAt = new Date().toISOString();
+    const duration = Date.now() - startTime;
+
+    // Deduplicate whatever we collected before the error
+    const deduplicatedFindings = deduplicateFindings(allFindings);
+
+    const result: ScanResult = {
+      id: crypto.randomUUID(),
+      startedAt,
+      completedAt,
+      duration,
+      findings: deduplicatedFindings,
+      summary: {
+        total: deduplicatedFindings.length,
+        critical: deduplicatedFindings.filter(f => f.severity === 'critical').length,
+        high: deduplicatedFindings.filter(f => f.severity === 'high').length,
+        medium: deduplicatedFindings.filter(f => f.severity === 'medium').length,
+        low: deduplicatedFindings.filter(f => f.severity === 'low').length,
+        info: deduplicatedFindings.filter(f => f.severity === 'info').length,
+      },
+      status: abortSignal?.aborted ? 'cancelled' : 'failed',
+      error: error instanceof Error ? error.message : String(error),
+      multiPage: true,
+      scannedRoutes,
+    };
+
+    const history = getScanHistory();
+    history.unshift(result);
+    saveScanHistory(history);
+
+    return result;
+  }
 }
