@@ -4,6 +4,7 @@ import type { User, Session } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured, signInWithGoogle as supabaseSignInWithGoogle } from '../lib/supabase';
 import {
   handleUserSignIn,
+  handleUserSignOut as clearUserPII,
   getCurrentAppUser,
   isAdminEmail,
   checkProfileAdminStatus,
@@ -146,8 +147,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setAdminChecked(true);
         }
 
-        // Clear app user on sign out
+        // Clear app user on sign out and scrub PII from localStorage
         if (event === 'SIGNED_OUT') {
+          clearUserPII();
           setAppUser(null);
           setAdminChecked(false);
         }

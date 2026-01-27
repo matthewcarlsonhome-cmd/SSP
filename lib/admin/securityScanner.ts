@@ -129,6 +129,66 @@ export function getScanById(scanId: string): ScanResult | undefined {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// SERVER HEADER DETECTION
+// Fetches the current page to inspect server-delivered HTTP headers.
+// Many security headers (X-Frame-Options, CSP frame-ancestors, etc.) can
+// only be set via server response headers and are invisible to meta-tag
+// checks alone.
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface ServerHeaders {
+  csp: string | null;
+  xFrameOptions: string | null;
+  referrerPolicy: string | null;
+  permissionsPolicy: string | null;
+  strictTransportSecurity: string | null;
+  xContentTypeOptions: string | null;
+  fetched: boolean;
+}
+
+let cachedServerHeaders: ServerHeaders | null = null;
+
+async function fetchServerHeaders(): Promise<ServerHeaders> {
+  if (cachedServerHeaders) return cachedServerHeaders;
+
+  const empty: ServerHeaders = {
+    csp: null,
+    xFrameOptions: null,
+    referrerPolicy: null,
+    permissionsPolicy: null,
+    strictTransportSecurity: null,
+    xContentTypeOptions: null,
+    fetched: false,
+  };
+
+  try {
+    // HEAD request to the current page to read server-delivered headers
+    const response = await fetch(window.location.href, { method: 'HEAD', cache: 'no-store' });
+    const result: ServerHeaders = {
+      csp: response.headers.get('content-security-policy'),
+      xFrameOptions: response.headers.get('x-frame-options'),
+      referrerPolicy: response.headers.get('referrer-policy'),
+      permissionsPolicy: response.headers.get('permissions-policy'),
+      strictTransportSecurity: response.headers.get('strict-transport-security'),
+      xContentTypeOptions: response.headers.get('x-content-type-options'),
+      fetched: true,
+    };
+    cachedServerHeaders = result;
+    return result;
+  } catch (e) {
+    logger.warn('Could not fetch server headers for security scan', { error: e instanceof Error ? e.message : String(e) });
+    return empty;
+  }
+}
+
+/**
+ * Clear the cached server headers (useful between scans)
+ */
+export function clearServerHeadersCache(): void {
+  cachedServerHeaders = null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SECURITY CHECKS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -614,17 +674,32 @@ function checkEnvironment(): SecurityFinding[] {
       }
     }
 
-    // Check Content Security Policy
+    // Check Content Security Policy (meta tag + server header)
     const cspMeta = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
-    if (!cspMeta && !isDev) {
+    const serverHeaders = cachedServerHeaders;
+    const hasServerCSP = !!serverHeaders?.csp;
+
+    if (!cspMeta && !hasServerCSP && !isDev) {
       findings.push({
         id: crypto.randomUUID(),
         category: 'configuration',
         severity: 'medium',
         title: 'No Content Security Policy',
-        description: 'No CSP meta tag found. Application may be vulnerable to XSS attacks.',
+        description: 'No CSP meta tag or server header found. Application may be vulnerable to XSS attacks.',
         location: 'document head',
-        recommendation: 'Implement a Content Security Policy to mitigate XSS risks.',
+        recommendation: 'Implement a Content Security Policy via meta tag or server headers to mitigate XSS risks.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    } else if (!cspMeta && hasServerCSP) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'configuration',
+        severity: 'info',
+        title: 'CSP Delivered via Server Header',
+        description: 'Content Security Policy is set via server response header (not meta tag). This is the recommended approach.',
+        location: 'Server HTTP headers',
+        recommendation: 'Server-delivered CSP is preferred over meta tags. No action needed.',
         detectedAt: new Date().toISOString(),
         resolved: false,
       });
@@ -916,30 +991,51 @@ function checkClickjackingProtection(): SecurityFinding[] {
     // Check for CSP frame-ancestors in meta tag
     const cspMeta = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
     const cspContent = cspMeta?.getAttribute('content') || '';
-    const hasFrameAncestors = cspContent.toLowerCase().includes('frame-ancestors');
+    const hasMetaFrameAncestors = cspContent.toLowerCase().includes('frame-ancestors');
 
     // Check for X-Frame-Options meta tag (though server header is preferred)
     const xfoMeta = document.querySelector('meta[http-equiv="X-Frame-Options"]');
 
-    if (!hasFrameAncestors && !xfoMeta) {
+    // Check server-delivered headers (the authoritative source for clickjacking protection)
+    const serverHeaders = cachedServerHeaders;
+    const hasServerXFO = !!serverHeaders?.xFrameOptions;
+    const hasServerFrameAncestors = !!serverHeaders?.csp?.toLowerCase().includes('frame-ancestors');
+    const hasServerClickjackProtection = hasServerXFO || hasServerFrameAncestors;
+
+    if (!hasMetaFrameAncestors && !xfoMeta && !hasServerClickjackProtection) {
       findings.push({
         id: crypto.randomUUID(),
         category: 'headers',
         severity: 'high',
         title: 'Missing Clickjacking Protection',
-        description: 'No X-Frame-Options or CSP frame-ancestors directive found in meta tags.',
-        location: 'Document head',
-        recommendation: 'Add CSP frame-ancestors directive or X-Frame-Options header to prevent clickjacking attacks. Server headers are preferred over meta tags.',
+        description: 'No X-Frame-Options or CSP frame-ancestors directive found in meta tags or server headers.',
+        location: 'Document head / Server headers',
+        recommendation: 'Add CSP frame-ancestors directive or X-Frame-Options via server headers to prevent clickjacking attacks. Note: frame-ancestors cannot be set via meta tags — server headers are required.',
         detectedAt: new Date().toISOString(),
         resolved: false,
       });
-    } else if (hasFrameAncestors) {
+    } else if (hasServerClickjackProtection) {
+      const sources: string[] = [];
+      if (hasServerXFO) sources.push(`X-Frame-Options: ${serverHeaders!.xFrameOptions}`);
+      if (hasServerFrameAncestors) sources.push('CSP frame-ancestors');
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'headers',
+        severity: 'info',
+        title: 'Clickjacking Protection Enabled (Server)',
+        description: `Clickjacking protection delivered via server headers: ${sources.join(', ')}.`,
+        location: 'Server HTTP headers',
+        recommendation: 'Server-delivered clickjacking protection is the correct approach. No action needed.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    } else if (hasMetaFrameAncestors) {
       findings.push({
         id: crypto.randomUUID(),
         category: 'headers',
         severity: 'info',
         title: 'Clickjacking Protection Enabled (CSP)',
-        description: 'CSP frame-ancestors directive found, providing clickjacking protection.',
+        description: 'CSP frame-ancestors directive found in meta tag, providing clickjacking protection.',
         location: 'CSP meta tag',
         recommendation: 'Ensure frame-ancestors is set to "none" or specific trusted origins only.',
         detectedAt: new Date().toISOString(),
@@ -1062,61 +1158,79 @@ function checkSecurityHeaders(): SecurityFinding[] {
   const findings: SecurityFinding[] = [];
 
   try {
-    // Check Referrer Policy
+    const serverHeaders = cachedServerHeaders;
+
+    // Check Referrer Policy (meta tag + server header)
     const referrerMeta = document.querySelector('meta[name="referrer"]');
     const referrerPolicy = referrerMeta?.getAttribute('content');
+    const serverReferrerPolicy = serverHeaders?.referrerPolicy;
+    const effectiveReferrerPolicy = referrerPolicy || serverReferrerPolicy;
 
-    if (!referrerPolicy) {
+    if (!effectiveReferrerPolicy) {
       findings.push({
         id: crypto.randomUUID(),
         category: 'headers',
         severity: 'medium',
         title: 'Missing Referrer Policy',
-        description: 'No referrer-policy meta tag found. URL information may leak to external sites.',
-        location: 'Document head',
-        recommendation: 'Add <meta name="referrer" content="strict-origin-when-cross-origin"> or more restrictive policy.',
+        description: 'No referrer-policy found in meta tags or server headers. URL information may leak to external sites.',
+        location: 'Document head / Server headers',
+        recommendation: 'Add <meta name="referrer" content="strict-origin-when-cross-origin"> or set the Referrer-Policy server header.',
         detectedAt: new Date().toISOString(),
         resolved: false,
       });
-    } else if (referrerPolicy === 'unsafe-url' || referrerPolicy === 'no-referrer-when-downgrade') {
+    } else if (effectiveReferrerPolicy === 'unsafe-url' || effectiveReferrerPolicy === 'no-referrer-when-downgrade') {
       findings.push({
         id: crypto.randomUUID(),
         category: 'headers',
         severity: 'medium',
         title: 'Weak Referrer Policy',
-        description: `Referrer policy "${referrerPolicy}" may leak sensitive URL information.`,
-        location: 'meta[name="referrer"]',
+        description: `Referrer policy "${effectiveReferrerPolicy}" may leak sensitive URL information.`,
+        location: referrerPolicy ? 'meta[name="referrer"]' : 'Server HTTP headers',
         recommendation: 'Use "strict-origin-when-cross-origin" or "no-referrer" for better privacy.',
         detectedAt: new Date().toISOString(),
         resolved: false,
       });
     } else {
+      const source = referrerPolicy ? 'meta tag' : 'server header';
       findings.push({
         id: crypto.randomUUID(),
         category: 'headers',
         severity: 'info',
         title: 'Referrer Policy Configured',
-        description: `Referrer policy set to "${referrerPolicy}".`,
-        location: 'meta[name="referrer"]',
+        description: `Referrer policy set to "${effectiveReferrerPolicy}" via ${source}.`,
+        location: referrerPolicy ? 'meta[name="referrer"]' : 'Server HTTP headers',
         recommendation: 'Referrer policy is configured. Review if it meets your privacy requirements.',
         detectedAt: new Date().toISOString(),
         resolved: false,
       });
     }
 
-    // Check Permissions/Feature Policy via meta tag or iframe allow attribute
+    // Check Permissions/Feature Policy via meta tag, server header, or iframe allow attribute
     const permissionsMeta = document.querySelector('meta[http-equiv="Permissions-Policy"]') ||
                            document.querySelector('meta[http-equiv="Feature-Policy"]');
+    const serverPermissionsPolicy = serverHeaders?.permissionsPolicy;
 
-    if (!permissionsMeta) {
+    if (!permissionsMeta && !serverPermissionsPolicy) {
       findings.push({
         id: crypto.randomUUID(),
         category: 'headers',
         severity: 'low',
         title: 'No Permissions Policy',
-        description: 'No Permissions-Policy meta tag found. Browser features are not explicitly restricted.',
-        location: 'Document head',
+        description: 'No Permissions-Policy found in meta tags or server headers. Browser features are not explicitly restricted.',
+        location: 'Document head / Server headers',
         recommendation: 'Consider adding Permissions-Policy to restrict access to sensitive browser APIs (geolocation, camera, microphone).',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    } else if (!permissionsMeta && serverPermissionsPolicy) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'headers',
+        severity: 'info',
+        title: 'Permissions Policy Delivered via Server Header',
+        description: `Permissions-Policy is set via server header: ${serverPermissionsPolicy}.`,
+        location: 'Server HTTP headers',
+        recommendation: 'Server-delivered Permissions-Policy is the recommended approach. No action needed.',
         detectedAt: new Date().toISOString(),
         resolved: false,
       });
@@ -1526,6 +1640,12 @@ export async function runSecurityScan(
   const startedAt = new Date().toISOString();
   const startTime = Date.now();
   const allFindings: SecurityFinding[] = [];
+
+  // Pre-fetch server headers so check functions can reference them.
+  // This detects security headers delivered via HTTP response (e.g., from Netlify)
+  // that are invisible to meta-tag-only checks.
+  clearServerHeadersCache();
+  await fetchServerHeaders();
 
   const checks = [
     // Original checks

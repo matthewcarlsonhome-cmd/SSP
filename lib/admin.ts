@@ -40,7 +40,10 @@ const STORAGE_KEYS = {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const DEFAULT_ADMIN_EMAILS: string[] = [
-  // Add your email here to be an admin (fallback if Supabase not configured)
+  // Add admin emails here as a fallback when Supabase is not configured.
+  // Best practice: configure at least two admin emails for redundancy
+  // so that admin access is not lost if one account becomes unavailable.
+  // Example: 'primary-admin@example.com', 'backup-admin@example.com'
 ];
 
 // Cache for admin emails fetched from Supabase
@@ -670,8 +673,29 @@ export function handleUserSignIn(
 }
 
 export function handleUserSignOut(): void {
-  // Keep the user data but mark as signed out
-  // This preserves their role and usage history
+  // Clear PII from localStorage on sign-out to minimize exposure.
+  // Usage stats (skill runs, captured emails) are retained separately
+  // for admin analytics — they don't contain passwords or tokens.
+  try {
+    const user = getCurrentAppUser();
+    if (user) {
+      // Preserve only non-PII usage data; strip identifiable fields
+      const sanitized: Partial<AppUser> = {
+        id: user.id,
+        role: user.role,
+        roleAssignedAt: user.roleAssignedAt,
+        skillRunsToday: user.skillRunsToday,
+        skillRunsThisMonth: user.skillRunsThisMonth,
+        createdAt: user.createdAt,
+        lastLoginAt: user.lastLoginAt,
+        isAdmin: false,
+      };
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(sanitized));
+    }
+  } catch (e) {
+    // On any error, remove the key entirely as the safe fallback
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
