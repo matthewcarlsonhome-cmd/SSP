@@ -7,6 +7,7 @@
  * - Permission configuration audit
  * - Session security analysis
  * - Environment variable leak detection
+ * - Multi-page scanning across all SPA routes
  */
 
 import { supabase } from '../supabase';
@@ -43,6 +44,8 @@ export interface SecurityFinding {
   detectedAt: string;
   resolved: boolean;
   resolvedAt?: string;
+  /** Route where the finding was detected (multi-page scan only) */
+  route?: string;
 }
 
 export interface ScanResult {
@@ -61,6 +64,10 @@ export interface ScanResult {
   };
   status: 'completed' | 'failed' | 'cancelled';
   error?: string;
+  /** Whether this was a multi-page scan */
+  multiPage?: boolean;
+  /** Routes scanned during a multi-page scan */
+  scannedRoutes?: string[];
 }
 
 export interface ScanProgress {
@@ -69,6 +76,8 @@ export interface ScanProgress {
   completed: number;
   total: number;
   percentage: number;
+  /** Current route being scanned (multi-page scan only) */
+  currentRoute?: string;
 }
 
 export interface SecurityScannerOptions {
@@ -91,6 +100,74 @@ export interface SecurityScannerOptions {
   includeServiceWorkers?: boolean;
   includeDOMSecurity?: boolean;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUTE MANIFEST
+// Complete listing of all navigable SPA routes for multi-page scanning.
+// Parameterized routes (e.g. /skill/:id) are excluded since they require
+// dynamic data. Static routes cover all major pages and features.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface RouteEntry {
+  path: string;
+  label: string;
+  group: string;
+}
+
+export const ROUTE_MANIFEST: RouteEntry[] = [
+  // Core pages
+  { path: '/', label: 'Home', group: 'Core' },
+  { path: '/dashboard', label: 'Dashboard', group: 'Core' },
+  { path: '/welcome', label: 'Welcome', group: 'Core' },
+  { path: '/profile', label: 'User Profile', group: 'Core' },
+
+  // Skills & Library
+  { path: '/skills', label: 'Browse Skills', group: 'Skills' },
+  { path: '/role-templates', label: 'Role Templates', group: 'Skills' },
+  { path: '/my-skills', label: 'My Skills', group: 'Skills' },
+  { path: '/library', label: 'Skill Library', group: 'Skills' },
+  { path: '/discover', label: 'Skill Discovery', group: 'Skills' },
+
+  // Custom skill generation
+  { path: '/analyze', label: 'Analyze Role', group: 'Custom Skills' },
+
+  // Community
+  { path: '/community', label: 'Community Skills', group: 'Community' },
+  { path: '/community/import', label: 'Import Skill', group: 'Community' },
+
+  // Batch & Export
+  { path: '/batch', label: 'Batch Processing', group: 'Batch & Export' },
+  { path: '/export-skills', label: 'Export Skills', group: 'Batch & Export' },
+
+  // Workflows
+  { path: '/workflows', label: 'Workflows', group: 'Workflows' },
+
+  // Job search tools
+  { path: '/job-tracker', label: 'Job Tracker', group: 'Job Tools' },
+  { path: '/interview-bank', label: 'Interview Bank', group: 'Job Tools' },
+  { path: '/salary-calculator', label: 'Salary Calculator', group: 'Job Tools' },
+  { path: '/networking', label: 'Networking Templates', group: 'Job Tools' },
+  { path: '/company-notes', label: 'Company Notes', group: 'Job Tools' },
+  { path: '/skills-gap', label: 'Skills Gap', group: 'Job Tools' },
+  { path: '/progress', label: 'Progress Report', group: 'Job Tools' },
+  { path: '/achievements', label: 'Achievements', group: 'Job Tools' },
+  { path: '/mock-interview', label: 'Mock Interview', group: 'Job Tools' },
+  { path: '/follow-ups', label: 'Follow-ups', group: 'Job Tools' },
+  { path: '/autofill-vault', label: 'AutoFill Vault', group: 'Job Tools' },
+  { path: '/referral-network', label: 'Referral Network', group: 'Job Tools' },
+  { path: '/market-insights', label: 'Market Insights', group: 'Job Tools' },
+  { path: '/daily-planner', label: 'Daily Planner', group: 'Job Tools' },
+
+  // Utility & Admin
+  { path: '/api-keys', label: 'API Key Instructions', group: 'Utility' },
+  { path: '/docs/platform-keys-setup', label: 'Platform Keys Setup', group: 'Utility' },
+  { path: '/settings', label: 'Settings', group: 'Utility' },
+  { path: '/pricing', label: 'Pricing', group: 'Utility' },
+  { path: '/account', label: 'Account', group: 'Utility' },
+  { path: '/admin', label: 'Admin Panel', group: 'Admin' },
+  { path: '/admin/improvements', label: 'Admin Improvements', group: 'Admin' },
+  { path: '/dev/playground', label: 'Dev Playground', group: 'Admin' },
+];
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STORAGE
@@ -126,6 +203,66 @@ export function getRecentScans(limit: number = 10): ScanResult[] {
 
 export function getScanById(scanId: string): ScanResult | undefined {
   return getScanHistory().find(s => s.id === scanId);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SERVER HEADER DETECTION
+// Fetches the current page to inspect server-delivered HTTP headers.
+// Many security headers (X-Frame-Options, CSP frame-ancestors, etc.) can
+// only be set via server response headers and are invisible to meta-tag
+// checks alone.
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface ServerHeaders {
+  csp: string | null;
+  xFrameOptions: string | null;
+  referrerPolicy: string | null;
+  permissionsPolicy: string | null;
+  strictTransportSecurity: string | null;
+  xContentTypeOptions: string | null;
+  fetched: boolean;
+}
+
+let cachedServerHeaders: ServerHeaders | null = null;
+
+async function fetchServerHeaders(): Promise<ServerHeaders> {
+  if (cachedServerHeaders) return cachedServerHeaders;
+
+  const empty: ServerHeaders = {
+    csp: null,
+    xFrameOptions: null,
+    referrerPolicy: null,
+    permissionsPolicy: null,
+    strictTransportSecurity: null,
+    xContentTypeOptions: null,
+    fetched: false,
+  };
+
+  try {
+    // HEAD request to the current page to read server-delivered headers
+    const response = await fetch(window.location.href, { method: 'HEAD', cache: 'no-store' });
+    const result: ServerHeaders = {
+      csp: response.headers.get('content-security-policy'),
+      xFrameOptions: response.headers.get('x-frame-options'),
+      referrerPolicy: response.headers.get('referrer-policy'),
+      permissionsPolicy: response.headers.get('permissions-policy'),
+      strictTransportSecurity: response.headers.get('strict-transport-security'),
+      xContentTypeOptions: response.headers.get('x-content-type-options'),
+      fetched: true,
+    };
+    cachedServerHeaders = result;
+    return result;
+  } catch (e) {
+    logger.warn('Could not fetch server headers for security scan', { error: e instanceof Error ? e.message : String(e) });
+    return empty;
+  }
+}
+
+/**
+ * Clear the cached server headers (useful between scans)
+ */
+export function clearServerHeadersCache(): void {
+  cachedServerHeaders = null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -614,17 +751,32 @@ function checkEnvironment(): SecurityFinding[] {
       }
     }
 
-    // Check Content Security Policy
+    // Check Content Security Policy (meta tag + server header)
     const cspMeta = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
-    if (!cspMeta && !isDev) {
+    const serverHeaders = cachedServerHeaders;
+    const hasServerCSP = !!serverHeaders?.csp;
+
+    if (!cspMeta && !hasServerCSP && !isDev) {
       findings.push({
         id: crypto.randomUUID(),
         category: 'configuration',
         severity: 'medium',
         title: 'No Content Security Policy',
-        description: 'No CSP meta tag found. Application may be vulnerable to XSS attacks.',
+        description: 'No CSP meta tag or server header found. Application may be vulnerable to XSS attacks.',
         location: 'document head',
-        recommendation: 'Implement a Content Security Policy to mitigate XSS risks.',
+        recommendation: 'Implement a Content Security Policy via meta tag or server headers to mitigate XSS risks.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    } else if (!cspMeta && hasServerCSP) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'configuration',
+        severity: 'info',
+        title: 'CSP Delivered via Server Header',
+        description: 'Content Security Policy is set via server response header (not meta tag). This is the recommended approach.',
+        location: 'Server HTTP headers',
+        recommendation: 'Server-delivered CSP is preferred over meta tags. No action needed.',
         detectedAt: new Date().toISOString(),
         resolved: false,
       });
@@ -916,30 +1068,51 @@ function checkClickjackingProtection(): SecurityFinding[] {
     // Check for CSP frame-ancestors in meta tag
     const cspMeta = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
     const cspContent = cspMeta?.getAttribute('content') || '';
-    const hasFrameAncestors = cspContent.toLowerCase().includes('frame-ancestors');
+    const hasMetaFrameAncestors = cspContent.toLowerCase().includes('frame-ancestors');
 
     // Check for X-Frame-Options meta tag (though server header is preferred)
     const xfoMeta = document.querySelector('meta[http-equiv="X-Frame-Options"]');
 
-    if (!hasFrameAncestors && !xfoMeta) {
+    // Check server-delivered headers (the authoritative source for clickjacking protection)
+    const serverHeaders = cachedServerHeaders;
+    const hasServerXFO = !!serverHeaders?.xFrameOptions;
+    const hasServerFrameAncestors = !!serverHeaders?.csp?.toLowerCase().includes('frame-ancestors');
+    const hasServerClickjackProtection = hasServerXFO || hasServerFrameAncestors;
+
+    if (!hasMetaFrameAncestors && !xfoMeta && !hasServerClickjackProtection) {
       findings.push({
         id: crypto.randomUUID(),
         category: 'headers',
         severity: 'high',
         title: 'Missing Clickjacking Protection',
-        description: 'No X-Frame-Options or CSP frame-ancestors directive found in meta tags.',
-        location: 'Document head',
-        recommendation: 'Add CSP frame-ancestors directive or X-Frame-Options header to prevent clickjacking attacks. Server headers are preferred over meta tags.',
+        description: 'No X-Frame-Options or CSP frame-ancestors directive found in meta tags or server headers.',
+        location: 'Document head / Server headers',
+        recommendation: 'Add CSP frame-ancestors directive or X-Frame-Options via server headers to prevent clickjacking attacks. Note: frame-ancestors cannot be set via meta tags — server headers are required.',
         detectedAt: new Date().toISOString(),
         resolved: false,
       });
-    } else if (hasFrameAncestors) {
+    } else if (hasServerClickjackProtection) {
+      const sources: string[] = [];
+      if (hasServerXFO) sources.push(`X-Frame-Options: ${serverHeaders!.xFrameOptions}`);
+      if (hasServerFrameAncestors) sources.push('CSP frame-ancestors');
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'headers',
+        severity: 'info',
+        title: 'Clickjacking Protection Enabled (Server)',
+        description: `Clickjacking protection delivered via server headers: ${sources.join(', ')}.`,
+        location: 'Server HTTP headers',
+        recommendation: 'Server-delivered clickjacking protection is the correct approach. No action needed.',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    } else if (hasMetaFrameAncestors) {
       findings.push({
         id: crypto.randomUUID(),
         category: 'headers',
         severity: 'info',
         title: 'Clickjacking Protection Enabled (CSP)',
-        description: 'CSP frame-ancestors directive found, providing clickjacking protection.',
+        description: 'CSP frame-ancestors directive found in meta tag, providing clickjacking protection.',
         location: 'CSP meta tag',
         recommendation: 'Ensure frame-ancestors is set to "none" or specific trusted origins only.',
         detectedAt: new Date().toISOString(),
@@ -1062,61 +1235,79 @@ function checkSecurityHeaders(): SecurityFinding[] {
   const findings: SecurityFinding[] = [];
 
   try {
-    // Check Referrer Policy
+    const serverHeaders = cachedServerHeaders;
+
+    // Check Referrer Policy (meta tag + server header)
     const referrerMeta = document.querySelector('meta[name="referrer"]');
     const referrerPolicy = referrerMeta?.getAttribute('content');
+    const serverReferrerPolicy = serverHeaders?.referrerPolicy;
+    const effectiveReferrerPolicy = referrerPolicy || serverReferrerPolicy;
 
-    if (!referrerPolicy) {
+    if (!effectiveReferrerPolicy) {
       findings.push({
         id: crypto.randomUUID(),
         category: 'headers',
         severity: 'medium',
         title: 'Missing Referrer Policy',
-        description: 'No referrer-policy meta tag found. URL information may leak to external sites.',
-        location: 'Document head',
-        recommendation: 'Add <meta name="referrer" content="strict-origin-when-cross-origin"> or more restrictive policy.',
+        description: 'No referrer-policy found in meta tags or server headers. URL information may leak to external sites.',
+        location: 'Document head / Server headers',
+        recommendation: 'Add <meta name="referrer" content="strict-origin-when-cross-origin"> or set the Referrer-Policy server header.',
         detectedAt: new Date().toISOString(),
         resolved: false,
       });
-    } else if (referrerPolicy === 'unsafe-url' || referrerPolicy === 'no-referrer-when-downgrade') {
+    } else if (effectiveReferrerPolicy === 'unsafe-url' || effectiveReferrerPolicy === 'no-referrer-when-downgrade') {
       findings.push({
         id: crypto.randomUUID(),
         category: 'headers',
         severity: 'medium',
         title: 'Weak Referrer Policy',
-        description: `Referrer policy "${referrerPolicy}" may leak sensitive URL information.`,
-        location: 'meta[name="referrer"]',
+        description: `Referrer policy "${effectiveReferrerPolicy}" may leak sensitive URL information.`,
+        location: referrerPolicy ? 'meta[name="referrer"]' : 'Server HTTP headers',
         recommendation: 'Use "strict-origin-when-cross-origin" or "no-referrer" for better privacy.',
         detectedAt: new Date().toISOString(),
         resolved: false,
       });
     } else {
+      const source = referrerPolicy ? 'meta tag' : 'server header';
       findings.push({
         id: crypto.randomUUID(),
         category: 'headers',
         severity: 'info',
         title: 'Referrer Policy Configured',
-        description: `Referrer policy set to "${referrerPolicy}".`,
-        location: 'meta[name="referrer"]',
+        description: `Referrer policy set to "${effectiveReferrerPolicy}" via ${source}.`,
+        location: referrerPolicy ? 'meta[name="referrer"]' : 'Server HTTP headers',
         recommendation: 'Referrer policy is configured. Review if it meets your privacy requirements.',
         detectedAt: new Date().toISOString(),
         resolved: false,
       });
     }
 
-    // Check Permissions/Feature Policy via meta tag or iframe allow attribute
+    // Check Permissions/Feature Policy via meta tag, server header, or iframe allow attribute
     const permissionsMeta = document.querySelector('meta[http-equiv="Permissions-Policy"]') ||
                            document.querySelector('meta[http-equiv="Feature-Policy"]');
+    const serverPermissionsPolicy = serverHeaders?.permissionsPolicy;
 
-    if (!permissionsMeta) {
+    if (!permissionsMeta && !serverPermissionsPolicy) {
       findings.push({
         id: crypto.randomUUID(),
         category: 'headers',
         severity: 'low',
         title: 'No Permissions Policy',
-        description: 'No Permissions-Policy meta tag found. Browser features are not explicitly restricted.',
-        location: 'Document head',
+        description: 'No Permissions-Policy found in meta tags or server headers. Browser features are not explicitly restricted.',
+        location: 'Document head / Server headers',
         recommendation: 'Consider adding Permissions-Policy to restrict access to sensitive browser APIs (geolocation, camera, microphone).',
+        detectedAt: new Date().toISOString(),
+        resolved: false,
+      });
+    } else if (!permissionsMeta && serverPermissionsPolicy) {
+      findings.push({
+        id: crypto.randomUUID(),
+        category: 'headers',
+        severity: 'info',
+        title: 'Permissions Policy Delivered via Server Header',
+        description: `Permissions-Policy is set via server header: ${serverPermissionsPolicy}.`,
+        location: 'Server HTTP headers',
+        recommendation: 'Server-delivered Permissions-Policy is the recommended approach. No action needed.',
         detectedAt: new Date().toISOString(),
         resolved: false,
       });
@@ -1527,6 +1718,12 @@ export async function runSecurityScan(
   const startTime = Date.now();
   const allFindings: SecurityFinding[] = [];
 
+  // Pre-fetch server headers so check functions can reference them.
+  // This detects security headers delivered via HTTP response (e.g., from Netlify)
+  // that are invisible to meta-tag-only checks.
+  clearServerHeadersCache();
+  await fetchServerHeaders();
+
   const checks = [
     // Original checks
     { enabled: includeApiKeys, name: 'API Keys', fn: checkApiKeyExposure },
@@ -1647,18 +1844,25 @@ export async function runSecurityScan(
  * Export findings to CSV
  */
 export function exportFindingsToCSV(findings: SecurityFinding[]): string {
-  const headers = ['Severity', 'Category', 'Title', 'Description', 'Location', 'Recommendation', 'Detected At', 'Resolved'];
+  const hasRoutes = findings.some(f => f.route);
+  const headers = hasRoutes
+    ? ['Severity', 'Category', 'Route', 'Title', 'Description', 'Location', 'Recommendation', 'Detected At', 'Resolved']
+    : ['Severity', 'Category', 'Title', 'Description', 'Location', 'Recommendation', 'Detected At', 'Resolved'];
 
-  const rows = findings.map(f => [
-    f.severity,
-    f.category,
-    f.title,
-    f.description,
-    f.location || '',
-    f.recommendation,
-    f.detectedAt,
-    f.resolved ? 'Yes' : 'No',
-  ]);
+  const rows = findings.map(f => {
+    const base = [
+      f.severity,
+      f.category,
+      ...(hasRoutes ? [f.route || 'global'] : []),
+      f.title,
+      f.description,
+      f.location || '',
+      f.recommendation,
+      f.detectedAt,
+      f.resolved ? 'Yes' : 'No',
+    ];
+    return base;
+  });
 
   const csvContent = [
     headers.join(','),
@@ -1713,4 +1917,331 @@ export function calculateSecurityScore(summary: ScanResult['summary']): {
  */
 export function clearScanHistory(): void {
   localStorage.removeItem(STORAGE_KEY);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MULTI-PAGE SCANNING
+// Navigates to every route in the SPA and runs DOM-dependent checks on each
+// page, then aggregates all findings. Global checks (localStorage, cookies,
+// session, etc.) only run once since they are page-independent.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * DOM-dependent checks that may produce different results on different pages.
+ * These inspect the actual rendered DOM (scripts, forms, iframes, etc.)
+ */
+function getPageSpecificChecks(options: SecurityScannerOptions) {
+  const {
+    includeMixedContent = true,
+    includeSRI = true,
+    includeForms = true,
+    includeThirdPartyScripts = true,
+    includeDOMSecurity = true,
+  } = options;
+
+  return [
+    { enabled: includeMixedContent, name: 'Mixed Content', fn: checkMixedContent },
+    { enabled: includeSRI, name: 'Subresource Integrity', fn: checkSRI },
+    { enabled: includeForms, name: 'Form Security', fn: checkFormSecurity },
+    { enabled: includeThirdPartyScripts, name: 'Third-Party Scripts', fn: checkThirdPartyScripts },
+    { enabled: includeDOMSecurity, name: 'DOM Security', fn: checkDOMSecurity },
+  ].filter(c => c.enabled);
+}
+
+/**
+ * Global checks that are page-independent (they inspect localStorage,
+ * cookies, headers — not the rendered DOM tree). These only need to run once.
+ */
+function getGlobalChecks(options: SecurityScannerOptions) {
+  const {
+    includeApiKeys = true,
+    includeStorage = true,
+    includePermissions = true,
+    includeSession = true,
+    includeEnvironment = true,
+    includeConfiguration = true,
+    includeCookies = true,
+    includeHeaders = true,
+    includeNetwork = true,
+    includeServiceWorkers = true,
+  } = options;
+
+  return [
+    { enabled: includeApiKeys, name: 'API Keys', fn: checkApiKeyExposure },
+    { enabled: includeStorage, name: 'Storage Patterns', fn: checkStoragePatterns },
+    { enabled: includeStorage, name: 'IndexedDB Security', fn: checkIndexedDBSecurity },
+    { enabled: includePermissions, name: 'Permissions', fn: checkPermissions },
+    { enabled: includeSession, name: 'Session Security', fn: checkSession },
+    { enabled: includeEnvironment || includeConfiguration, name: 'Environment', fn: checkEnvironment },
+    { enabled: includeCookies, name: 'Cookie Security', fn: checkCookieSecurity },
+    { enabled: includeHeaders, name: 'Security Headers', fn: checkSecurityHeaders },
+    { enabled: includeHeaders, name: 'Clickjacking Protection', fn: checkClickjackingProtection },
+    { enabled: includeNetwork, name: 'Network Security', fn: checkNetworkSecurity },
+    { enabled: includeServiceWorkers, name: 'Service Workers', fn: checkServiceWorkers },
+  ].filter(c => c.enabled);
+}
+
+/**
+ * Navigate to a hash route and wait for the page to render.
+ * Uses a combination of hashchange event and timeout-based polling
+ * to detect when navigation and rendering are complete.
+ */
+function navigateToRoute(path: string): Promise<void> {
+  return new Promise((resolve) => {
+    const targetHash = `#${path}`;
+
+    // If already on this route, just wait a tick for any re-render
+    if (window.location.hash === targetHash) {
+      setTimeout(resolve, 200);
+      return;
+    }
+
+    const onHashChange = () => {
+      window.removeEventListener('hashchange', onHashChange);
+      // Wait for React to render the new page content
+      setTimeout(resolve, 500);
+    };
+
+    window.addEventListener('hashchange', onHashChange);
+
+    // Set the hash to trigger navigation
+    window.location.hash = targetHash;
+
+    // Safety timeout in case hashchange doesn't fire (e.g. same route)
+    setTimeout(() => {
+      window.removeEventListener('hashchange', onHashChange);
+      resolve();
+    }, 2000);
+  });
+}
+
+/**
+ * Deduplicate findings that are identical across pages.
+ * Two findings are considered duplicates if they have the same title,
+ * category, severity, and description. When duplicates are found,
+ * the route info is merged into a single finding.
+ */
+function deduplicateFindings(findings: SecurityFinding[]): SecurityFinding[] {
+  const seen = new Map<string, SecurityFinding>();
+
+  for (const finding of findings) {
+    // Create a signature based on content (not id or route)
+    const sig = `${finding.category}|${finding.severity}|${finding.title}|${finding.description}`;
+
+    if (seen.has(sig)) {
+      // Merge route info
+      const existing = seen.get(sig)!;
+      if (finding.route && existing.route && !existing.route.includes(finding.route)) {
+        existing.route = `${existing.route}, ${finding.route}`;
+      }
+    } else {
+      seen.set(sig, { ...finding });
+    }
+  }
+
+  return Array.from(seen.values());
+}
+
+export interface MultiPageScanOptions extends SecurityScannerOptions {
+  /** Specific routes to scan (defaults to full ROUTE_MANIFEST) */
+  routes?: RouteEntry[];
+}
+
+/**
+ * Run a multi-page security scan.
+ *
+ * This navigates to every route in the SPA and runs DOM-dependent checks
+ * on each page, then runs global (page-independent) checks once.
+ * Findings are aggregated and deduplicated across all pages.
+ */
+export async function runMultiPageScan(
+  options: MultiPageScanOptions = {},
+  onProgress?: (progress: ScanProgress) => void,
+  abortSignal?: AbortSignal
+): Promise<ScanResult> {
+  const startedAt = new Date().toISOString();
+  const startTime = Date.now();
+  const allFindings: SecurityFinding[] = [];
+
+  // Save the current route so we can restore it after scanning
+  const originalHash = window.location.hash;
+
+  // Pre-fetch server headers once for all checks
+  clearServerHeadersCache();
+  await fetchServerHeaders();
+
+  const routesToScan = options.routes || ROUTE_MANIFEST;
+  const globalChecks = getGlobalChecks(options);
+  const pageChecks = getPageSpecificChecks(options);
+
+  // Total work = global checks + (page checks per route)
+  const totalSteps = globalChecks.length + (routesToScan.length * pageChecks.length);
+  let completedSteps = 0;
+  const scannedRoutes: string[] = [];
+
+  try {
+    // ─── Phase 1: Run global (page-independent) checks once ───
+    onProgress?.({
+      phase: 'global',
+      currentCheck: 'Running global checks...',
+      completed: completedSteps,
+      total: totalSteps,
+      percentage: 0,
+    });
+
+    for (const check of globalChecks) {
+      if (abortSignal?.aborted) throw new Error('Scan cancelled');
+
+      onProgress?.({
+        phase: 'global',
+        currentCheck: check.name,
+        completed: completedSteps,
+        total: totalSteps,
+        percentage: Math.round((completedSteps / totalSteps) * 100),
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+      const findings = check.fn();
+      // Global findings have no specific route
+      allFindings.push(...findings);
+      completedSteps++;
+    }
+
+    // ─── Phase 2: Navigate to each route and run DOM checks ───
+    for (const route of routesToScan) {
+      if (abortSignal?.aborted) throw new Error('Scan cancelled');
+
+      onProgress?.({
+        phase: 'multi-page',
+        currentCheck: `Navigating to ${route.label}...`,
+        completed: completedSteps,
+        total: totalSteps,
+        percentage: Math.round((completedSteps / totalSteps) * 100),
+        currentRoute: route.path,
+      });
+
+      // Navigate to the route
+      await navigateToRoute(route.path);
+      scannedRoutes.push(route.path);
+
+      // Run each page-specific check on this page
+      for (const check of pageChecks) {
+        if (abortSignal?.aborted) throw new Error('Scan cancelled');
+
+        onProgress?.({
+          phase: 'multi-page',
+          currentCheck: `${route.label}: ${check.name}`,
+          completed: completedSteps,
+          total: totalSteps,
+          percentage: Math.round((completedSteps / totalSteps) * 100),
+          currentRoute: route.path,
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+        const findings = check.fn();
+        // Tag each finding with the route where it was found
+        const taggedFindings = findings.map(f => ({
+          ...f,
+          route: route.path,
+          location: f.location ? `[${route.label}] ${f.location}` : `[${route.label}]`,
+        }));
+        allFindings.push(...taggedFindings);
+        completedSteps++;
+      }
+    }
+
+    // ─── Phase 3: Restore original route ───
+    onProgress?.({
+      phase: 'finalizing',
+      currentCheck: 'Restoring original page...',
+      completed: completedSteps,
+      total: totalSteps,
+      percentage: 99,
+    });
+
+    // Navigate back to the original route
+    if (originalHash && originalHash !== window.location.hash) {
+      window.location.hash = originalHash;
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    // ─── Phase 4: Deduplicate and finalize ───
+    const deduplicatedFindings = deduplicateFindings(allFindings);
+
+    onProgress?.({
+      phase: 'complete',
+      currentCheck: 'Done',
+      completed: totalSteps,
+      total: totalSteps,
+      percentage: 100,
+    });
+
+    const completedAt = new Date().toISOString();
+    const duration = Date.now() - startTime;
+
+    const summary = {
+      total: deduplicatedFindings.length,
+      critical: deduplicatedFindings.filter(f => f.severity === 'critical').length,
+      high: deduplicatedFindings.filter(f => f.severity === 'high').length,
+      medium: deduplicatedFindings.filter(f => f.severity === 'medium').length,
+      low: deduplicatedFindings.filter(f => f.severity === 'low').length,
+      info: deduplicatedFindings.filter(f => f.severity === 'info').length,
+    };
+
+    const result: ScanResult = {
+      id: crypto.randomUUID(),
+      startedAt,
+      completedAt,
+      duration,
+      findings: deduplicatedFindings,
+      summary,
+      status: 'completed',
+      multiPage: true,
+      scannedRoutes,
+    };
+
+    // Save to history
+    const history = getScanHistory();
+    history.unshift(result);
+    saveScanHistory(history);
+
+    return result;
+  } catch (error) {
+    // Restore original route on error
+    if (originalHash) {
+      window.location.hash = originalHash;
+    }
+
+    const completedAt = new Date().toISOString();
+    const duration = Date.now() - startTime;
+
+    // Deduplicate whatever we collected before the error
+    const deduplicatedFindings = deduplicateFindings(allFindings);
+
+    const result: ScanResult = {
+      id: crypto.randomUUID(),
+      startedAt,
+      completedAt,
+      duration,
+      findings: deduplicatedFindings,
+      summary: {
+        total: deduplicatedFindings.length,
+        critical: deduplicatedFindings.filter(f => f.severity === 'critical').length,
+        high: deduplicatedFindings.filter(f => f.severity === 'high').length,
+        medium: deduplicatedFindings.filter(f => f.severity === 'medium').length,
+        low: deduplicatedFindings.filter(f => f.severity === 'low').length,
+        info: deduplicatedFindings.filter(f => f.severity === 'info').length,
+      },
+      status: abortSignal?.aborted ? 'cancelled' : 'failed',
+      error: error instanceof Error ? error.message : String(error),
+      multiPage: true,
+      scannedRoutes,
+    };
+
+    const history = getScanHistory();
+    history.unshift(result);
+    saveScanHistory(history);
+
+    return result;
+  }
 }

@@ -32,7 +32,7 @@
     # - unsafe-inline/unsafe-eval: Required for Vite/React development patterns
     # - Supabase: Backend API calls
     # - AI APIs: Anthropic, OpenAI, Google AI
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com;"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com; frame-ancestors 'none';"
 
 # Cache static assets
 [[headers]]

@@ -30,23 +30,29 @@ import {
   XCircle,
   Clock,
   Trash2,
+  Globe,
+  MapPin,
+  Layers,
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Progress } from './ui/Progress';
 import { Checkbox } from './ui/Checkbox';
 import {
   runSecurityScan,
+  runMultiPageScan,
   getRecentScans,
   getScanById,
   exportFindingsToCSV,
   calculateSecurityScore,
   clearScanHistory,
+  ROUTE_MANIFEST,
   type ScanResult,
   type SecurityFinding,
   type ScanProgress,
   type ScanSeverity,
   type ScanCategory,
   type SecurityScannerOptions,
+  type RouteEntry,
 } from '../lib/admin/securityScanner';
 import { cn } from '../lib/theme';
 
@@ -160,10 +166,18 @@ export const SecurityScannerPanel: React.FC<SecurityScannerPanelProps> = ({ clas
   const [showHistory, setShowHistory] = useState(false);
   const [selectedHistoryScan, setSelectedHistoryScan] = useState<ScanResult | null>(null);
 
+  // Multi-page scan state
+  const [multiPageMode, setMultiPageMode] = useState(false);
+  const [selectedRoutes, setSelectedRoutes] = useState<Set<string>>(
+    new Set(ROUTE_MANIFEST.map(r => r.path))
+  );
+  const [showRouteSelection, setShowRouteSelection] = useState(false);
+
   // UI state
   const [expandedFindings, setExpandedFindings] = useState<Set<string>>(new Set());
   const [filterSeverity, setFilterSeverity] = useState<ScanSeverity | 'all'>('all');
   const [filterCategory, setFilterCategory] = useState<ScanCategory | 'all'>('all');
+  const [filterRoute, setFilterRoute] = useState<string>('all');
 
   // Load recent scans on mount
   useEffect(() => {
@@ -175,6 +189,38 @@ export const SecurityScannerPanel: React.FC<SecurityScannerPanelProps> = ({ clas
     setRecentScans(scans);
   };
 
+  // Route selection helpers
+  const toggleRouteSelection = (path: string) => {
+    setSelectedRoutes(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      return next;
+    });
+  };
+
+  const toggleRouteGroup = (group: string) => {
+    const groupRoutes = ROUTE_MANIFEST.filter(r => r.group === group);
+    const allSelected = groupRoutes.every(r => selectedRoutes.has(r.path));
+    setSelectedRoutes(prev => {
+      const next = new Set(prev);
+      groupRoutes.forEach(r => {
+        if (allSelected) {
+          next.delete(r.path);
+        } else {
+          next.add(r.path);
+        }
+      });
+      return next;
+    });
+  };
+
+  const selectAllRoutes = () => setSelectedRoutes(new Set(ROUTE_MANIFEST.map(r => r.path)));
+  const selectNoRoutes = () => setSelectedRoutes(new Set());
+
   // Start scan
   const handleStartScan = useCallback(async () => {
     setIsRunning(true);
@@ -185,11 +231,22 @@ export const SecurityScannerPanel: React.FC<SecurityScannerPanelProps> = ({ clas
     abortControllerRef.current = new AbortController();
 
     try {
-      const result = await runSecurityScan(
-        scanOptions,
-        (prog) => setProgress(prog),
-        abortControllerRef.current.signal
-      );
+      let result: ScanResult;
+
+      if (multiPageMode) {
+        const routes = ROUTE_MANIFEST.filter(r => selectedRoutes.has(r.path));
+        result = await runMultiPageScan(
+          { ...scanOptions, routes },
+          (prog) => setProgress(prog),
+          abortControllerRef.current.signal
+        );
+      } else {
+        result = await runSecurityScan(
+          scanOptions,
+          (prog) => setProgress(prog),
+          abortControllerRef.current.signal
+        );
+      }
 
       setCurrentResult(result);
       loadRecentScans();
@@ -199,7 +256,7 @@ export const SecurityScannerPanel: React.FC<SecurityScannerPanelProps> = ({ clas
       setIsRunning(false);
       abortControllerRef.current = null;
     }
-  }, [scanOptions]);
+  }, [scanOptions, multiPageMode, selectedRoutes]);
 
   // Stop scan
   const handleStopScan = useCallback(() => {
@@ -255,10 +312,22 @@ export const SecurityScannerPanel: React.FC<SecurityScannerPanelProps> = ({ clas
   // Get display result (selected history or current)
   const displayResult = selectedHistoryScan || currentResult;
 
+  // Collect unique routes from findings for the route filter
+  const availableRoutes = displayResult?.multiPage
+    ? Array.from(new Set(displayResult.findings.map(f => f.route).filter(Boolean) as string[]))
+    : [];
+
   // Filter findings
   const filteredFindings = displayResult?.findings.filter(f => {
     if (filterSeverity !== 'all' && f.severity !== filterSeverity) return false;
     if (filterCategory !== 'all' && f.category !== filterCategory) return false;
+    if (filterRoute !== 'all') {
+      if (filterRoute === 'global') {
+        if (f.route) return false;
+      } else {
+        if (!f.route || !f.route.includes(filterRoute)) return false;
+      }
+    }
     return true;
   }) || [];
 
@@ -331,6 +400,12 @@ export const SecurityScannerPanel: React.FC<SecurityScannerPanelProps> = ({ clas
                         <span className="text-sm font-medium">
                           {scan.status === 'completed' ? 'Completed' : scan.status === 'cancelled' ? 'Cancelled' : 'Failed'}
                         </span>
+                        {scan.multiPage && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-600 flex items-center gap-1">
+                            <Globe className="h-3 w-3" />
+                            {scan.scannedRoutes?.length || 0}p
+                          </span>
+                        )}
                       </div>
                       <span className="text-xs text-muted-foreground">
                         {new Date(scan.completedAt).toLocaleString()}
@@ -457,6 +532,109 @@ export const SecurityScannerPanel: React.FC<SecurityScannerPanelProps> = ({ clas
           </div>
         </div>
 
+        {/* Multi-Page Scan Mode */}
+        <div className="mb-4 pt-4 border-t">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer font-medium">
+                <Checkbox
+                  checked={multiPageMode}
+                  onCheckedChange={(checked) => setMultiPageMode(!!checked)}
+                />
+                <Globe className="h-4 w-4" />
+                Multi-Page Scan
+              </label>
+              <span className="text-xs text-muted-foreground">
+                (Navigate to all routes and scan each page)
+              </span>
+            </div>
+            {multiPageMode && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowRouteSelection(!showRouteSelection)}
+              >
+                <Layers className="h-4 w-4 mr-1" />
+                {selectedRoutes.size}/{ROUTE_MANIFEST.length} routes
+                {showRouteSelection ? (
+                  <ChevronUp className="h-3 w-3 ml-1" />
+                ) : (
+                  <ChevronDown className="h-3 w-3 ml-1" />
+                )}
+              </Button>
+            )}
+          </div>
+
+          {multiPageMode && (
+            <div className="rounded-lg border bg-muted/30 p-3 mb-3">
+              <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                <p>
+                  Multi-page scan navigates to each route in the SPA, runs DOM-dependent checks
+                  (forms, scripts, mixed content, SRI, DOM security) on every page, and aggregates findings.
+                  Global checks (storage, cookies, session, headers) run once. The scanner will
+                  return to this page when done.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Route Selection */}
+          {multiPageMode && showRouteSelection && (
+            <div className="rounded-lg border bg-card p-3 max-h-80 overflow-y-auto">
+              <div className="flex items-center gap-2 mb-3">
+                <Button variant="outline" size="sm" onClick={selectAllRoutes}>
+                  Select All
+                </Button>
+                <Button variant="outline" size="sm" onClick={selectNoRoutes}>
+                  Select None
+                </Button>
+                <span className="text-xs text-muted-foreground ml-auto">
+                  {selectedRoutes.size} of {ROUTE_MANIFEST.length} selected
+                </span>
+              </div>
+              {(() => {
+                const groups = Array.from(new Set(ROUTE_MANIFEST.map(r => r.group)));
+                return groups.map(group => {
+                  const groupRoutes = ROUTE_MANIFEST.filter(r => r.group === group);
+                  const allGroupSelected = groupRoutes.every(r => selectedRoutes.has(r.path));
+                  const someGroupSelected = groupRoutes.some(r => selectedRoutes.has(r.path));
+                  return (
+                    <div key={group} className="mb-3">
+                      <label className="flex items-center gap-2 text-sm font-medium cursor-pointer mb-1.5">
+                        <Checkbox
+                          checked={allGroupSelected}
+                          onCheckedChange={() => toggleRouteGroup(group)}
+                        />
+                        {group}
+                        <span className="text-xs text-muted-foreground font-normal">
+                          ({groupRoutes.filter(r => selectedRoutes.has(r.path)).length}/{groupRoutes.length})
+                        </span>
+                      </label>
+                      <div className="ml-6 grid grid-cols-2 md:grid-cols-3 gap-1.5">
+                        {groupRoutes.map(route => (
+                          <label
+                            key={route.path}
+                            className="flex items-center gap-2 text-xs cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={selectedRoutes.has(route.path)}
+                              onCheckedChange={() => toggleRouteSelection(route.path)}
+                            />
+                            <span className="truncate" title={route.path}>
+                              {route.label}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          )}
+        </div>
+
         {/* Run/Stop Button */}
         <div className="mt-6 flex items-center gap-4">
           {isRunning ? (
@@ -465,9 +643,16 @@ export const SecurityScannerPanel: React.FC<SecurityScannerPanelProps> = ({ clas
               Stop Scan
             </Button>
           ) : (
-            <Button onClick={handleStartScan}>
-              <Play className="h-4 w-4 mr-2" />
-              Run Security Scan
+            <Button
+              onClick={handleStartScan}
+              disabled={multiPageMode && selectedRoutes.size === 0}
+            >
+              {multiPageMode ? (
+                <Globe className="h-4 w-4 mr-2" />
+              ) : (
+                <Play className="h-4 w-4 mr-2" />
+              )}
+              {multiPageMode ? `Scan ${selectedRoutes.size} Pages` : 'Run Security Scan'}
             </Button>
           )}
 
@@ -475,10 +660,16 @@ export const SecurityScannerPanel: React.FC<SecurityScannerPanelProps> = ({ clas
           {isRunning && progress && (
             <div className="flex-1">
               <div className="flex items-center justify-between text-sm mb-1">
-                <span className="text-muted-foreground">{progress.currentCheck}</span>
-                <span>{progress.percentage}%</span>
+                <span className="text-muted-foreground truncate mr-2">{progress.currentCheck}</span>
+                <span className="flex-shrink-0">{progress.percentage}%</span>
               </div>
               <Progress value={progress.percentage} className="h-2" />
+              {progress.currentRoute && (
+                <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                  <MapPin className="h-3 w-3" />
+                  <span>{progress.currentRoute}</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -499,6 +690,12 @@ export const SecurityScannerPanel: React.FC<SecurityScannerPanelProps> = ({ clas
                   <p className="text-muted-foreground">{securityScore!.description}</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     Scanned {new Date(displayResult.completedAt).toLocaleString()} • {displayResult.duration}ms
+                    {displayResult.multiPage && displayResult.scannedRoutes && (
+                      <span className="ml-2 inline-flex items-center gap-1">
+                        <Globe className="h-3 w-3" />
+                        {displayResult.scannedRoutes.length} pages scanned
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
@@ -523,7 +720,7 @@ export const SecurityScannerPanel: React.FC<SecurityScannerPanelProps> = ({ clas
           </div>
 
           {/* Filters */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Severity:</span>
               <select
@@ -550,6 +747,22 @@ export const SecurityScannerPanel: React.FC<SecurityScannerPanelProps> = ({ clas
                 ))}
               </select>
             </div>
+            {displayResult.multiPage && availableRoutes.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Route:</span>
+                <select
+                  value={filterRoute}
+                  onChange={(e) => setFilterRoute(e.target.value)}
+                  className="text-sm border rounded-md px-2 py-1 bg-background max-w-[200px]"
+                >
+                  <option value="all">All Routes</option>
+                  <option value="global">Global (no route)</option>
+                  {availableRoutes.sort().map(route => (
+                    <option key={route} value={route}>{route}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <span className="text-sm text-muted-foreground ml-auto">
               Showing {filteredFindings.length} of {displayResult.findings.length} findings
             </span>
@@ -582,13 +795,19 @@ export const SecurityScannerPanel: React.FC<SecurityScannerPanelProps> = ({ clas
                         <SeverityIcon className={cn('h-4 w-4', config.color)} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', config.bgColor, config.color)}>
                             {config.label}
                           </span>
                           <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                             {CATEGORY_LABELS[finding.category]}
                           </span>
+                          {finding.route && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {finding.route}
+                            </span>
+                          )}
                         </div>
                         <h4 className="font-medium">{finding.title}</h4>
                         <p className="text-sm text-muted-foreground line-clamp-1">{finding.description}</p>
