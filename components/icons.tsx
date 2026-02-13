@@ -784,3 +784,131 @@ export const LearningPathIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props)
         <path d="M6 12v5c3 3 9 3 12 0v-5"/>
     </svg>
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CPA / Accounting Icons
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Calculator icon for Tax Season Workflow Optimizer
+export const CalculatorIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect width="16" height="20" x="4" y="2" rx="2"/>
+        <line x1="8" x2="16" y1="6" y2="6"/>
+        <line x1="16" x2="16" y1="14" y2="18"/>
+        <path d="M16 10h.01"/>
+        <path d="M12 10h.01"/>
+        <path d="M8 10h.01"/>
+        <path d="M12 14h.01"/>
+        <path d="M8 14h.01"/>
+        <path d="M12 18h.01"/>
+        <path d="M8 18h.01"/>
+    </svg>
+);
+
+// Handshake/contract icon for Engagement Letter Generator
+export const HandshakeIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m11 17 2 2a1 1 0 1 0 3-3"/>
+        <path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"/>
+        <path d="m21 3 1 11h-2"/>
+        <path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3"/>
+        <path d="M3 4h8"/>
+    </svg>
+);
+
+// Magnifying glass + document for Audit Workpaper Reviewer
+export const AuditIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <circle cx="11.5" cy="14.5" r="2.5"/>
+        <path d="M13.3 16.3 15 18"/>
+    </svg>
+);
+
+// Heart/pulse icon for Client Financial Health Summary
+export const FinancialHealthIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 3v18h18"/>
+        <path d="m7 16 4-8 4 4 4-6"/>
+        <circle cx="19" cy="6" r="1.5"/>
+    </svg>
+);
+
+// Checklist icon for Year-End Close Checklist Generator
+export const ChecklistIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="5" width="6" height="6" rx="1"/>
+        <path d="m3.5 5.5 2 2 3-3"/>
+        <rect x="3" y="13" width="6" height="6" rx="1"/>
+        <path d="m3.5 13.5 2 2 3-3"/>
+        <line x1="12" y1="8" x2="21" y2="8"/>
+        <line x1="12" y1="16" x2="21" y2="16"/>
+    </svg>
+);
+
+// Filing/tax form icon for 1099/W-2 Compliance Tracker
+export const TaxFormIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <path d="M8 13h2"/>
+        <path d="M8 17h2"/>
+        <path d="M14 13h2"/>
+        <path d="M14 17h2"/>
+        <line x1="8" y1="10" x2="16" y2="10"/>
+    </svg>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Staffing / Recruiting Icons
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Scorecard icon for Candidate Screening Scorecard
+export const ScorecardIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <path d="M3 9h18"/>
+        <path d="M9 21V9"/>
+        <path d="m13 15 2 2 4-4"/>
+    </svg>
+);
+
+// Clipboard/intake icon for Client Intake & Requirements Builder
+export const IntakeIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+        <path d="M12 11h4"/>
+        <path d="M12 16h4"/>
+        <path d="M8 11h.01"/>
+        <path d="M8 16h.01"/>
+    </svg>
+);
+
+// Globe/market icon for Candidate Market Intelligence Brief
+export const MarketIntelIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+        <path d="M2 12h20"/>
+        <path d="M17 20V4"/>
+        <path d="M7 20V4"/>
+    </svg>
+);
+
+// Chart/prediction icon for Placement Success Predictor
+export const PredictorIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 3v18h18"/>
+        <path d="m7 17 4-8 4 4 4-6"/>
+        <path d="M19 7v4h-4"/>
+    </svg>
+);
+
+// Pipeline/funnel icon for Recruiting Pipeline Dashboard Designer
+export const PipelineIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
+    </svg>
+);
