@@ -2478,6 +2478,10 @@ import { ENTERPRISE_WORKFLOWS } from './enterprise';
 import { GOVERNANCE_OPS_WORKFLOWS } from './governanceOps';
 // Import professional workflows
 import { PROFESSIONAL_WORKFLOWS } from './professional';
+// Import CPA/Accounting workflows
+import { ACCOUNTING_WORKFLOWS } from './accounting';
+// Import Staffing/Recruiting workflows
+import { STAFFING_WORKFLOWS } from './staffing';
 
 export const WORKFLOWS: Record<string, Workflow> = {
   'ai-implementation': AI_IMPLEMENTATION_WORKFLOW,
@@ -2501,6 +2505,10 @@ export const WORKFLOWS: Record<string, Workflow> = {
   ...GOVERNANCE_OPS_WORKFLOWS,
   // Professional workflows (marketing, project management, business analysis)
   ...PROFESSIONAL_WORKFLOWS,
+  // CPA/Accounting workflows (new client onboarding, tax season, audit, advisory, practice development)
+  ...ACCOUNTING_WORKFLOWS,
+  // Staffing/Recruiting workflows (job orders, candidate submission, client acquisition, retention, performance)
+  ...STAFFING_WORKFLOWS,
 };
 
 export const WORKFLOW_LIST: Workflow[] = Object.values(WORKFLOWS);

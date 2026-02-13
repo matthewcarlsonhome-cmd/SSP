@@ -36,7 +36,15 @@
  * 10. OPERATIONS (4 skills) - ./operations/
  *     SOPs, vendor management, policies
  *
- * TOTAL: 73 skills
+ * 11. ACCOUNTING (6 skills) - ./accounting/
+ *     Tax season optimization, engagement letters, audit workpapers,
+ *     financial health summaries, year-end close, 1099/W-2 compliance
+ *
+ * 12. STAFFING (5 skills) - ./staffing/
+ *     Candidate screening, client intake, market intelligence,
+ *     placement prediction, pipeline dashboards
+ *
+ * TOTAL: 84 skills
  *
  * ADDING NEW SKILLS:
  * ==================
@@ -58,6 +66,8 @@ import { PRODUCT_SKILLS } from './product';
 import { TECHNICAL_SKILLS } from './technical';
 import { HR_SKILLS } from './hr';
 import { OPERATIONS_SKILLS } from './operations';
+import { ACCOUNTING_SKILLS } from './accounting';
+import { STAFFING_SKILLS } from './staffing';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SKILLS EXPORT
@@ -94,6 +104,12 @@ export const SKILLS: Record<string, Skill> = {
 
   // Legal & Operations Skills (4)
   ...OPERATIONS_SKILLS,
+
+  // CPA & Accounting Skills (6)
+  ...ACCOUNTING_SKILLS,
+
+  // Staffing & Recruiting Skills (5)
+  ...STAFFING_SKILLS,
 };
 
 // Re-export category modules for direct access if needed
@@ -108,4 +124,6 @@ export {
   TECHNICAL_SKILLS,
   HR_SKILLS,
   OPERATIONS_SKILLS,
+  ACCOUNTING_SKILLS,
+  STAFFING_SKILLS,
 };
