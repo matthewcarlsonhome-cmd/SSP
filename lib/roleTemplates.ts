@@ -6416,6 +6416,92 @@ SECTION 3: SEARCH INTENT OPTIMIZATION
 | Table | Comparisons, data, specs | Clean HTML table with headers |
 
 ═══════════════════════════════════════════════════════════════════════════════
+E-COMMERCE PRODUCT PAGE OPTIMIZATION
+═══════════════════════════════════════════════════════════════════════════════
+
+**Product Title Optimization Patterns:**
+| Pattern | Template | Example |
+|---------|----------|---------|
+| Standard | [Brand] + [Product Type] + [Key Attribute] + [Use Case] | "Herman Miller Aeron Ergonomic Office Chair for All-Day Comfort" |
+| Feature-Led | [Key Feature] + [Product Type] + [Brand] + [Modifier] | "Mesh Breathable Ergonomic Chair by Herman Miller - Adjustable" |
+| Long-Tail | [Specific Use] + [Product Type] + [Specification] | "Standing Desk Office Chair with Lumbar Support - Adjustable Height" |
+
+**Product Description SEO:**
+- Write unique descriptions; NEVER use manufacturer boilerplate (duplicate content penalty)
+- Include primary keyword in first 100 words naturally
+- Minimum 300 words for main product description
+- Use bullet points for key specs (scannable + crawlable)
+- Include related product internal links (cross-sell/upsell)
+- Add comparison content vs. similar products where relevant
+
+**Product Image Optimization:**
+| Element | Best Practice | Template |
+|---------|--------------|----------|
+| File Name | Descriptive with hyphens | brand-product-type-color-angle.jpg |
+| Alt Text | Describe image + keyword | "[Brand] [Product] in [color/finish] - [key feature]" |
+| Title Attribute | Brief keyword description | "[Product Type] by [Brand]" |
+| File Size | WebP format, < 200KB | Compress with quality 80-85% |
+| Dimensions | Match container size exactly | Avoid browser resizing |
+
+**Internal Linking for Product Pages:**
+- Link to parent category (breadcrumb)
+- Link to 3-5 related products ("Customers also viewed")
+- Link to complementary products ("Complete your setup")
+- Link to relevant buying guides/blog content
+- Use keyword-rich anchor text, not "click here"
+
+═══════════════════════════════════════════════════════════════════════════════
+CATEGORY/TAXONOMY PAGE OPTIMIZATION
+═══════════════════════════════════════════════════════════════════════════════
+
+**Category Page Content Requirements:**
+- Intro paragraph (150-300 words) above product grid with primary keyword
+- FAQ section below products (4-6 questions using "People Also Ask" data)
+- Category-specific buying guide snippet (2-3 paragraphs)
+- Subcategory links with descriptive anchor text
+- Filter/sort descriptions for key attributes
+
+**Faceted Navigation SEO:**
+| Facet Type | SEO Handling | Implementation |
+|-----------|-------------|----------------|
+| Essential (category, brand) | Indexable, unique URL | Allow crawling, canonical to self |
+| Useful (color, material) | Selective indexing | Canonical to main category unless high search volume |
+| Combinatorial (multi-filter) | Block crawling | noindex, nofollow + robots.txt or JavaScript rendering |
+| Sort/pagination | Block crawling | rel=canonical to page 1, or infinite scroll with SEO-safe implementation |
+
+**Pagination for Large Product Sets:**
+- Implement rel="prev" / rel="next" (still useful for crawlers)
+- Use "Load More" with SEO-friendly implementation (progressive rendering)
+- Ensure all products are crawlable via XML sitemap even if paginated
+- First page carries primary keyword optimization; subsequent pages are supplementary
+
+═══════════════════════════════════════════════════════════════════════════════
+B2B COMMERCIAL INTENT OPTIMIZATION
+═══════════════════════════════════════════════════════════════════════════════
+
+**Commercial Comparison Content:**
+- "[Product A] vs [Product B]" comparison pages target high commercial intent
+- Include specs comparison tables with clear differentiators
+- Add verdict/recommendation sections with qualifying criteria
+- Target "best [product type] for [use case]" keywords
+- Include pricing transparency where possible (builds trust)
+
+**Buyer Guide & Specification Sheet SEO:**
+- Create comprehensive buying guides targeting "[product type] buying guide" queries
+- Include specification sheets optimized for featured snippets (tables, lists)
+- Target "how to choose [product type]" informational queries that convert
+- Add schema markup (HowTo, FAQ) to buyer guides
+
+**Bulk/Enterprise Purchase Intent Keywords:**
+| Keyword Pattern | Intent | Content Type |
+|----------------|--------|-------------|
+| "bulk [product]" | Transaction | Bulk pricing page |
+| "[product] for office" | Commercial | Workspace solutions page |
+| "wholesale [product]" | Transaction | Business account page |
+| "[product] GSA pricing" | Transaction | Government/education page |
+| "[product] fleet pricing" | Transaction | Volume discount page |
+
+═══════════════════════════════════════════════════════════════════════════════
 SECTION 4: E-E-A-T OPTIMIZATION FRAMEWORK
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -28992,6 +29078,105 @@ Where:
 | Major | 1+ months | Cross-team | Platform migration, complete restructure |
 
 ═══════════════════════════════════════════════════════════════════════════════
+E-COMMERCE TECHNICAL SEO
+═══════════════════════════════════════════════════════════════════════════════
+
+**Product Variant Handling:**
+| Variant Type | SEO Approach | Implementation |
+|-------------|-------------|----------------|
+| Color variations | Single URL with variant selector | Use canonical to main product, structured data shows all variants |
+| Size variations | Single URL with size selector | Product schema with size availability |
+| Material variations | Separate URLs if search volume warrants | Unique content per material, canonical management |
+| Bundle/kit variations | Separate URLs | Unique descriptions, link back to individual products |
+
+**Out-of-Stock Page Handling:**
+| Scenario | SEO Action | Rationale |
+|----------|-----------|-----------|
+| Temporarily OOS | Keep page live, show "Back in Stock" CTA | Preserve rankings, capture intent |
+| Seasonally OOS | Keep page, add seasonal messaging | Maintains topical authority |
+| Permanently discontinued | 301 redirect to replacement product | Transfer link equity |
+| Category removed | 301 to parent category | Prevent 404s, preserve equity |
+| No replacement exists | Return 410 (Gone) | Clean removal from index |
+
+**Product Schema Validation at Scale:**
+- Batch test with Google Rich Results Test API (automated)
+- Validate: name, description, image, price, availability, review, brand
+- Check for price mismatches between schema and visible page content
+- Ensure availability status matches actual inventory
+- Monitor for schema errors in Search Console enhancement reports
+
+**Shopping Feed Alignment:**
+- Product titles in feed must match page H1/title tag (consistency signal)
+- Prices in Google Merchant Center must match website prices exactly
+- Product identifiers (GTIN, MPN, Brand) must be consistent across feed and schema
+- Image URLs in feed should match primary product images on page
+- Landing page URL in feed must be the canonical URL
+
+═══════════════════════════════════════════════════════════════════════════════
+PHP/MYSQL-SPECIFIC AUDIT ITEMS
+═══════════════════════════════════════════════════════════════════════════════
+
+**Server-Side Rendering Audit for PHP Templates:**
+| Check | What to Look For | Impact |
+|-------|-----------------|--------|
+| Template caching | Is OpCache enabled? Are template engines (Twig, Blade) caching? | TTFB improvement |
+| Database queries per page | Count queries per product/category page load | TTFB, server load |
+| N+1 query problems | Looping queries for related products/categories | Severe TTFB impact |
+| Session handling | Session start on every page vs. lazy loading | Unnecessary overhead |
+| Output buffering | ob_start() usage, gzip compression at PHP level | Response size |
+
+**MySQL Query Performance Impact on TTFB:**
+- Audit slow query log for pages with > 1s TTFB
+- Check for missing indexes on product search/filter queries
+- Evaluate JOIN complexity for category/attribute filtering
+- Monitor connection pooling and max_connections settings
+- Review full-text search implementation vs. dedicated search (Elasticsearch/Algolia)
+
+**.htaccess Redirect Management:**
+- Audit redirect count (> 500 rules causes performance degradation)
+- Convert old .htaccess redirects to server-level (nginx.conf or Apache vhost)
+- Check for redirect chains caused by accumulated .htaccess rules
+- Validate regex patterns for efficiency (avoid greedy patterns)
+- Ensure redirect rules are ordered from most specific to least specific
+
+**Server Configuration for SEO:**
+| Setting | Recommended | Why It Matters |
+|---------|-------------|---------------|
+| mod_rewrite | Enabled | Clean URLs, redirects |
+| mod_deflate/gzip | Enabled, level 6-9 | Page speed, Core Web Vitals |
+| mod_expires | Configured per file type | Browser caching |
+| mod_headers | X-Content-Type-Options, HSTS | Security headers (ranking signal) |
+| PHP version | 8.1+ minimum | Performance, security |
+| MySQL version | 8.0+ or MariaDB 10.6+ | Query performance |
+
+═══════════════════════════════════════════════════════════════════════════════
+LOG FILE ANALYSIS
+═══════════════════════════════════════════════════════════════════════════════
+
+**Crawl Budget Analysis from Server Logs:**
+| Metric | How to Calculate | What It Tells You |
+|--------|-----------------|-------------------|
+| Total Googlebot requests/day | grep "Googlebot" access.log \\| wc -l | Overall crawl activity |
+| Crawl frequency by URL type | Segment by /product/, /category/, /blog/ | What Google prioritizes |
+| Status code distribution | 200s vs. 301s vs. 404s vs. 500s | Crawl efficiency |
+| Avg response time by bot | Bot-specific TTFB from logs | Server performance for crawlers |
+| Crawl depth analysis | Pages crawled per session | How deep Google goes |
+
+**Bot Behavior Patterns:**
+- Identify crawl spikes (correlate with sitemaps submissions, new content)
+- Detect crawl drops (potential crawl budget issues or server problems)
+- Compare Googlebot desktop vs. mobile crawl ratios
+- Identify pages NEVER crawled (orphan page candidates)
+- Track Googlebot crawl of JavaScript resources
+
+**Crawl Waste Identification:**
+- Pages crawled but not indexed (inspect for quality/thin content)
+- Parameterized URLs being crawled despite robots.txt rules
+- Faceted navigation consuming crawl budget
+- Redirect chains consuming multiple crawl hits
+- 404 pages repeatedly crawled (need proper handling)
+
+═══════════════════════════════════════════════════════════════════════════════
 SECTION 4: OUTPUT FORMAT (Follow EXACTLY)
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -31417,6 +31602,35 @@ SECTION 6: LOCAL LINK BUILDING OPPORTUNITIES
 | Expert commentary | Local news topics | High (journalist links) |
 
 ═══════════════════════════════════════════════════════════════════════════════
+MULTI-LOCATION & NATIONAL/LOCAL SEO COORDINATION
+═══════════════════════════════════════════════════════════════════════════════
+
+**Multi-Location Service Area Optimization:**
+When a business has physical locations (e.g., showrooms) but also ships/serves nationally:
+
+| Page Type | Target | URL Structure | Content Strategy |
+|----------|--------|--------------|-----------------|
+| National product pages | National keywords | /products/[category]/[product] | Product-focused, no location modifiers |
+| Location landing pages | "[service] in [city]" | /locations/[city]/ | Local content: hours, directions, local team, local reviews |
+| Service area pages | "[service] near [area]" | /service-areas/[area]/ | Service-area specific content, no physical address |
+| Location + product pages | "[product] in [city]" | /locations/[city]/[product-category]/ | Product availability at location, local pickup, showroom experience |
+
+**Preventing Local/National Keyword Cannibalization:**
+| Risk | Symptom | Solution |
+|------|---------|---------|
+| Local page outranks national for product terms | Wrong page in SERPs for non-local queries | Strengthen national page with more product content, weaker location signals |
+| National page outranks local for "[city]" terms | Local searchers see generic page | Add location schema, NAP, and local content to location pages |
+| Multiple location pages compete | Both Madison and Middleton pages rank for same term | Differentiate content, target different long-tail variants |
+| Blog posts cannibalize product pages | Informational content outranks commercial | Internal linking from blog to product pages, canonical signals |
+
+**Coordinating Local & National SEO Strategy:**
+1. **Keyword Segmentation:** Maintain separate keyword targets for national (product) and local (service/location) pages
+2. **Internal Linking Architecture:** National pages link DOWN to location pages for local relevance; location pages link UP to national product pages for authority
+3. **Schema Differentiation:** Use Organization schema on national pages, LocalBusiness schema on location pages
+4. **Content Calendar Coordination:** Local content (community events, local news) stays on location pages/blog; national content (product guides, industry trends) on main site
+5. **Backlink Strategy:** National backlinks to product/category pages; local backlinks (chambers of commerce, local directories, local news) to location pages
+
+═══════════════════════════════════════════════════════════════════════════════
 SECTION 7: OUTPUT FORMAT (Follow EXACTLY)
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -31761,6 +31975,66 @@ SECTION 2: CONTENT BRIEF METHODOLOGY
 | H2s | 1-2x total | 2-3x distributed |
 | Body content | 0.5-1% density | Natural |
 | Image alt text | 1-2x | 1-2x |
+
+═══════════════════════════════════════════════════════════════════════════════
+SPECIALIZED BRIEF TEMPLATES
+═══════════════════════════════════════════════════════════════════════════════
+
+**PRODUCT DESCRIPTION BRIEF TEMPLATE:**
+When the content type is a product page, use this specialized format:
+
+| Brief Element | Product Page Specification |
+|--------------|---------------------------|
+| Word Count | 300-600 words (description) + specs table |
+| Title Tag | [Brand] [Product Name] - [Key Feature] \\| [Store Name] |
+| H1 | [Product Name] by [Brand] |
+| Sections Required | Overview, Key Features (bullets), Specifications (table), Use Cases, Related Products |
+| Keyword Integration | Primary in first sentence, secondary in features/specs, long-tail in use cases |
+| Schema Required | Product (name, description, image, price, availability, review, brand, GTIN/MPN) |
+| Internal Links | Parent category, 3-5 related products, relevant buying guide |
+| CTA Requirements | Add to Cart, Request Quote (B2B), Compare |
+
+**Features/Benefits Framework for Products:**
+| Feature | Benefit | SEO Keyword Integration |
+|---------|---------|------------------------|
+| [Technical spec] | [User outcome] | "[product type] with [feature]" |
+| [Material/construction] | [Durability/comfort claim] | "[adjective] [product type]" |
+| [Certification/standard] | [Trust/compliance] | "[certified/approved] [product type]" |
+
+**Cross-Sell/Upsell Content Requirements:**
+- "Complete Your Setup" section linking to complementary products
+- "Upgrade Options" section linking to premium alternatives
+- "Customers Also Viewed" with keyword-rich product titles
+
+**CATEGORY PAGE BRIEF TEMPLATE:**
+When the content type is a category or subcategory page:
+
+| Brief Element | Category Page Specification |
+|--------------|---------------------------|
+| Intro Content | 150-300 words above product grid |
+| H1 | [Category Name] - [Qualifier if needed] |
+| Sections | Intro paragraph, subcategory links, buying guide snippet, FAQ (4-6 Qs) |
+| FAQ Source | "People Also Ask" data for category keyword |
+| Keyword Density | Lower than blog content (0.5-1%); let products carry keywords |
+| Feature Comparison | Add comparison table for top 3-5 products in category |
+| Buying Guide Link | Link to full buying guide (separate page) |
+| Schema | ItemList (products), FAQ, BreadcrumbList |
+
+**BLOG/RESOURCE BRIEF TEMPLATE:**
+When the content type is top-of-funnel blog or resource content:
+
+| Brief Element | Blog/Resource Specification |
+|--------------|---------------------------|
+| Word Count | 1,500-3,000 words (comprehensive guide) or 800-1,200 (focused article) |
+| H1 | Keyword-optimized, question or "how to" format preferred |
+| Sections | Introduction (hook + thesis), 5-8 H2 subheadings, conclusion with CTA |
+| Content Angle | Educational, not promotional. Build topical authority. |
+| Internal Links | Link to 3-5 relevant product/category pages (commercial intent bridge) |
+| External Links | 3-5 authoritative sources (studies, industry data, expert quotes) |
+| Media Requirements | 3-5 custom images/diagrams, 1 embedded video if available |
+| Schema | Article, FAQ, HowTo (if applicable) |
+| Promotion Plan | Social sharing targets, email newsletter inclusion, outreach for backlinks |
+| Topical Authority Goal | How this content supports broader topic cluster |
 
 ═══════════════════════════════════════════════════════════════════════════════
 SECTION 3: OUTPUT FORMAT (Follow EXACTLY)

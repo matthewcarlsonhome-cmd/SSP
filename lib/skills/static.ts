@@ -44,7 +44,15 @@
  *     Candidate screening, client intake, market intelligence,
  *     placement prediction, pipeline dashboards
  *
- * TOTAL: 84 skills
+ * 13. GOOGLE ADS (5 skills) - ./google-ads/
+ *     Account auditing, search term analysis, client reporting,
+ *     RSA ad copy generation, PMax asset management
+ *
+ * 14. SEO (5 skills) - ./seo/
+ *     Backlink acquisition, product page SEO, competitor analysis,
+ *     SEO reporting & ROI, site architecture & internal linking
+ *
+ * TOTAL: 94 skills
  *
  * ADDING NEW SKILLS:
  * ==================
@@ -68,6 +76,8 @@ import { HR_SKILLS } from './hr';
 import { OPERATIONS_SKILLS } from './operations';
 import { ACCOUNTING_SKILLS } from './accounting';
 import { STAFFING_SKILLS } from './staffing';
+import { GOOGLE_ADS_SKILLS } from './google-ads';
+import { SEO_SKILLS } from './seo';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SKILLS EXPORT
@@ -110,6 +120,12 @@ export const SKILLS: Record<string, Skill> = {
 
   // Staffing & Recruiting Skills (5)
   ...STAFFING_SKILLS,
+
+  // Google Ads / PPC Management Skills (5)
+  ...GOOGLE_ADS_SKILLS,
+
+  // SEO Specialist Skills (5)
+  ...SEO_SKILLS,
 };
 
 // Re-export category modules for direct access if needed
@@ -126,4 +142,6 @@ export {
   OPERATIONS_SKILLS,
   ACCOUNTING_SKILLS,
   STAFFING_SKILLS,
+  GOOGLE_ADS_SKILLS,
+  SEO_SKILLS,
 };
