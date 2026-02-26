@@ -52,7 +52,11 @@
  *     Backlink acquisition, product page SEO, competitor analysis,
  *     SEO reporting & ROI, site architecture & internal linking
  *
- * TOTAL: 94 skills
+ * 15. PPC AGENCY (7 skills) - ./ppc-agency/
+ *     Weekly triage, search terms & negatives, recommendations audit,
+ *     deliverables generator, Looker Studio setup, PMax hygiene, ads scripts
+ *
+ * TOTAL: 101 skills
  *
  * ADDING NEW SKILLS:
  * ==================
@@ -78,6 +82,7 @@ import { ACCOUNTING_SKILLS } from './accounting';
 import { STAFFING_SKILLS } from './staffing';
 import { GOOGLE_ADS_SKILLS } from './google-ads';
 import { SEO_SKILLS } from './seo';
+import { PPC_AGENCY_SKILLS } from './ppc-agency';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SKILLS EXPORT
@@ -126,6 +131,9 @@ export const SKILLS: Record<string, Skill> = {
 
   // SEO Specialist Skills (5)
   ...SEO_SKILLS,
+
+  // PPC Agency Workflow Skills (7)
+  ...PPC_AGENCY_SKILLS,
 };
 
 // Re-export category modules for direct access if needed
@@ -144,4 +152,5 @@ export {
   STAFFING_SKILLS,
   GOOGLE_ADS_SKILLS,
   SEO_SKILLS,
+  PPC_AGENCY_SKILLS,
 };

@@ -2011,6 +2011,419 @@ DELETE /api/v1/users/:id - Soft delete user
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ACCOUNTING SKILLS DEFAULT TEST DATA
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const ACCOUNTING_DEFAULT_TEST_DATA: Record<string, SkillDefaultTestData> = {
+  'tax-season-workflow-optimizer': {
+    skillId: 'tax-season-workflow-optimizer',
+    defaultTestCaseId: 'tax-season-pool-spa-clients',
+    description: 'Tax season workflow for CPA firm serving pool/spa construction companies',
+    inputPayload: {
+      firmSize: 'Small (1-5 CPAs)',
+      clientCount: '85 active clients, 12 are pool/spa construction companies with complex depreciation schedules',
+      currentWorkflow: 'Manual tracking in Excel, QuickBooks Online for bookkeeping, Drake Tax for preparation. No automated client reminders. Partners review all returns manually.',
+      painPoints: 'Document collection takes 3+ weeks per client, no standardized intake process, deadline tracking is manual, staff overtime exceeds 200 hours during peak season',
+      softwareStack: 'Drake Tax, QuickBooks Online, Microsoft Office, basic Dropbox for file sharing',
+      deadlineConstraints: 'Extension deadline October 15, corporate returns March 15, individual returns April 15. 40% of clients file extensions.',
+    },
+  },
+  'client-financial-health-summary': {
+    skillId: 'client-financial-health-summary',
+    defaultTestCaseId: 'pool-builder-financial-health',
+    description: 'Financial health summary for a pool construction company',
+    inputPayload: {
+      clientName: 'Bluewater Custom Pools',
+      industry: 'Pool & Spa Construction',
+      financialData: 'Revenue: $4.2M (up 12% YoY), COGS: $2.8M, Gross Margin: 33%, Net Income: $380K, Current Ratio: 1.8, Quick Ratio: 0.9, AR Days: 52, AP Days: 38, Inventory Turnover: 6.2x, Debt-to-Equity: 1.4',
+      comparativePeriod: 'Prior Year: Revenue $3.75M, Gross Margin 31%, Net Income $310K, Current Ratio: 1.6',
+      additionalContext: 'Seasonal business - 70% of revenue in April-September. Recently took on $500K equipment loan for new excavation equipment. Owner wants to expand into hot tub installations.',
+      reportingPurpose: 'Advisory',
+    },
+  },
+  'engagement-letter-generator': {
+    skillId: 'engagement-letter-generator',
+    defaultTestCaseId: 'pool-company-engagement',
+    description: 'Engagement letter for new pool construction company client',
+    inputPayload: {
+      clientName: 'Sunrise Pool Builders LLC',
+      engagementType: 'Tax Preparation + Advisory',
+      servicesScope: 'Annual corporate tax return (1120S), quarterly payroll tax filings, sales tax compliance for pool equipment, monthly bookkeeping review, annual financial statements, advisory on equipment depreciation strategy',
+      feeStructure: 'Monthly retainer of $2,500 for bookkeeping and advisory, plus $4,500 for annual tax preparation. Additional hourly rate of $275 for special projects.',
+      clientIndustry: 'Construction / Pool Installation',
+      specialConsiderations: 'Multi-state sales tax nexus (TX, OK, AR), percentage-of-completion accounting for large projects over $100K, Section 179 depreciation elections for heavy equipment',
+    },
+  },
+  'audit-workpaper-reviewer': {
+    skillId: 'audit-workpaper-reviewer',
+    defaultTestCaseId: 'pool-service-audit-review',
+    description: 'Review audit workpapers for pool service company',
+    inputPayload: {
+      auditType: 'Financial Statement Audit',
+      clientName: 'AquaCare Pool Services Inc',
+      workpaperSections: 'Revenue recognition testing (subscription pool service contracts), Accounts receivable confirmations, Inventory observation (chemicals and supplies), Fixed asset roll-forward (service vehicles and equipment), Payroll testing (seasonal workforce 15-45 employees)',
+      materialityThreshold: 'Overall materiality: $50,000, Performance materiality: $37,500, Trivial threshold: $2,500',
+      riskAreas: 'Revenue cutoff around seasonal transitions, inventory valuation of pool chemicals with shelf life, classification of repair vs capital improvement, related party transactions with owner-operated supply company',
+      additionalContext: 'First-year audit engagement. Prior year was a review engagement by different firm.',
+    },
+  },
+  'year-end-close-checklist-generator': {
+    skillId: 'year-end-close-checklist-generator',
+    defaultTestCaseId: 'pool-builder-year-end',
+    description: 'Year-end close checklist for pool construction company',
+    inputPayload: {
+      entityType: 'S-Corporation',
+      industry: 'Construction - Pool & Spa',
+      accountingMethod: 'Accrual basis with percentage-of-completion for contracts over $100K',
+      closingDate: 'December 31, 2025',
+      keyAccounts: 'Construction-in-progress (8 active projects), Equipment assets ($1.2M), Warranty liability reserve, Retainage receivable, Seasonal line of credit ($300K)',
+      specialItems: 'Need to evaluate WIP projects for revenue recognition, reconcile retainage balances, calculate officer reasonable compensation for S-Corp, review Section 199A deduction eligibility, evaluate estimated tax payments',
+    },
+  },
+  '1099-w2-compliance-tracker': {
+    skillId: '1099-w2-compliance-tracker',
+    defaultTestCaseId: 'pool-company-1099-compliance',
+    description: '1099/W-2 compliance tracking for pool company with subcontractors',
+    inputPayload: {
+      entityName: 'Paradise Pools & Spas LLC',
+      taxYear: '2025',
+      workerData: '22 W-2 employees (8 year-round, 14 seasonal April-October), 15 subcontractors (excavation, electrical, plumbing, concrete, landscaping), 3 vendor payments over $600 threshold',
+      currentStatus: 'W-2s not yet prepared, 1099-NEC forms not yet issued. Missing TIN for 3 subcontractors. One subcontractor disputes classification.',
+      complianceDeadlines: 'W-2 to employees by Jan 31, 1099-NEC to contractors by Jan 31, File with SSA/IRS by Jan 31',
+      knownIssues: 'One worker classified as contractor may need W-2 reclassification (works set hours, uses company equipment). Missing W-9 from 3 subcontractors. Need backup withholding calculation for missing TINs.',
+    },
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STAFFING SKILLS DEFAULT TEST DATA
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const STAFFING_DEFAULT_TEST_DATA: Record<string, SkillDefaultTestData> = {
+  'candidate-screening-scorecard': {
+    skillId: 'candidate-screening-scorecard',
+    defaultTestCaseId: 'ppc-specialist-screening',
+    description: 'Screening scorecard for PPC Specialist role at digital marketing agency',
+    inputPayload: {
+      jobTitle: 'PPC Specialist - Google Ads',
+      jobRequirements: 'Google Ads certified, 3+ years managing $50K+/month in ad spend, experience with lead generation campaigns, familiarity with Looker Studio, agency experience preferred, pool/spa or home services vertical a plus',
+      candidateResume: 'Sarah Mitchell - 4 years at digital agency managing Google Ads for 20+ accounts. Google Ads Search and Display certified. Managed $80K/month across home services clients. Built Looker Studio dashboards. Increased lead volume 40% for HVAC client. BS Marketing, University of Houston.',
+      screeningCriteria: 'Technical: Google Ads proficiency, analytics capability, budget management. Soft: Client communication, agency pace adaptability, attention to detail. Bonus: Pool/spa industry knowledge, PMax experience, script automation',
+      additionalContext: 'This is for the SSP agency (Small Screen Producer) managing 45+ pool/spa Google Ads accounts. Need someone who can hit the ground running with minimal training.',
+    },
+  },
+  'client-intake-requirements-builder': {
+    skillId: 'client-intake-requirements-builder',
+    defaultTestCaseId: 'ssp-pool-builder-intake',
+    description: 'Client intake for new pool builder seeking PPC management',
+    inputPayload: {
+      clientName: 'Crystal Clear Pools',
+      serviceRequested: 'Google Ads Management - Lead Generation',
+      industryVertical: 'Pool & Spa Construction',
+      clientBackground: 'Family-owned pool builder in Dallas-Fort Worth area, 15 years in business, 3 crews, builds 60-80 pools/year. Currently doing $3.2M revenue. Previous agency managed Google Ads but they were unhappy with lead quality.',
+      budgetRange: '$3,000-5,000/month Google Ads spend plus management fee',
+      additionalContext: 'They also want social media management eventually but starting with PPC only. Peak season is March-September. They have a website but it needs work (slow load, no mobile optimization).',
+    },
+  },
+  'candidate-market-intelligence-brief': {
+    skillId: 'candidate-market-intelligence-brief',
+    defaultTestCaseId: 'ppc-talent-market-brief',
+    description: 'Market intelligence for hiring PPC specialists in Houston market',
+    inputPayload: {
+      roleTitle: 'PPC Specialist / Google Ads Manager',
+      marketLocation: 'Houston, TX (hybrid or remote)',
+      industryContext: 'Digital marketing agency specializing in pool/spa industry. Need specialist comfortable managing 45+ accounts at agency pace.',
+      compensationRange: '$55,000-75,000 base + performance bonus',
+      competitorEmployers: 'Other Houston agencies: Forthea, Envision Creative, Digital Reach Agency. Also competing with in-house roles at pool manufacturers like Pentair, Hayward.',
+      additionalContext: 'Struggling to find candidates with both agency experience and willingness to specialize in one vertical (pool/spa). Last 3 hires left within 6 months.',
+    },
+  },
+  'placement-success-predictor': {
+    skillId: 'placement-success-predictor',
+    defaultTestCaseId: 'ppc-placement-prediction',
+    description: 'Predict placement success for PPC specialist candidate at SSP',
+    inputPayload: {
+      candidateProfile: 'James Rodriguez - 5 years PPC experience, last 3 at agency managing home services accounts. Google Ads certified. Left previous agency due to burnout (was managing 60+ accounts solo). Strong technical skills but interview revealed hesitation about "just pool companies."',
+      roleRequirements: 'Manage 45+ Google Ads accounts for pool/spa companies. Weekly triage and optimization. Build Looker Studio reports. Work with account managers on client calls. Expected to use automation scripts.',
+      culturalFactors: 'SSP is fast-paced, small team, collaborative. Work is seasonal (intense spring/summer, lighter winter). Remote-friendly but team meetings are important. Vertical specialization is a feature, not a bug.',
+      historicalData: 'Past hires: 2 lasted 6+ months (both had industry-specific experience), 3 left within 6 months (all generalists who found vertical focus limiting). Success pattern: candidates who see vertical expertise as career differentiator.',
+      additionalContext: 'Candidate is strong technically but "hesitation about just pool companies" is a yellow flag based on our turnover pattern.',
+    },
+  },
+  'recruiting-pipeline-dashboard-designer': {
+    skillId: 'recruiting-pipeline-dashboard-designer',
+    defaultTestCaseId: 'ssp-recruiting-dashboard',
+    description: 'Recruiting pipeline dashboard for SSP hiring multiple roles',
+    inputPayload: {
+      openRoles: 'PPC Specialist (1), Social Media Manager (1), Content Writer - Pool Industry (1), Account Manager (1)',
+      currentPipeline: 'PPC: 12 applicants, 4 phone screens, 2 interviews scheduled. Social: 8 applicants, 2 phone screens. Content: 15 applicants, 6 phone screens, 3 interviews done, 1 offer pending. Account Mgr: 5 applicants, 1 phone screen.',
+      recruitingSources: 'Indeed, LinkedIn, industry job boards (Pool & Hot Tub Alliance), employee referrals, university partnerships (University of Houston Marketing program)',
+      targetMetrics: 'Time to fill: 30 days. Cost per hire: <$2,000. Offer acceptance rate: >80%. 90-day retention: >85%.',
+      additionalContext: 'Peak hiring season is January-February to have team ready for spring ramp. Budget is tight — prefer organic recruiting over paid job posts.',
+    },
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GOOGLE ADS SKILLS DEFAULT TEST DATA
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const GOOGLE_ADS_DEFAULT_TEST_DATA: Record<string, SkillDefaultTestData> = {
+  'google-ads-account-auditor': {
+    skillId: 'google-ads-account-auditor',
+    defaultTestCaseId: 'pool-builder-audit-ssp',
+    description: 'Account audit for pool builder Google Ads at SSP agency',
+    inputPayload: {
+      accountName: 'Bluewater Custom Pools - Dallas',
+      accountOverview: 'Account structure: 3 Search campaigns (Pool Installation, Pool Renovation, Hot Tub), 1 PMax campaign, 1 Demand Gen. Match types: mix of exact and phrase. Daily budgets: Search $80, $40, $30; PMax $60; DG $25. Geo: DFW metro 40-mile radius.',
+      performanceData: 'Last 30 days: 45,200 impressions, 3,100 clicks, 6.9% CTR, 42 conversions, 1.35% conv rate, $68.50 CPL, $2,877 spend. 60-day trend: CPL increased from $58 to $68. 90-day: CTR declining from 7.8% to 6.9%.',
+      searchTermData: 'Top terms: "pool builder dallas" (12 conv), "custom pool installation" (8 conv), "inground pool cost dallas" (5 conv). Waste: "pool table dallas" ($180), "above ground pool" ($95), "diy pool" ($62), "pool cleaning jobs" ($45). 15% of spend going to zero-conversion terms.',
+      conversionSetup: 'Conversion actions: Form submission (primary), Phone call 60s+ (primary), Chat initiated (secondary). Using GTM for form tracking, CallRail for phone. GA4 connected but goals not imported. Last conversion 2 days ago.',
+      adExtensions: 'Sitelinks: 4 active. Callouts: 3 (need minimum 4). No structured snippets. Call extension active. Location extension active. No image extensions.',
+      industryContext: 'Pool & Spa / Swimming Pool',
+      knownIssues: 'CPL has been rising for 8 weeks. Client mentioned competitor "Premier Pools" is bidding more aggressively. PMax campaign seems to be cannibalizing brand search traffic.',
+    },
+  },
+  'search-term-negative-keyword-engine': {
+    skillId: 'search-term-negative-keyword-engine',
+    defaultTestCaseId: 'pool-search-terms-ssp',
+    description: 'Search term analysis for pool builder accounts at SSP',
+    inputPayload: {
+      accountName: 'Bluewater Custom Pools - Dallas',
+      searchTermsReport: 'pool table near me | $42 | 18 clicks | 0 conv\nabove ground pool dallas | $38 | 15 clicks | 0 conv\npool cleaning service dallas | $35 | 14 clicks | 0 conv\nhow to build a pool yourself | $28 | 11 clicks | 0 conv\npool jobs dallas | $22 | 9 clicks | 0 conv\nswimming pool builder near me | $18 | 7 clicks | 3 conv\ncustom pool design dallas | $15 | 6 clicks | 2 conv\npool renovation cost | $12 | 5 clicks | 1 conv\npool supplies dallas | $25 | 10 clicks | 0 conv\nday spa dallas | $18 | 7 clicks | 0 conv',
+      existingNegatives: 'Current negative list: pool table, billiard, inflatable pool, kiddie pool, public pool, ymca, pool noodle',
+      campaignType: 'Search + PMax',
+      monthlyBudget: '$6,500/month',
+      additionalContext: 'This is a biweekly review. Client builds in-ground custom pools only (no above-ground, no service/maintenance, no hot tubs). Service area: Dallas-Fort Worth metro.',
+    },
+  },
+  'client-report-narrative-generator': {
+    skillId: 'client-report-narrative-generator',
+    defaultTestCaseId: 'pool-monthly-report-ssp',
+    description: 'Monthly report narrative for pool builder at SSP agency',
+    inputPayload: {
+      clientName: 'Bluewater Custom Pools',
+      reportingPeriod: 'February 2026',
+      performanceData: 'February: 28 leads, $72 CPL, $2,016 spend, 1.2% conv rate, 42,000 impressions. January: 35 leads, $65 CPL, $2,275 spend, 1.5% conv rate. February last year: 22 leads, $81 CPL.',
+      keyChanges: 'Added 45 negative keywords from search term review. Paused underperforming RSA in Pool Installation campaign. Increased PMax budget by $10/day. Submitted new image assets for PMax.',
+      clientContext: 'Pool builder in Dallas. Peak season starts March. Client wants to increase budget for spring. Last call: client asked about lead quality — said 3 of last 10 leads were "tire kickers."',
+      callDate: 'March 5, 2026 at 2:00 PM CT',
+      audienceType: 'Client (non-technical pool company owner)',
+    },
+  },
+  'rsa-ad-copy-generator': {
+    skillId: 'rsa-ad-copy-generator',
+    defaultTestCaseId: 'pool-builder-rsa-ssp',
+    description: 'RSA ad copy for pool builder in Dallas market',
+    inputPayload: {
+      businessName: 'Bluewater Custom Pools',
+      serviceOffered: 'Custom in-ground pool design and installation',
+      targetLocation: 'Dallas-Fort Worth, TX metro area',
+      uniqueSellingPoints: '25 years experience, 3D design visualization, financing available, lifetime structural warranty, BBB A+ rated, over 1,000 pools built',
+      targetKeywords: 'pool builder dallas, custom pool installation, inground pool cost dallas, swimming pool contractor dfw',
+      competitorDifferentiators: 'Only builder in DFW offering 3D virtual reality pool design walkthrough. Lifetime warranty vs competitors 10-year. In-house excavation (no subcontractors for dig).',
+      currentAdPerformance: 'Current RSA CTR: 6.9%. Top performing headline: "Custom Pools Starting at $45K". Lowest CTR headline: "Dallas Pool Installation Company". Description with highest CTR mentions financing.',
+      campaignGoal: 'Lead Generation (form fills + phone calls)',
+    },
+  },
+  'pmax-asset-health-monitor': {
+    skillId: 'pmax-asset-health-monitor',
+    defaultTestCaseId: 'pool-pmax-audit-ssp',
+    description: 'PMax asset health audit for pool builder at SSP',
+    inputPayload: {
+      accountName: 'Bluewater Custom Pools - Dallas',
+      assetGroupOverview: 'Asset Group 1: Pool Installation (8 headlines, 4 descriptions, 12 images, 1 video). Asset Group 2: Pool Renovation (6 headlines, 3 descriptions, 8 images, 0 videos). Asset Group 3: Hot Tub Installation (5 headlines, 2 descriptions, 5 images, 0 videos).',
+      assetPerformance: 'AG1: 3 headlines "Best", 2 "Good", 3 "Low". 2 images "Low" rated (stock photos). AG2: 1 headline "Best", 2 "Good", 3 "Learning". AG3: All assets still "Learning" (launched 2 weeks ago).',
+      audienceSignals: 'AG1: In-market Pool & Spa, Custom Home Building interest, Homeowners 35-65, HHI $100K+. AG2: In-market Home Renovation, existing pool owners. AG3: In-market Hot Tub, backyard renovation.',
+      conversionData: 'AG1: 28 conversions, $62 CPA. AG2: 8 conversions, $85 CPA. AG3: 2 conversions, $110 CPA.',
+      searchCampaignImpact: 'Since PMax launch: Search brand impression share dropped from 92% to 78%. Search non-brand CPL increased 15%. Suspect PMax is absorbing brand queries.',
+      additionalContext: 'Client approved $60/day PMax budget. Need to assess whether AG3 (hot tubs) is worth continuing or if budget should shift to AG1 (pool installation) which performs best.',
+    },
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SEO SKILLS DEFAULT TEST DATA
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const SEO_DEFAULT_TEST_DATA: Record<string, SkillDefaultTestData> = {
+  'backlink-acquisition-strategy-generator': {
+    skillId: 'backlink-acquisition-strategy-generator',
+    defaultTestCaseId: 'pool-builder-backlinks',
+    description: 'Backlink strategy for pool builder website',
+    inputPayload: {
+      websiteUrl: 'https://www.bluewatercustompools.com',
+      competitorUrls: 'https://www.premierpoolsandspas.com\nhttps://www.anthonysylvan.com\nhttps://www.riverbendpools.com',
+      currentBacklinkProfile: 'DA: 28, Total backlinks: 1,200, Referring domains: 180, Anchor text: 45% branded, 20% naked URL, 15% generic, 12% partial match, 8% exact match. Top linking domains: local chamber of commerce, BBB, Houzz, home improvement directories.',
+      industryNiche: 'Home Services',
+      targetKeywords: 'custom pool builder dallas - #8\ninground pool cost dallas - #12\npool installation dallas fort worth - #15\nluxury pool design texas - #22',
+      contentAssets: '12 blog posts about pool design, 1 pool cost calculator, 50 project gallery pages with before/after photos, 3 video testimonials on YouTube',
+      linkBuildingBudget: 'Growth ($500-2000/mo)',
+      geographicFocus: 'Dallas-Fort Worth metro, Texas state',
+      additionalContext: 'Seasonal business — want to build link authority before spring peak season. Main competitor (Premier Pools) has DA 55 with 2,000+ referring domains.',
+    },
+  },
+  'ecommerce-product-page-seo-optimizer': {
+    skillId: 'ecommerce-product-page-seo-optimizer',
+    defaultTestCaseId: 'pool-equipment-product-page',
+    description: 'Product page SEO for pool equipment retailer',
+    inputPayload: {
+      productName: 'Pentair IntelliFlo3 VSF Variable Speed Pool Pump',
+      productCategory: 'Pool Equipment > Pool Pumps > Variable Speed Pumps',
+      productDetails: 'Energy-efficient variable speed pool pump. Flow rates: 12-142 GPM. HP: 3.0 THP. Voltage: 230V. Energy Star certified. Built-in timer and diagnostics. WiFi-enabled for remote monitoring via ScreenLogic app. Dimensions: 24.5" x 12.5" x 14.8". Weight: 42 lbs. Warranty: 3-year limited. Price: $1,299.99.',
+      targetKeyword: 'Pentair IntelliFlo3 pool pump',
+      competitorProductUrls: 'https://www.poolsupplyworld.com/pentair-intelliflo3\nhttps://www.intheswim.com/pentair-variable-speed-pumps',
+      currentProductUrl: 'https://www.bluewaterpoolsupply.com/pumps/pentair-intelliflo3-vsf',
+      platformType: 'Shopify',
+      brandVoice: 'Professional / Technical',
+      additionalContext: 'This is our top-selling pump. Currently ranking #18 for "Pentair IntelliFlo3" and #45 for "variable speed pool pump." Want to improve rankings and add rich results.',
+    },
+  },
+  'competitor-seo-analysis-report': {
+    skillId: 'competitor-seo-analysis-report',
+    defaultTestCaseId: 'pool-builder-seo-competition',
+    description: 'Competitor SEO analysis for pool builder vs top competitors',
+    inputPayload: {
+      yourWebsite: 'https://www.bluewatercustompools.com',
+      competitorWebsites: 'https://www.premierpoolsandspas.com\nhttps://www.anthonysylvan.com\nhttps://www.riverbendpools.com\nhttps://www.calpool.com',
+      yourTopKeywords: 'pool builder dallas - #8\ncustom pool installation - #15\ninground pool cost - #22\npool renovation dallas - #6\nswimming pool contractor - #18\nluxury pool design - #25\npool financing - #30\npool builder near me - #12',
+      competitorKeywordData: 'Premier Pools: 12,000 organic keywords, 45K monthly traffic, DA 55. Anthony Sylvan: 8,500 keywords, 32K traffic, DA 48. Riverbend: 3,200 keywords, 8K traffic, DA 35. CalPools: 5,100 keywords, 15K traffic, DA 42.',
+      industryVertical: 'Home Services',
+      contentInventory: 'Blog posts: 12, Project gallery pages: 50, Service pages: 8, Location pages: 5, FAQ page: 1. No resource guides, no calculators, no video content pages.',
+      technicalSEONotes: 'LCP: 3.8s (needs work), CLS: 0.05 (good), INP: 180ms (good). Mobile usability: 3 issues flagged. Index coverage: 85% of submitted URLs indexed.',
+      businessGoals: 'Double organic traffic by end of year. Rank top 5 for "pool builder dallas" and related terms. Reduce dependence on Google Ads by building organic lead pipeline.',
+      analysisTimeframe: 'Quarterly Deep-Dive',
+    },
+  },
+  'seo-reporting-roi-dashboard-generator': {
+    skillId: 'seo-reporting-roi-dashboard-generator',
+    defaultTestCaseId: 'pool-builder-seo-report',
+    description: 'Monthly SEO report for pool builder client',
+    inputPayload: {
+      clientOrSiteName: 'Bluewater Custom Pools',
+      reportingPeriod: 'Monthly',
+      organicTrafficData: 'February 2026: 4,200 sessions (up 18% MoM), 3,800 users, 12,400 pageviews, 45% bounce rate, 2:15 avg session. January: 3,560 sessions. February 2025: 2,800 sessions (YoY: +50%).',
+      searchConsoleData: 'Impressions: 85,000 (up 22% MoM). Clicks: 4,100 (up 19%). CTR: 4.8%. Avg position: 18.2 (improved from 21.5). Top queries: "pool builder dallas" (450 clicks, pos 8), "custom pool cost" (280 clicks, pos 12), "inground pool installation" (190 clicks, pos 15).',
+      keywordRankingData: 'pool builder dallas | #8 | #11 | +3\ncustom pool cost dallas | #12 | #18 | +6\ninground pool installation | #15 | #15 | 0\npool renovation dallas | #6 | #8 | +2\nluxury pool design | #22 | #28 | +6',
+      conversionData: '18 organic form submissions (up from 12 last month, +50%). 8 organic phone calls tracked. Estimated value per lead: $350. Total organic lead value: $9,100.',
+      technicalSEOMetrics: 'LCP: 3.2s (improved from 3.8s). CLS: 0.04. INP: 165ms. Crawl errors: 2 (down from 8). Index coverage: 92% (up from 85%). Mobile usability: 1 issue remaining.',
+      previousReportHighlights: 'Last month: Published 3 new blog posts targeting "pool cost" keywords. Fixed 6 crawl errors. Submitted 5 new pages to index. Added FAQ schema to 8 pages.',
+      audienceType: 'Client (Agency)',
+    },
+  },
+  'site-architecture-internal-linking-optimizer': {
+    skillId: 'site-architecture-internal-linking-optimizer',
+    defaultTestCaseId: 'pool-builder-site-architecture',
+    description: 'Site architecture optimization for pool builder website',
+    inputPayload: {
+      websiteUrl: 'https://www.bluewatercustompools.com',
+      currentSiteStructure: 'Current URL patterns:\n/services/pool-installation\n/services/pool-renovation\n/services/hot-tub-installation\n/gallery/ (all 50 projects flat)\n/blog/ (12 posts, no categories)\n/about\n/contact\n/financing',
+      contentInventory: 'Product/service pages: 8\nProject gallery pages: 50 (flat, no categories)\nBlog posts: 12 (uncategorized)\nLocation pages: 5\nCore pages: 4 (about, contact, financing, FAQ)\nTotal: ~79 pages',
+      topicClusters: 'Pool Installation: custom pools, fiberglass, concrete, infinity edge, natural pools\nPool Renovation: resurfacing, tile replacement, equipment upgrades, deck renovation\nPool Cost & Financing: pool cost guides, financing options, ROI of pool\nPool Maintenance: (no content yet but clients ask about it)',
+      crawlData: 'Total URLs: 95 (16 non-indexed). Orphan pages: 8 (old gallery pages). Avg crawl depth: 3.2. Redirect chains: 3. 404 errors: 5. Duplicate titles: 4.',
+      currentInternalLinks: 'Avg internal links per page: 3.2. Most linked: homepage (95 internal links). Least linked: 12 gallery pages with 0 internal links (orphans). Blog posts average 1 internal link each.',
+      siteType: 'Professional Services',
+      migrationContext: 'Content Reorganization',
+      keyTargetPages: '/services/pool-installation | pool builder dallas | #8 | 1,200 sessions/mo\n/services/pool-renovation | pool renovation dallas | #6 | 600 sessions/mo\n/gallery | pool designs | #35 | 200 sessions/mo\n/blog/how-much-does-a-pool-cost | pool cost | #22 | 400 sessions/mo',
+    },
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PPC AGENCY SKILLS DEFAULT TEST DATA
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const PPC_AGENCY_DEFAULT_TEST_DATA: Record<string, SkillDefaultTestData> = {
+  'ppc-weekly-triage': {
+    skillId: 'ppc-weekly-triage',
+    defaultTestCaseId: 'ssp-monday-triage',
+    description: 'Monday morning triage for SSP pool/spa Google Ads portfolio',
+    inputPayload: {
+      anomalyAlerts: '[SSP Anomaly Alert] Week of 02/24 — 3 Critical, 5 Warning\n\nCRITICAL:\n• Bluewater Pools Dallas | CPL: +47% ($68 vs $46 baseline)\n• AquaCare Services Houston | Conv Rate: -52% (0.8% vs 1.7% baseline)\n• Sunrise Pools Austin | CPC: +41% ($8.20 vs $5.80 baseline)\n\nWARNING:\n• Crystal Clear Pools DFW | CPL: +28%\n• Paradise Pools San Antonio | Budget Pace: 125% (overpacing)\n• Gulf Coast Spas | CTR: -24%\n• Premier Hot Tubs | Conv Rate: -22%\n• Lone Star Pools | CPC: +25%',
+      budgetPacing: '[SSP Budget Pacing] Day 24/28 — 2 Over, 3 Under\nOVER: Paradise Pools SA (125%), Bluewater Dallas (118%)\nUNDER: AquaCare Houston (72%), Gulf Coast Spas (78%), Hill Country Pools (81%)',
+      dashboardNotes: 'Manual observations from Looker Studio:\n- 3 accounts showing gradual CPL increase over 3 weeks (not yet at threshold)\n- AquaCare Houston has had zero conversions since Wednesday — possible tracking issue\n- Spring season starting: 5 accounts still on winter budgets',
+      clientCalls: 'Tuesday 10am: Bluewater Pools (monthly review)\nWednesday 2pm: Crystal Clear Pools (quarterly strategy)\nThursday 11am: Paradise Pools (budget increase discussion)',
+      seasonalContext: 'February — spring ramp starting in March. Need to prepare budget increase recommendations for account managers. Last year CPLs dropped 30% once spring volume kicked in.',
+    },
+  },
+  'ppc-search-terms-negatives': {
+    skillId: 'ppc-search-terms-negatives',
+    defaultTestCaseId: 'ssp-search-term-review',
+    description: 'Biweekly search term review across SSP pool/spa portfolio',
+    inputPayload: {
+      searchTermsData: 'Bluewater Pools:\npool table dallas | $42 | 18 clicks | 0 conv\nabove ground pool kit | $38 | 15 clicks | 0 conv\npool cleaning jobs dallas | $22 | 9 clicks | 0 conv\ndiy pool installation | $28 | 11 clicks | 0 conv\nday spa near me dallas | $18 | 7 clicks | 0 conv\n\nAquaCare Services:\nhow to fix pool pump | $35 | 14 clicks | 0 conv\npool chemicals walmart | $25 | 10 clicks | 0 conv\nymca pool hours houston | $15 | 6 clicks | 0 conv\n\nCrystal Clear Pools:\npool builder reviews complaints | $30 | 12 clicks | 0 conv\ncheap above ground pools | $20 | 8 clicks | 0 conv\npool permits diy | $18 | 7 clicks | 0 conv',
+      accountNames: 'Bluewater Pools, AquaCare Services, Crystal Clear Pools, Paradise Pools, Sunrise Pools, Gulf Coast Spas, Premier Hot Tubs, Lone Star Pools, Hill Country Pools, Bayou Pools, Lakeside Pools, Texas Spa Co',
+      dateRange: 'February 10-24, 2026',
+      existingNegatives: 'Current MCC negatives: pool table, billiard, inflatable, kiddie, above ground (basic), public pool, ymca, carpool, pool noodle, pool float',
+      industryVertical: 'Pool & Spa / Swimming Pool',
+      specialNotes: 'Seeing increase in DIY and job-seeker queries as spring approaches. Need to expand master negative list before peak season.',
+    },
+  },
+  'ppc-recommendations-audit': {
+    skillId: 'ppc-recommendations-audit',
+    defaultTestCaseId: 'ssp-recommendations-triage',
+    description: 'Weekly recommendations audit across SSP portfolio',
+    inputPayload: {
+      recommendationsData: 'CRITICAL (Score 20+):\nBluewater Pools | Fix Campaign Negative Keyword | Score: 25 | Own negative blocking "pool builder near me"\nAquaCare | Call Extension Missing | Score: 20 | No call extension on service campaigns\n\nHIGH (Score 12-19):\nCrystal Clear | Add Responsive Search Ad | Score: 16 | Ad group with only 1 RSA\nParadise Pools | Remove Redundant Keywords | Score: 15 | 8 duplicate keywords\nSunrise Pools | Sitelink Extension | Score: 14 | Only 2 sitelinks (need 4)\n\nMEDIUM (Score 6-11):\nGulf Coast | Target CPA Opt-In | Score: 9 | Google suggests switching from manual CPC\nLone Star | Use Broad Match | Score: 8 | Suggests converting phrase to broad\nHill Country | Maximize Conversions | Score: 7 | Suggests switching from manual CPC\n\nLOW (Score <6):\n3 accounts | Maximize Clicks | Score: 3 | Google pushing click optimization\n2 accounts | Target ROAS | Score: 2 | Not applicable for lead gen',
+      accountContext: 'Portfolio mix: 30 accounts on Target CPA, 12 on Manual CPC, 5 on Maximize Conversions. Most accounts have 30-50 conversions/month. Tracking verified clean across portfolio.',
+      autoApplyStatus: 'Auto-apply is OFF across all 47 accounts. Last verified: February 15, 2026.',
+      recentChanges: 'Running weekly Monday audit. No major strategy changes this period. Spring season approaching — some accounts will need budget increases.',
+      portfolioSize: '47 accounts, $180K monthly spend, pool/spa vertical',
+    },
+  },
+  'ppc-deliverables-generator': {
+    skillId: 'ppc-deliverables-generator',
+    defaultTestCaseId: 'ssp-client-report-narrative',
+    description: 'Client reporting narrative for Bluewater Pools monthly call',
+    inputPayload: {
+      deliverableType: 'Reporting Draft Queue',
+      accountName: 'Bluewater Custom Pools',
+      performanceData: 'February 2026: 28 leads, $72 CPL, $2,016 spend, 6.9% CTR, 1.2% conv rate.\nJanuary 2026: 35 leads, $65 CPL, $2,275 spend, 7.3% CTR, 1.5% conv rate.\nFebruary 2025: 22 leads, $81 CPL.\nMoM: Leads -20%, CPL +11%, Spend -11%.\nYoY: Leads +27%, CPL -11%.',
+      changesActions: 'Added 45 negative keywords from search term review (est. $280/mo waste eliminated). Paused 2 underperforming RSAs. Added new callout extensions. Submitted 4 new PMax images. Increased PMax daily budget from $50 to $60.',
+      clientContext: 'Client mentioned last call that 3 of 10 recent leads were "tire kickers" asking about above-ground pools (not their service). Spring season starting — expect lead volume to increase 2-3x. Client wants to discuss budget increase to $8,000/mo for March-May. Call date: March 5, 2026 at 2:00 PM CT with Account Manager Jennifer.',
+      preparedBy: 'Matthew Carlson',
+    },
+  },
+  'ppc-looker-studio-setup': {
+    skillId: 'ppc-looker-studio-setup',
+    defaultTestCaseId: 'ssp-portfolio-dashboard',
+    description: 'Portfolio overview dashboard setup for SSP Google Ads MCC',
+    inputPayload: {
+      dashboardType: 'Both Dashboards',
+      accountCount: '47 accounts',
+      currentSetup: 'Google Ads MCC with 47 child accounts. All accounts connected via MCC data source. Google Sheets data source for QS tracking (Script 5 output). No GA4 integration yet (planned). Conversion numbers in Looker Studio don\'t match Google Ads UI for 3 accounts — suspect timezone mismatch. One account shows N/A for all metrics (possible data source filter issue).',
+      specificNeeds: 'Need conditional formatting: CPL >125% baseline = red, 100-125% = yellow, <100% = green. Portfolio dashboard used for Monday triage. Client reports exported as PDF for calls. Need portfolio-level metrics (total spend, leads, avg CPL, pacing %, accounts at risk) and account-level metrics (MTD spend, budget, pace %, conversions, CPL, conv rate, CTR, WoW change).',
+      clientName: 'Bluewater Custom Pools (template client)',
+    },
+  },
+  'ppc-pmax-hygiene-auditor': {
+    skillId: 'ppc-pmax-hygiene-auditor',
+    defaultTestCaseId: 'ssp-pmax-audit-bluewater',
+    description: 'PMax asset hygiene audit for Bluewater Pools at SSP',
+    inputPayload: {
+      accountName: 'Bluewater Custom Pools - Dallas',
+      pmaxCampaigns: 'PMax Campaign "Pool & Spa Lead Gen" with 3 asset groups:\nAG1 Pool Installation: $40/day budget, 28 conversions, $62 CPA. Audience: In-market Pool & Spa, Custom Home Construction, Homeowners 35-65, HHI $100K+.\nAG2 Pool Renovation: $12/day budget, 8 conversions, $85 CPA. Audience: In-market Home Renovation, existing pool owners.\nAG3 Hot Tub: $8/day budget, 2 conversions, $110 CPA. Audience: In-market Hot Tub, backyard renovation. Launched 2 weeks ago.',
+      assetPerformance: 'AG1 Pool Installation: 8 headlines (3 Best, 2 Good, 3 Low), 4 descriptions (2 Good, 2 Low), 12 images (8 Good, 2 Low - stock photos, 2 Learning), 1 video (Good).\nAG2 Pool Renovation: 6 headlines (1 Best, 2 Good, 3 Learning), 3 descriptions (1 Good, 2 Learning), 8 images (5 Good, 3 Learning).\nAG3 Hot Tub: 5 headlines (all Learning), 2 descriptions (all Learning), 5 images (3 Learning, 2 Low).',
+      searchCampaignData: 'Since PMax launch 6 weeks ago: Brand Search impression share dropped 92% to 78%. Non-brand Search CPL up 15% ($58 to $67). PMax absorbing estimated 20% of brand queries at $8+ CPC vs $0.50 brand CPC on Search.',
+      guardrailStatus: 'Brand exclusions: Client brand name added, misspellings NOT added. URL exclusions: /about, /team, /careers, /blog, /thank-you excluded. NOT excluded: /gallery, /contact (possible circular conversion). Placement exclusions: Parked domains excluded, mobile apps NOT excluded. Conversion actions: Form submission (primary), Phone call 60s+ (primary). Page views and scroll depth NOT excluded from conversion goals.',
+      auditType: 'Monthly Full Audit',
+    },
+  },
+  'ppc-ads-scripts-manager': {
+    skillId: 'ppc-ads-scripts-manager',
+    defaultTestCaseId: 'ssp-script-setup',
+    description: 'Setting up all 6 automation scripts for SSP MCC',
+    inputPayload: {
+      scriptAction: 'Set Up New Script',
+      scriptName: 'All Scripts (Full Setup)',
+      currentStatus: 'No scripts currently installed. MCC has 47 accounts. Need to set up all 6 scripts: Anomaly Detector (Monday 6 AM), Budget Pacing (Daily 8 AM), Search Term Scanner (biweekly Monday 7 AM), Conv Tracking Health (Wednesday 7 AM), QS Tracker (Friday 5 PM), Ad Auditor (1st of month 7 AM). Fresh setup — need configuration guidance for all CONFIG variables. Google Sheet needs to be created for QS Tracker (Script 5).',
+      configDetails: 'Email: matthew@smallscreenproducer.com. Timezone: CST. Min spend thresholds: filter out accounts with <$100/month spend. Will customize thresholds after first month of data. Need Google Sheet ID for Script 5 QS Tracker.',
+      mccSize: '47 child accounts',
+    },
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // COMBINED DEFAULT TEST DATA
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -2027,6 +2440,11 @@ export const ALL_SKILL_DEFAULT_TEST_DATA: Record<string, SkillDefaultTestData> =
   ...ROLE_TEMPLATE_DEFAULT_TEST_DATA,
   ...WAVE_SKILLS_DEFAULT_TEST_DATA,
   ...PROMPT_ENGINEERING_DEFAULT_TEST_DATA,
+  ...ACCOUNTING_DEFAULT_TEST_DATA,
+  ...STAFFING_DEFAULT_TEST_DATA,
+  ...GOOGLE_ADS_DEFAULT_TEST_DATA,
+  ...SEO_DEFAULT_TEST_DATA,
+  ...PPC_AGENCY_DEFAULT_TEST_DATA,
 };
 
 /**
