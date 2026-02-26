@@ -2482,6 +2482,8 @@ import { PROFESSIONAL_WORKFLOWS } from './professional';
 import { ACCOUNTING_WORKFLOWS } from './accounting';
 // Import Staffing/Recruiting workflows
 import { STAFFING_WORKFLOWS } from './staffing';
+// Import PPC Agency workflows
+import { PPC_AGENCY_WORKFLOWS } from './ppc-agency';
 
 export const WORKFLOWS: Record<string, Workflow> = {
   'ai-implementation': AI_IMPLEMENTATION_WORKFLOW,
@@ -2509,6 +2511,8 @@ export const WORKFLOWS: Record<string, Workflow> = {
   ...ACCOUNTING_WORKFLOWS,
   // Staffing/Recruiting workflows (job orders, candidate submission, client acquisition, retention, performance)
   ...STAFFING_WORKFLOWS,
+  // PPC Agency workflows (master weekly workflow)
+  ...PPC_AGENCY_WORKFLOWS,
 };
 
 export const WORKFLOW_LIST: Workflow[] = Object.values(WORKFLOWS);
