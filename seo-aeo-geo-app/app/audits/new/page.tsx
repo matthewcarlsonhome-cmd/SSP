@@ -1,0 +1,666 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Upload,
+  Plus,
+  Trash2,
+  Rocket,
+  ArrowLeft,
+  FileText,
+  GripVertical,
+  Globe,
+  Star,
+  BarChart3,
+  MessageSquare,
+  Settings,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+
+const INDUSTRIES = [
+  "Home Services",
+  "Legal",
+  "Medical / Healthcare",
+  "E-commerce",
+  "SaaS",
+  "Restaurant / Hospitality",
+  "Real Estate",
+  "Automotive",
+  "Financial Services",
+  "Education",
+  "Construction",
+  "Other",
+];
+
+const CMS_PLATFORMS = [
+  "WordPress",
+  "Shopify",
+  "Squarespace",
+  "Wix",
+  "Webflow",
+  "Custom",
+  "Other",
+  "Unknown",
+];
+
+const PRIMARY_GOALS = [
+  { value: "leads", label: "Leads" },
+  { value: "sales", label: "Sales" },
+  { value: "calls", label: "Phone Calls" },
+  { value: "foot_traffic", label: "Foot Traffic" },
+  { value: "brand_awareness", label: "Brand Awareness" },
+];
+
+type Competitor = { url: string; name: string };
+type Keyword = { keyword: string; priority: string; currentRanking: string };
+
+export default function NewAuditPage() {
+  const router = useRouter();
+  const [mode, setMode] = useState<"form" | "upload">("form");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Form state
+  const [clientName, setClientName] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [businessType, setBusinessType] = useState("");
+  const [industry, setIndustry] = useState("");
+  const [targetGeography, setTargetGeography] = useState("");
+  const [primaryGoal, setPrimaryGoal] = useState("");
+  const [competitors, setCompetitors] = useState<Competitor[]>([
+    { url: "", name: "" },
+  ]);
+  const [keywords, setKeywords] = useState<Keyword[]>([
+    { keyword: "", priority: "medium", currentRanking: "" },
+  ]);
+  const [gbpClaimed, setGbpClaimed] = useState("");
+  const [gbpUrl, setGbpUrl] = useState("");
+  const [reviewCount, setReviewCount] = useState("");
+  const [avgRating, setAvgRating] = useState("");
+  const [monthlyTraffic, setMonthlyTraffic] = useState("");
+  const [conversionRate, setConversionRate] = useState("");
+  const [topLandingPages, setTopLandingPages] = useState("");
+  const [cmsPlatform, setCmsPlatform] = useState("");
+  const [painPoints, setPainPoints] = useState("");
+  const [previousSeo, setPreviousSeo] = useState("");
+  const [budget, setBudget] = useState("");
+
+  const addCompetitor = () =>
+    setCompetitors([...competitors, { url: "", name: "" }]);
+  const removeCompetitor = (i: number) =>
+    setCompetitors(competitors.filter((_, idx) => idx !== i));
+  const updateCompetitor = (i: number, field: keyof Competitor, val: string) =>
+    setCompetitors(
+      competitors.map((c, idx) => (idx === i ? { ...c, [field]: val } : c))
+    );
+
+  const addKeyword = () =>
+    setKeywords([
+      ...keywords,
+      { keyword: "", priority: "medium", currentRanking: "" },
+    ]);
+  const removeKeyword = (i: number) =>
+    setKeywords(keywords.filter((_, idx) => idx !== i));
+  const updateKeyword = (i: number, field: keyof Keyword, val: string) =>
+    setKeywords(
+      keywords.map((k, idx) => (idx === i ? { ...k, [field]: val } : k))
+    );
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    const brief = {
+      client_name: clientName,
+      website_url: websiteUrl,
+      business_type: businessType,
+      industry,
+      target_geography: targetGeography,
+      primary_goal: primaryGoal,
+      competitors: competitors.filter((c) => c.url),
+      keywords: keywords.filter((k) => k.keyword),
+      gbp: { claimed: gbpClaimed, url: gbpUrl, reviewCount, avgRating },
+      analytics: { monthlyTraffic, conversionRate, topLandingPages },
+      cms_platform: cmsPlatform,
+      pain_points: painPoints,
+      previous_seo: previousSeo,
+      budget,
+    };
+
+    try {
+      const res = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(brief),
+      });
+      const data = await res.json();
+      router.push(`/audits/${data.id}`);
+    } catch {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-8">
+      {/* Header */}
+      <div>
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Dashboard
+        </Link>
+        <h1 className="text-3xl font-bold tracking-tight">New Client Audit</h1>
+        <p className="mt-2 text-muted-foreground max-w-xl">
+          Enter your client&apos;s details below or upload a brief document. The
+          AI pipeline will generate a complete optimization package.
+        </p>
+      </div>
+
+      {/* Mode toggle */}
+      <div className="flex gap-2 p-1 bg-secondary rounded-xl w-fit">
+        <button
+          onClick={() => setMode("form")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            mode === "form"
+              ? "bg-white shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <FileText className="h-4 w-4" />
+          Enter Details
+        </button>
+        <button
+          onClick={() => setMode("upload")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            mode === "upload"
+              ? "bg-white shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Upload className="h-4 w-4" />
+          Upload Brief
+        </button>
+      </div>
+
+      {/* Upload mode */}
+      {mode === "upload" && (
+        <Card>
+          <CardContent className="p-8">
+            <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border p-12 text-center hover:border-primary/50 transition-colors cursor-pointer">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 mb-4">
+                <Upload className="h-7 w-7 text-primary" />
+              </div>
+              <h3 className="text-base font-semibold text-foreground">
+                Drop your brief here
+              </h3>
+              <p className="mt-2 text-sm text-muted-foreground max-w-xs">
+                Supports .docx, .pdf, .txt, .csv, and .xlsx files. We&apos;ll
+                extract client details and pre-fill the form.
+              </p>
+              <Button variant="outline" className="mt-4">
+                Browse Files
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Form mode */}
+      {mode === "form" && (
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Required Fields */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                  <Globe className="h-4 w-4 text-primary" />
+                </div>
+                <CardTitle>Client Information</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="clientName">
+                    Client Name <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="clientName"
+                    placeholder="Blue Lagoon Pools"
+                    value={clientName}
+                    onChange={(e) => setClientName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="websiteUrl">
+                    Website URL <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="websiteUrl"
+                    placeholder="https://example.com"
+                    type="url"
+                    value={websiteUrl}
+                    onChange={(e) => setWebsiteUrl(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="businessType">Business Type</Label>
+                  <Input
+                    id="businessType"
+                    placeholder="Pool construction & renovation"
+                    value={businessType}
+                    onChange={(e) => setBusinessType(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="industry">Industry</Label>
+                  <Select
+                    id="industry"
+                    value={industry}
+                    onChange={(e) => setIndustry(e.target.value)}
+                  >
+                    <option value="">Select industry...</option>
+                    {INDUSTRIES.map((ind) => (
+                      <option key={ind} value={ind}>
+                        {ind}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="geography">Target Geography</Label>
+                  <Input
+                    id="geography"
+                    placeholder="Houston, TX metro area"
+                    value={targetGeography}
+                    onChange={(e) => setTargetGeography(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Primary Goal</Label>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {PRIMARY_GOALS.map((goal) => (
+                      <button
+                        key={goal.value}
+                        type="button"
+                        onClick={() => setPrimaryGoal(goal.value)}
+                        className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-all border ${
+                          primaryGoal === goal.value
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-white text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
+                        }`}
+                      >
+                        {goal.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Competitors */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                    <BarChart3 className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle>Competitors</CardTitle>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      Auto-discovered if left blank
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {competitors.map((comp, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+                  <Input
+                    placeholder="https://competitor.com"
+                    value={comp.url}
+                    onChange={(e) => updateCompetitor(i, "url", e.target.value)}
+                    className="flex-1"
+                  />
+                  <Input
+                    placeholder="Competitor name"
+                    value={comp.name}
+                    onChange={(e) => updateCompetitor(i, "name", e.target.value)}
+                    className="flex-1"
+                  />
+                  {competitors.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeCompetitor(i)}
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addCompetitor}
+                className="mt-2"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Competitor
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Target Keywords */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                  <MessageSquare className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>Target Keywords</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Add the keywords you want to rank for
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {/* Header row */}
+              <div className="hidden sm:grid grid-cols-[1fr_120px_100px_40px] gap-3 text-xs font-medium text-muted-foreground px-1">
+                <span>Keyword</span>
+                <span>Priority</span>
+                <span>Current Rank</span>
+                <span></span>
+              </div>
+              {keywords.map((kw, i) => (
+                <div
+                  key={i}
+                  className="grid grid-cols-1 sm:grid-cols-[1fr_120px_100px_40px] gap-3 items-center"
+                >
+                  <Input
+                    placeholder="e.g. pool builder houston"
+                    value={kw.keyword}
+                    onChange={(e) => updateKeyword(i, "keyword", e.target.value)}
+                  />
+                  <Select
+                    value={kw.priority}
+                    onChange={(e) =>
+                      updateKeyword(i, "priority", e.target.value)
+                    }
+                  >
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </Select>
+                  <Input
+                    placeholder="#"
+                    value={kw.currentRanking}
+                    onChange={(e) =>
+                      updateKeyword(i, "currentRanking", e.target.value)
+                    }
+                  />
+                  {keywords.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeKeyword(i)}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addKeyword}
+                className="mt-2"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Keyword
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Google Business Profile */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                  <Star className="h-4 w-4 text-primary" />
+                </div>
+                <CardTitle>Google Business Profile</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="space-y-2">
+                <Label>GBP Claimed?</Label>
+                <div className="flex gap-3 pt-1">
+                  {["yes", "no", "unknown"].map((val) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setGbpClaimed(val)}
+                      className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all border ${
+                        gbpClaimed === val
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-white text-muted-foreground border-border hover:border-primary/50"
+                      }`}
+                    >
+                      {val.charAt(0).toUpperCase() + val.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid gap-5 sm:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="gbpUrl">GBP URL</Label>
+                  <Input
+                    id="gbpUrl"
+                    placeholder="https://g.page/..."
+                    value={gbpUrl}
+                    onChange={(e) => setGbpUrl(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reviewCount">Review Count</Label>
+                  <Input
+                    id="reviewCount"
+                    type="number"
+                    placeholder="0"
+                    value={reviewCount}
+                    onChange={(e) => setReviewCount(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="avgRating">Average Rating</Label>
+                  <Input
+                    id="avgRating"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="5"
+                    placeholder="4.5"
+                    value={avgRating}
+                    onChange={(e) => setAvgRating(e.target.value)}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Analytics (optional) */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary">
+                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <CardTitle>Analytics</CardTitle>
+                  <Badge variant="secondary" className="mt-1">
+                    Optional
+                  </Badge>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="traffic">Monthly Organic Traffic</Label>
+                  <Input
+                    id="traffic"
+                    type="number"
+                    placeholder="5000"
+                    value={monthlyTraffic}
+                    onChange={(e) => setMonthlyTraffic(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cvr">Current Conversion Rate (%)</Label>
+                  <Input
+                    id="cvr"
+                    type="number"
+                    step="0.1"
+                    placeholder="2.5"
+                    value={conversionRate}
+                    onChange={(e) => setConversionRate(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="landingPages">Top Landing Pages</Label>
+                <Textarea
+                  id="landingPages"
+                  placeholder="List your top performing pages..."
+                  rows={3}
+                  value={topLandingPages}
+                  onChange={(e) => setTopLandingPages(e.target.value)}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Additional Context */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary">
+                  <Settings className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <CardTitle>Additional Context</CardTitle>
+                  <Badge variant="secondary" className="mt-1">
+                    Optional
+                  </Badge>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="cms">CMS Platform</Label>
+                <Select
+                  id="cms"
+                  value={cmsPlatform}
+                  onChange={(e) => setCmsPlatform(e.target.value)}
+                >
+                  <option value="">Select CMS...</option>
+                  {CMS_PLATFORMS.map((cms) => (
+                    <option key={cms} value={cms}>
+                      {cms}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="painPoints">Known Pain Points</Label>
+                <Textarea
+                  id="painPoints"
+                  placeholder="What challenges does this client face with their online presence?"
+                  rows={3}
+                  value={painPoints}
+                  onChange={(e) => setPainPoints(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="previousSeo">Previous SEO Work</Label>
+                <Textarea
+                  id="previousSeo"
+                  placeholder="Any prior SEO work, agencies, or efforts?"
+                  rows={3}
+                  value={previousSeo}
+                  onChange={(e) => setPreviousSeo(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="budget">Budget / Capacity</Label>
+                <Input
+                  id="budget"
+                  placeholder="e.g. $2,000/mo or 10 hours/week"
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Submit */}
+          <div className="flex items-center justify-between pt-2 pb-8">
+            <Link href="/">
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
+            </Link>
+            <Button
+              type="submit"
+              size="lg"
+              disabled={!clientName || !websiteUrl || isSubmitting}
+              className="shadow-md"
+            >
+              {isSubmitting ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Starting Audit...
+                </>
+              ) : (
+                <>
+                  <Rocket className="h-5 w-5" />
+                  Run Audit
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
