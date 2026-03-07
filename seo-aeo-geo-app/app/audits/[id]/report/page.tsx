@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -17,10 +18,17 @@ import {
   Calendar,
   BarChart3,
   TrendingUp,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { formatDate } from "@/lib/utils";
 
 const tabs = [
   { id: "summary", label: "Executive Summary", icon: FileText },
@@ -33,64 +41,42 @@ const tabs = [
   { id: "measurement", label: "Measurement", icon: Map },
 ];
 
-const demoPages = [
-  {
-    url: "/",
-    title: "Homepage",
-    type: "homepage",
-    currentScore: 41,
-    projectedScore: 88,
-    issues: 6,
-    currentTitle: "Blue Lagoon Pools - Home",
-    recommendedTitle:
-      "Blue Lagoon Pools | Custom Pool Builder in Houston, TX",
-    currentMeta: "",
-    recommendedMeta:
-      "Houston's trusted pool builder since 2005. Custom inground pools, renovations, and maintenance. Get a free quote from our award-winning team.",
-  },
-  {
-    url: "/services/pool-construction",
-    title: "Pool Construction",
-    type: "service",
-    currentScore: 28,
-    projectedScore: 85,
-    issues: 9,
-    currentTitle: "Pool Construction",
-    recommendedTitle:
-      "Custom Pool Construction Houston | Inground Pool Builder | Blue Lagoon",
-    currentMeta: "We build pools.",
-    recommendedMeta:
-      "Expert inground pool construction in Houston, TX. Concrete, fiberglass, and vinyl pools with 3D design. Licensed, insured, 15+ year warranty.",
-  },
-  {
-    url: "/services/pool-renovation",
-    title: "Pool Renovation",
-    type: "service",
-    currentScore: 22,
-    projectedScore: 79,
-    issues: 11,
-    currentTitle: "Pool Renovation",
-    recommendedTitle:
-      "Pool Renovation & Remodeling Houston | Resurface, Retile, Redesign",
-    currentMeta: "",
-    recommendedMeta:
-      "Transform your outdated pool with Houston's top renovation experts. Resurfacing, retiling, equipment upgrades, and complete remodels.",
-  },
-  {
-    url: "/about",
-    title: "About Us",
-    type: "about",
-    currentScore: 35,
-    projectedScore: 72,
-    issues: 5,
-    currentTitle: "About Us",
-    recommendedTitle:
-      "About Blue Lagoon Pools | Houston's Trusted Pool Builder Since 2005",
-    currentMeta: "",
-    recommendedMeta:
-      "Meet the Blue Lagoon Pools team. 20+ years of experience building Houston's finest pools. Licensed, bonded, and award-winning craftsmanship.",
-  },
-];
+type PageAudit = {
+  id: string;
+  page_url: string;
+  page_type: string | null;
+  health_score: number | null;
+  primary_keyword: string | null;
+  search_intent: string | null;
+  current_title_tag: string | null;
+  recommended_title: string | null;
+  current_meta_description: string | null;
+  recommended_meta: string | null;
+  recommended_h1: string | null;
+  answer_block_text: string | null;
+  generated_schema_code: string | null;
+  optimization_spec: Record<string, unknown> | null;
+};
+
+type JobData = {
+  id: string;
+  status: string;
+  created_at: string;
+  total_pages_audited: number | null;
+  site_crawl_results: Record<string, unknown> | null;
+  competitor_analysis: Record<string, unknown> | null;
+  gap_analysis: Record<string, unknown> | null;
+  topical_architecture: Record<string, unknown> | null;
+  page_optimizations: unknown[] | null;
+  technical_audit: Record<string, unknown> | null;
+  offpage_strategy: Record<string, unknown> | null;
+  roadmap: Record<string, unknown> | null;
+  measurement_framework: Record<string, unknown> | null;
+  clients: { id: string; name: string; website_url: string } | null;
+  page_audits: PageAudit[];
+  link_opportunities: Array<Record<string, unknown>>;
+  citation_tasks: Array<Record<string, unknown>>;
+};
 
 function ScoreCircle({
   score,
@@ -122,16 +108,138 @@ function ScoreCircle({
   );
 }
 
+function renderJsonSection(
+  data: Record<string, unknown> | null,
+  title: string
+) {
+  if (!data || Object.keys(data).length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+          <p className="text-sm text-muted-foreground">
+            No {title.toLowerCase()} data available yet.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {Object.entries(data).map(([key, value]) => (
+        <Card key={key}>
+          <CardHeader>
+            <CardTitle className="text-sm capitalize">
+              {key.replace(/_/g, " ")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {typeof value === "string" ? (
+              <p className="text-sm text-muted-foreground">{value}</p>
+            ) : Array.isArray(value) ? (
+              <ul className="space-y-2">
+                {value.map((item, i) => (
+                  <li
+                    key={i}
+                    className="text-sm p-3 rounded-lg bg-muted/50"
+                  >
+                    {typeof item === "string"
+                      ? item
+                      : typeof item === "object" && item !== null
+                      ? Object.entries(item as Record<string, unknown>)
+                          .map(
+                            ([k, v]) =>
+                              `${k.replace(/_/g, " ")}: ${String(v)}`
+                          )
+                          .join(" | ")
+                      : String(item)}
+                  </li>
+                ))}
+              </ul>
+            ) : typeof value === "object" && value !== null ? (
+              <div className="space-y-2">
+                {Object.entries(value as Record<string, unknown>).map(
+                  ([k, v]) => (
+                    <div key={k} className="text-sm">
+                      <span className="font-medium capitalize">
+                        {k.replace(/_/g, " ")}:
+                      </span>{" "}
+                      <span className="text-muted-foreground">
+                        {typeof v === "object" ? JSON.stringify(v) : String(v)}
+                      </span>
+                    </div>
+                  )
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">{String(value)}</p>
+            )}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 export default function ReportViewerPage() {
+  const params = useParams();
+  const jobId = params.id as string;
+  const [job, setJob] = useState<JobData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("summary");
   const [expandedPage, setExpandedPage] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/jobs/${jobId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.id) setJob(data);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [jobId]);
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopied(id);
     setTimeout(() => setCopied(null), 2000);
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!job) {
+    return (
+      <div className="py-20 text-center">
+        <h2 className="text-xl font-semibold">Report not found</h2>
+        <Link href="/" className="mt-4 inline-block">
+          <Button variant="outline">Back to Dashboard</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  const clientName = job.clients?.name || "Client";
+  const pages = job.page_audits || [];
+  const avgScore =
+    pages.length > 0
+      ? Math.round(
+          pages.reduce((sum, p) => sum + (p.health_score || 0), 0) /
+            pages.length
+        )
+      : 0;
+
+  const competitors = (
+    job.competitor_analysis as { competitors?: Array<Record<string, unknown>> }
+  )?.competitors;
+
+  const roadmap = job.roadmap as Record<string, unknown> | null;
 
   return (
     <div className="space-y-8">
@@ -146,22 +254,25 @@ export default function ReportViewerPage() {
         </Link>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              Blue Lagoon Pools
-            </h1>
+            <h1 className="text-3xl font-bold tracking-tight">{clientName}</h1>
             <p className="mt-1 text-muted-foreground">
-              SEO/AEO/GEO Optimization Report &middot; March 6, 2026
+              SEO/AEO/GEO Optimization Report &middot;{" "}
+              {formatDate(job.created_at)}
             </p>
           </div>
           <div className="flex gap-2 shrink-0">
-            <Button variant="outline">
-              <Download className="h-4 w-4" />
-              Download DOCX
-            </Button>
-            <Button>
-              <Download className="h-4 w-4" />
-              Full Package (.zip)
-            </Button>
+            <a href={`/api/jobs/${jobId}/download?format=docx`}>
+              <Button variant="outline">
+                <Download className="h-4 w-4" />
+                Download DOCX
+              </Button>
+            </a>
+            <a href={`/api/jobs/${jobId}/download?format=schema`}>
+              <Button>
+                <Download className="h-4 w-4" />
+                Schema Package (.zip)
+              </Button>
+            </a>
           </div>
         </div>
       </div>
@@ -187,190 +298,224 @@ export default function ReportViewerPage() {
         })}
       </div>
 
-      {/* Tab content */}
+      {/* Summary Tab */}
       {activeTab === "summary" && (
         <div className="space-y-6">
-          {/* Score overview */}
           <div className="grid gap-4 sm:grid-cols-3">
             <Card className="text-center">
               <CardContent className="py-8">
                 <p className="text-sm text-muted-foreground mb-3">
-                  Current Score
+                  Average Health Score
                 </p>
                 <div className="flex justify-center">
-                  <ScoreCircle score={34} size="lg" />
+                  <ScoreCircle score={avgScore} size="lg" />
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Across 12 pages
+                  Across {pages.length} pages
                 </p>
               </CardContent>
             </Card>
             <Card className="text-center">
               <CardContent className="py-8">
                 <p className="text-sm text-muted-foreground mb-3">
-                  Projected Score
-                </p>
-                <div className="flex justify-center">
-                  <ScoreCircle score={82} size="lg" />
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  After implementation
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="text-center">
-              <CardContent className="py-8">
-                <p className="text-sm text-muted-foreground mb-3">
-                  Score Improvement
+                  Pages Audited
                 </p>
                 <div className="flex items-center justify-center h-16">
-                  <span className="text-4xl font-bold text-success">+48</span>
+                  <span className="text-4xl font-bold text-foreground">
+                    {job.total_pages_audited || pages.length}
+                  </span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  points average lift
+              </CardContent>
+            </Card>
+            <Card className="text-center">
+              <CardContent className="py-8">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Competitors Analyzed
                 </p>
+                <div className="flex items-center justify-center h-16">
+                  <span className="text-4xl font-bold text-foreground">
+                    {competitors?.length || 0}
+                  </span>
+                </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Top opportunities */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Top 3 Opportunities</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {[
-                {
-                  title: "Add Answer Blocks & FAQ Sections",
-                  impact: "High",
-                  description:
-                    "10 of 12 pages are missing answer blocks. Adding these positions content for AI engine citations and featured snippets.",
-                },
-                {
-                  title: "Implement Comprehensive Schema Markup",
-                  impact: "High",
-                  description:
-                    "Only 1 page has any schema. Adding LocalBusiness, Service, FAQPage, and Review schema across all pages improves rich result eligibility.",
-                },
-                {
-                  title: "Build Topical Authority with Content Clusters",
-                  impact: "Medium-High",
-                  description:
-                    "Currently 12 pages with weak internal linking. Building 3 content clusters with pillar pages will establish topical authority.",
-                },
-              ].map((opp, i) => (
-                <div
-                  key={i}
-                  className="flex gap-4 p-4 rounded-xl bg-muted/50"
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary font-bold text-sm shrink-0">
-                    {i + 1}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-semibold text-sm">{opp.title}</h4>
-                      <Badge
-                        variant={
-                          opp.impact === "High" ? "destructive" : "warning"
-                        }
-                      >
-                        {opp.impact} Impact
-                      </Badge>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {opp.description}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+          {job.site_crawl_results && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Site Overview</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {renderJsonSection(
+                  (job.site_crawl_results as { site_overview?: Record<string, unknown> })
+                    ?.site_overview || null,
+                  "site overview"
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
+      {/* Competitors Tab */}
+      {activeTab === "competitors" && (
+        <div className="space-y-4">
+          {competitors && competitors.length > 0 ? (
+            competitors.map((comp, i) => (
+              <Card key={i}>
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="font-semibold">
+                        {(comp.name as string) || `Competitor ${i + 1}`}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {comp.url as string}
+                      </p>
+                    </div>
+                    {comp.review_count ? (
+                      <Badge variant="secondary">
+                        {String(comp.review_count)} reviews
+                      </Badge>
+                    ) : null}
+                  </div>
+                  {Array.isArray(comp.strengths) && (
+                    <div className="mt-3">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">
+                        Strengths
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {(comp.strengths as string[]).map((s, j) => (
+                          <Badge key={j} variant="success">
+                            {s}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {Array.isArray(comp.weaknesses) && (
+                    <div className="mt-2">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">
+                        Weaknesses
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {(comp.weaknesses as string[]).map((w, j) => (
+                          <Badge key={j} variant="destructive">
+                            {w}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <Card>
+              <CardContent className="py-16 text-center">
+                <p className="text-sm text-muted-foreground">
+                  No competitor data available.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {job.gap_analysis &&
+            renderJsonSection(
+              job.gap_analysis as Record<string, unknown>,
+              "Gap Analysis"
+            )}
+        </div>
+      )}
+
+      {/* Pages Tab */}
       {activeTab === "pages" && (
         <div className="space-y-3">
-          {/* Title tag comparison table */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Title Tag Recommendations</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium text-muted-foreground pr-4">
-                        Page
-                      </th>
-                      <th className="pb-3 font-medium text-muted-foreground pr-4">
-                        Current
-                      </th>
-                      <th className="pb-3 font-medium text-muted-foreground">
-                        Recommended
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {demoPages.map((page) => (
-                      <tr key={page.url}>
-                        <td className="py-3 pr-4 font-medium whitespace-nowrap">
-                          {page.title}
-                        </td>
-                        <td className="py-3 pr-4 text-muted-foreground">
-                          {page.currentTitle || (
-                            <span className="italic text-destructive/60">
-                              Missing
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3 text-foreground">
-                          {page.recommendedTitle}
-                        </td>
+          {pages.length > 0 && (
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle>Title Tag Recommendations</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left">
+                        <th className="pb-3 font-medium text-muted-foreground pr-4">
+                          Page
+                        </th>
+                        <th className="pb-3 font-medium text-muted-foreground pr-4">
+                          Current
+                        </th>
+                        <th className="pb-3 font-medium text-muted-foreground">
+                          Recommended
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+                    </thead>
+                    <tbody className="divide-y">
+                      {pages.map((page) => (
+                        <tr key={page.id}>
+                          <td className="py-3 pr-4 font-medium whitespace-nowrap">
+                            {page.page_url}
+                          </td>
+                          <td className="py-3 pr-4 text-muted-foreground">
+                            {page.current_title_tag || (
+                              <span className="italic text-destructive/60">
+                                Missing
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 text-foreground">
+                            {page.recommended_title || "\u2014"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-          {/* Individual page cards */}
-          {demoPages.map((page) => (
-            <Card key={page.url}>
+          {pages.map((page) => (
+            <Card key={page.id}>
               <CardContent className="p-0">
                 <button
                   onClick={() =>
                     setExpandedPage(
-                      expandedPage === page.url ? null : page.url
+                      expandedPage === page.page_url ? null : page.page_url
                     )
                   }
                   className="w-full flex items-center justify-between p-5 text-left hover:bg-muted/30 transition-colors"
                 >
                   <div className="flex items-center gap-4">
-                    <ScoreCircle score={page.currentScore} />
+                    {page.health_score !== null && (
+                      <ScoreCircle score={page.health_score} />
+                    )}
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="font-semibold text-sm">
-                          {page.title}
+                          {page.page_url}
                         </h3>
-                        <Badge variant="secondary">{page.type}</Badge>
+                        {page.page_type && (
+                          <Badge variant="secondary">{page.page_type}</Badge>
+                        )}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {page.url} &middot; {page.issues} issues
-                      </p>
+                      {page.primary_keyword && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Keyword: {page.primary_keyword}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="text-right hidden sm:block">
-                      <p className="text-xs text-muted-foreground">
-                        Projected
-                      </p>
-                      <p className="text-sm font-semibold text-success">
-                        {page.projectedScore}/100
-                      </p>
-                    </div>
-                    {expandedPage === page.url ? (
+                    {page.search_intent && (
+                      <span className="text-xs text-muted-foreground hidden sm:inline">
+                        {page.search_intent}
+                      </span>
+                    )}
+                    {expandedPage === page.page_url ? (
                       <ChevronDown className="h-4 w-4 text-muted-foreground" />
                     ) : (
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -378,16 +523,15 @@ export default function ReportViewerPage() {
                   </div>
                 </button>
 
-                {expandedPage === page.url && (
+                {expandedPage === page.page_url && (
                   <div className="border-t p-5 space-y-4">
-                    {/* Meta comparison */}
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div>
                         <p className="text-xs font-medium text-muted-foreground mb-1">
                           Current Title
                         </p>
-                        <p className="text-sm p-2 rounded bg-destructive/5 text-foreground">
-                          {page.currentTitle || (
+                        <p className="text-sm p-2 rounded bg-destructive/5">
+                          {page.current_title_tag || (
                             <span className="italic text-destructive">
                               Missing
                             </span>
@@ -399,28 +543,30 @@ export default function ReportViewerPage() {
                           <p className="text-xs font-medium text-muted-foreground">
                             Recommended Title
                           </p>
-                          <button
-                            onClick={() =>
-                              handleCopy(
-                                page.recommendedTitle,
-                                `title-${page.url}`
-                              )
-                            }
-                            className="text-xs text-primary hover:underline flex items-center gap-1"
-                          >
-                            {copied === `title-${page.url}` ? (
-                              <>
-                                <Check className="h-3 w-3" /> Copied
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="h-3 w-3" /> Copy
-                              </>
-                            )}
-                          </button>
+                          {page.recommended_title && (
+                            <button
+                              onClick={() =>
+                                handleCopy(
+                                  page.recommended_title!,
+                                  `title-${page.id}`
+                                )
+                              }
+                              className="text-xs text-primary hover:underline flex items-center gap-1"
+                            >
+                              {copied === `title-${page.id}` ? (
+                                <>
+                                  <Check className="h-3 w-3" /> Copied
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-3 w-3" /> Copy
+                                </>
+                              )}
+                            </button>
+                          )}
                         </div>
-                        <p className="text-sm p-2 rounded bg-success/5 text-foreground">
-                          {page.recommendedTitle}
+                        <p className="text-sm p-2 rounded bg-success/5">
+                          {page.recommended_title || "\u2014"}
                         </p>
                       </div>
                     </div>
@@ -430,8 +576,8 @@ export default function ReportViewerPage() {
                         <p className="text-xs font-medium text-muted-foreground mb-1">
                           Current Meta
                         </p>
-                        <p className="text-sm p-2 rounded bg-destructive/5 text-foreground">
-                          {page.currentMeta || (
+                        <p className="text-sm p-2 rounded bg-destructive/5">
+                          {page.current_meta_description || (
                             <span className="italic text-destructive">
                               Missing
                             </span>
@@ -443,16 +589,61 @@ export default function ReportViewerPage() {
                           <p className="text-xs font-medium text-muted-foreground">
                             Recommended Meta
                           </p>
+                          {page.recommended_meta && (
+                            <button
+                              onClick={() =>
+                                handleCopy(
+                                  page.recommended_meta!,
+                                  `meta-${page.id}`
+                                )
+                              }
+                              className="text-xs text-primary hover:underline flex items-center gap-1"
+                            >
+                              {copied === `meta-${page.id}` ? (
+                                <>
+                                  <Check className="h-3 w-3" /> Copied
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-3 w-3" /> Copy
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-sm p-2 rounded bg-success/5">
+                          {page.recommended_meta || "\u2014"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {page.answer_block_text && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-1">
+                          Answer Block
+                        </p>
+                        <p className="text-sm p-3 rounded bg-muted/50 whitespace-pre-wrap">
+                          {page.answer_block_text}
+                        </p>
+                      </div>
+                    )}
+
+                    {page.generated_schema_code && (
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Schema Code
+                          </p>
                           <button
                             onClick={() =>
                               handleCopy(
-                                page.recommendedMeta,
-                                `meta-${page.url}`
+                                page.generated_schema_code!,
+                                `schema-${page.id}`
                               )
                             }
                             className="text-xs text-primary hover:underline flex items-center gap-1"
                           >
-                            {copied === `meta-${page.url}` ? (
+                            {copied === `schema-${page.id}` ? (
                               <>
                                 <Check className="h-3 w-3" /> Copied
                               </>
@@ -463,279 +654,205 @@ export default function ReportViewerPage() {
                             )}
                           </button>
                         </div>
-                        <p className="text-sm p-2 rounded bg-success/5 text-foreground">
-                          {page.recommendedMeta}
-                        </p>
+                        <pre className="rounded-lg bg-foreground/[0.03] border p-4 overflow-x-auto text-xs font-mono">
+                          {page.generated_schema_code}
+                        </pre>
                       </div>
-                    </div>
+                    )}
                   </div>
                 )}
               </CardContent>
             </Card>
           ))}
+
+          {pages.length === 0 && (
+            <Card>
+              <CardContent className="py-16 text-center">
+                <p className="text-sm text-muted-foreground">
+                  No page audit data available.
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
+      {/* Schema Tab */}
       {activeTab === "schema" && (
         <div className="space-y-4">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Generated Schema Code</CardTitle>
-                <Button variant="outline" size="sm">
-                  <Download className="h-3.5 w-3.5" />
-                  Download All (.zip)
-                </Button>
+                <a href={`/api/jobs/${jobId}/download?format=schema`}>
+                  <Button variant="outline" size="sm">
+                    <Download className="h-3.5 w-3.5" />
+                    Download All (.zip)
+                  </Button>
+                </a>
               </div>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-6">
-                Ready-to-paste JSON-LD structured data for each page. Copy
-                individual blocks or download the complete package.
+                Ready-to-paste JSON-LD structured data for each page.
               </p>
-
-              {[
-                {
-                  page: "Homepage",
-                  types: ["LocalBusiness", "WebSite"],
-                  code: `{
-  "@context": "https://schema.org",
-  "@type": "LocalBusiness",
-  "name": "Blue Lagoon Pools",
-  "description": "Houston's trusted pool builder since 2005.",
-  "url": "https://bluelagoonpools.com",
-  "telephone": "(713) 555-0123",
-  "address": {
-    "@type": "PostalAddress",
-    "streetAddress": "123 Pool Lane",
-    "addressLocality": "Houston",
-    "addressRegion": "TX",
-    "postalCode": "77001"
-  },
-  "geo": {
-    "@type": "GeoCoordinates",
-    "latitude": 29.7604,
-    "longitude": -95.3698
-  },
-  "aggregateRating": {
-    "@type": "AggregateRating",
-    "ratingValue": "4.8",
-    "reviewCount": "127"
-  }
-}`,
-                },
-                {
-                  page: "Pool Construction",
-                  types: ["Service", "FAQPage"],
-                  code: `{
-  "@context": "https://schema.org",
-  "@type": "Service",
-  "name": "Custom Pool Construction",
-  "description": "Expert inground pool construction in Houston, TX.",
-  "provider": {
-    "@type": "LocalBusiness",
-    "name": "Blue Lagoon Pools"
-  },
-  "areaServed": {
-    "@type": "City",
-    "name": "Houston"
-  },
-  "serviceType": "Pool Construction"
-}`,
-                },
-              ].map((schema) => (
-                <div key={schema.page} className="mb-6 last:mb-0">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-semibold">
-                        {schema.page}
-                      </h4>
-                      {schema.types.map((t) => (
-                        <Badge key={t} variant="secondary">
-                          {t}
-                        </Badge>
-                      ))}
+              {pages.filter((p) => p.generated_schema_code).length > 0 ? (
+                pages
+                  .filter((p) => p.generated_schema_code)
+                  .map((page) => (
+                    <div key={page.id} className="mb-6 last:mb-0">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-semibold">
+                          {page.page_url}
+                        </h4>
+                        <button
+                          onClick={() =>
+                            handleCopy(
+                              page.generated_schema_code!,
+                              `schema-tab-${page.id}`
+                            )
+                          }
+                          className="text-xs text-primary hover:underline flex items-center gap-1"
+                        >
+                          {copied === `schema-tab-${page.id}` ? (
+                            <>
+                              <Check className="h-3 w-3" /> Copied
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3 w-3" /> Copy
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      <pre className="rounded-lg bg-foreground/[0.03] border p-4 overflow-x-auto text-xs font-mono">
+                        {page.generated_schema_code}
+                      </pre>
                     </div>
-                    <button
-                      onClick={() =>
-                        handleCopy(schema.code, `schema-${schema.page}`)
-                      }
-                      className="text-xs text-primary hover:underline flex items-center gap-1"
-                    >
-                      {copied === `schema-${schema.page}` ? (
-                        <>
-                          <Check className="h-3 w-3" /> Copied
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-3 w-3" /> Copy
-                        </>
-                      )}
-                    </button>
-                  </div>
-                  <pre className="rounded-lg bg-foreground/[0.03] border p-4 overflow-x-auto text-xs font-mono text-foreground">
-                    {schema.code}
-                  </pre>
-                </div>
-              ))}
+                  ))
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  No schema code generated yet.
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
       )}
 
+      {/* Technical Tab */}
+      {activeTab === "technical" &&
+        renderJsonSection(
+          job.technical_audit as Record<string, unknown> | null,
+          "Technical Audit"
+        )}
+
+      {/* Off-Page Tab */}
+      {activeTab === "offpage" && (
+        <div className="space-y-6">
+          {renderJsonSection(
+            job.offpage_strategy as Record<string, unknown> | null,
+            "Off-Page Strategy"
+          )}
+
+          {job.link_opportunities.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Link Opportunities</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {job.link_opportunities.map((link, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                    >
+                      <div>
+                        <p className="text-sm font-medium">
+                          {(link.target_domain as string) ||
+                            (link.target_url as string)}
+                        </p>
+                        {typeof link.outreach_approach === "string" && link.outreach_approach && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {link.outreach_approach}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">
+                          {link.opportunity_type as string}
+                        </Badge>
+                        <Badge
+                          variant={
+                            link.priority === "high"
+                              ? "destructive"
+                              : "secondary"
+                          }
+                        >
+                          {link.priority as string}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {job.citation_tasks.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Citation Tasks</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {job.citation_tasks.map((task, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                    >
+                      <div>
+                        <p className="text-sm font-medium">
+                          {task.directory_name as string}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {task.action_needed as string}
+                        </p>
+                      </div>
+                      <Badge variant="secondary">
+                        {task.current_status as string}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Roadmap Tab */}
       {activeTab === "roadmap" && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Implementation Roadmap</CardTitle>
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div />
+            <a href={`/api/jobs/${jobId}/download?format=csv`}>
               <Button variant="outline" size="sm">
                 <Download className="h-3.5 w-3.5" />
                 Export CSV
               </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-8">
-              {[
-                {
-                  phase: "Foundation",
-                  weeks: "Weeks 1-2",
-                  tasks: [
-                    {
-                      task: "Fix robots.txt to allow AI crawlers",
-                      priority: "Critical",
-                      role: "Developer",
-                    },
-                    {
-                      task: "Claim and optimize GBP listing",
-                      priority: "Critical",
-                      role: "SEO Manager",
-                    },
-                    {
-                      task: "Add missing title tags and meta descriptions",
-                      priority: "High",
-                      role: "Content Writer",
-                    },
-                    {
-                      task: "Implement site-wide schema markup",
-                      priority: "High",
-                      role: "Developer",
-                    },
-                  ],
-                },
-                {
-                  phase: "Content Sprint",
-                  weeks: "Weeks 3-6",
-                  tasks: [
-                    {
-                      task: "Add answer blocks to all service pages",
-                      priority: "High",
-                      role: "Content Writer",
-                    },
-                    {
-                      task: "Write FAQ sections (5+ Q&As per page)",
-                      priority: "High",
-                      role: "Content Writer",
-                    },
-                    {
-                      task: "Expand thin pages to 1,500+ words",
-                      priority: "Medium",
-                      role: "Content Writer",
-                    },
-                    {
-                      task: "Build pillar content cluster pages",
-                      priority: "Medium",
-                      role: "Content Strategist",
-                    },
-                  ],
-                },
-                {
-                  phase: "Authority Building",
-                  weeks: "Weeks 7-12",
-                  tasks: [
-                    {
-                      task: "Execute link building outreach",
-                      priority: "Medium",
-                      role: "SEO Manager",
-                    },
-                    {
-                      task: "Submit to local directories",
-                      priority: "Medium",
-                      role: "SEO Manager",
-                    },
-                    {
-                      task: "Launch review generation campaign",
-                      priority: "High",
-                      role: "Account Manager",
-                    },
-                    {
-                      task: "Publish 4-6 new blog posts",
-                      priority: "Medium",
-                      role: "Content Writer",
-                    },
-                  ],
-                },
-              ].map((phase) => (
-                <div key={phase.phase}>
-                  <div className="flex items-center gap-3 mb-4">
-                    <h3 className="text-base font-semibold">
-                      {phase.phase}
-                    </h3>
-                    <Badge variant="secondary">{phase.weeks}</Badge>
-                  </div>
-                  <div className="space-y-2">
-                    {phase.tasks.map((task, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="h-2 w-2 rounded-full bg-muted-foreground/30" />
-                          <span className="text-sm">{task.task}</span>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Badge
-                            variant={
-                              task.priority === "Critical"
-                                ? "destructive"
-                                : task.priority === "High"
-                                ? "warning"
-                                : "secondary"
-                            }
-                          >
-                            {task.priority}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground hidden sm:inline">
-                            {task.role}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+            </a>
+          </div>
+          {renderJsonSection(roadmap, "Roadmap")}
+        </div>
       )}
 
-      {/* Placeholder for other tabs */}
-      {!["summary", "pages", "schema", "roadmap"].includes(activeTab) && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted mb-4">
-              <FileText className="h-7 w-7 text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-semibold text-foreground">
-              {tabs.find((t) => t.id === activeTab)?.label}
-            </h3>
-            <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-              This section will be populated with data from the AI pipeline
-              once connected to Supabase.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      {/* Measurement Tab */}
+      {activeTab === "measurement" &&
+        renderJsonSection(
+          job.measurement_framework as Record<string, unknown> | null,
+          "Measurement Framework"
+        )}
     </div>
   );
 }

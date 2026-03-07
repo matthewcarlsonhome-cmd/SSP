@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -10,62 +12,77 @@ import {
   PlusCircle,
   Eye,
   Download,
-  RotateCcw,
-  ArrowRight,
-  ExternalLink,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 
-const client = {
-  id: "1",
-  name: "Blue Lagoon Pools",
-  website: "https://bluelagoonpools.com",
-  businessType: "Pool construction & renovation",
-  industry: "Home Services",
-  location: "Houston, TX",
-  primaryGoal: "Leads",
-  gbpUrl: "https://g.page/bluelagoonpools",
-  reviewCount: 127,
-  avgRating: 4.8,
-  cmsPlatform: "WordPress",
-  notes: "Long-time SSP client. Very engaged owner.",
-  createdAt: "2026-01-15",
+type ClientData = {
+  id: string;
+  name: string;
+  website_url: string;
+  business_type: string | null;
+  industry: string | null;
+  target_geography: string | null;
+  primary_goal: string | null;
+  gbp_url: string | null;
+  gbp_review_count: number | null;
+  gbp_average_rating: number | null;
+  cms_platform: string | null;
+  notes: string | null;
+  created_at: string;
+  audits: Array<{
+    id: string;
+    status: string;
+    created_at: string;
+    completed_at: string | null;
+    total_pages_audited: number | null;
+    estimated_cost: number | null;
+  }>;
 };
 
-const auditHistory = [
-  {
-    id: "audit-3",
-    date: "2026-03-06",
-    status: "completed",
-    score: 34,
-    projectedScore: 82,
-    pages: 12,
-    cost: 2.15,
-  },
-  {
-    id: "audit-2",
-    date: "2026-02-15",
-    status: "completed",
-    score: 31,
-    projectedScore: 78,
-    pages: 10,
-    cost: 1.85,
-  },
-  {
-    id: "audit-1",
-    date: "2026-01-20",
-    status: "completed",
-    score: 28,
-    projectedScore: 75,
-    pages: 8,
-    cost: 1.55,
-  },
-];
-
 export default function ClientProfilePage() {
+  const params = useParams();
+  const clientId = params.id as string;
+  const [client, setClient] = useState<ClientData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/clients/${clientId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.id) setClient(data);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [clientId]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!client) {
+    return (
+      <div className="max-w-4xl mx-auto py-20 text-center">
+        <h2 className="text-xl font-semibold">Client not found</h2>
+        <Link href="/clients" className="mt-4 inline-block">
+          <Button variant="outline">Back to Clients</Button>
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       {/* Header */}
@@ -85,12 +102,14 @@ export default function ClientProfilePage() {
             <div className="flex items-center gap-3 mt-2 text-muted-foreground">
               <span className="flex items-center gap-1 text-sm">
                 <Globe className="h-4 w-4" />
-                {client.website.replace("https://", "")}
+                {client.website_url.replace(/^https?:\/\//, "")}
               </span>
-              <span className="flex items-center gap-1 text-sm">
-                <MapPin className="h-4 w-4" />
-                {client.location}
-              </span>
+              {client.target_geography && (
+                <span className="flex items-center gap-1 text-sm">
+                  <MapPin className="h-4 w-4" />
+                  {client.target_geography}
+                </span>
+              )}
             </div>
           </div>
           <Link href="/audits/new">
@@ -104,99 +123,153 @@ export default function ClientProfilePage() {
 
       {/* Client details grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardContent className="p-5">
-            <p className="text-xs font-medium text-muted-foreground">
-              Industry
-            </p>
-            <p className="mt-1 font-semibold">{client.industry}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <p className="text-xs font-medium text-muted-foreground">
-              Primary Goal
-            </p>
-            <p className="mt-1 font-semibold">{client.primaryGoal}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <p className="text-xs font-medium text-muted-foreground">
-              GBP Rating
-            </p>
-            <div className="flex items-center gap-1.5 mt-1">
-              <Star className="h-4 w-4 text-warning fill-warning" />
-              <span className="font-semibold">{client.avgRating}</span>
-              <span className="text-sm text-muted-foreground">
-                ({client.reviewCount} reviews)
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <p className="text-xs font-medium text-muted-foreground">
-              CMS Platform
-            </p>
-            <p className="mt-1 font-semibold">{client.cmsPlatform}</p>
-          </CardContent>
-        </Card>
+        {client.industry && (
+          <Card>
+            <CardContent className="p-5">
+              <p className="text-xs font-medium text-muted-foreground">
+                Industry
+              </p>
+              <p className="mt-1 font-semibold">{client.industry}</p>
+            </CardContent>
+          </Card>
+        )}
+        {client.primary_goal && (
+          <Card>
+            <CardContent className="p-5">
+              <p className="text-xs font-medium text-muted-foreground">
+                Primary Goal
+              </p>
+              <p className="mt-1 font-semibold">{client.primary_goal}</p>
+            </CardContent>
+          </Card>
+        )}
+        {client.gbp_average_rating && (
+          <Card>
+            <CardContent className="p-5">
+              <p className="text-xs font-medium text-muted-foreground">
+                GBP Rating
+              </p>
+              <div className="flex items-center gap-1.5 mt-1">
+                <Star className="h-4 w-4 text-warning fill-warning" />
+                <span className="font-semibold">
+                  {client.gbp_average_rating}
+                </span>
+                {client.gbp_review_count && (
+                  <span className="text-sm text-muted-foreground">
+                    ({client.gbp_review_count} reviews)
+                  </span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {client.cms_platform && (
+          <Card>
+            <CardContent className="p-5">
+              <p className="text-xs font-medium text-muted-foreground">
+                CMS Platform
+              </p>
+              <p className="mt-1 font-semibold">{client.cms_platform}</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Audit History */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Audit History</h2>
-        <div className="space-y-3">
-          {auditHistory.map((audit) => (
-            <Card key={audit.id} className="transition-shadow hover:shadow-md">
-              <CardContent className="p-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-semibold text-sm">
-                          {formatDate(audit.date)}
-                        </span>
-                        <Badge variant="success">Completed</Badge>
-                      </div>
-                      <div className="flex items-center gap-3 mt-1.5 text-sm">
-                        <span className="text-muted-foreground">
-                          {audit.pages} pages
-                        </span>
-                        <span className="text-muted-foreground">
-                          ${audit.cost.toFixed(2)} cost
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <span className="font-semibold text-destructive">
-                            {audit.score}
+        {client.audits.length > 0 ? (
+          <div className="space-y-3">
+            {client.audits.map((audit) => (
+              <Card
+                key={audit.id}
+                className="transition-shadow hover:shadow-md"
+              >
+                <CardContent className="p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-semibold text-sm">
+                            {formatDate(audit.created_at)}
                           </span>
-                          <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                          <span className="font-semibold text-success">
-                            {audit.projectedScore}
-                          </span>
-                        </span>
+                          <Badge
+                            variant={
+                              audit.status === "completed"
+                                ? "success"
+                                : audit.status === "failed"
+                                ? "destructive"
+                                : "default"
+                            }
+                          >
+                            {audit.status === "completed"
+                              ? "Completed"
+                              : audit.status === "failed"
+                              ? "Failed"
+                              : "Running"}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-3 mt-1.5 text-sm text-muted-foreground">
+                          {audit.total_pages_audited && (
+                            <span>{audit.total_pages_audited} pages</span>
+                          )}
+                          {audit.estimated_cost && (
+                            <span>
+                              ${audit.estimated_cost.toFixed(2)} cost
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2">
+                      {audit.status === "completed" && (
+                        <>
+                          <Link href={`/audits/${audit.id}/report`}>
+                            <Button variant="outline" size="sm">
+                              <Eye className="h-3.5 w-3.5" />
+                              View
+                            </Button>
+                          </Link>
+                          <a
+                            href={`/api/jobs/${audit.id}/download?format=docx`}
+                          >
+                            <Button variant="outline" size="sm">
+                              <Download className="h-3.5 w-3.5" />
+                              Download
+                            </Button>
+                          </a>
+                        </>
+                      )}
+                      {audit.status !== "completed" &&
+                        audit.status !== "failed" && (
+                          <Link href={`/audits/${audit.id}`}>
+                            <Button variant="outline" size="sm">
+                              View Progress
+                            </Button>
+                          </Link>
+                        )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Link href={`/audits/${audit.id}/report`}>
-                      <Button variant="outline" size="sm">
-                        <Eye className="h-3.5 w-3.5" />
-                        View
-                      </Button>
-                    </Link>
-                    <Button variant="outline" size="sm">
-                      <Download className="h-3.5 w-3.5" />
-                      Download
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card className="border-dashed">
+            <CardContent className="py-12 text-center">
+              <p className="text-sm text-muted-foreground">
+                No audits have been run for this client yet.
+              </p>
+              <Link href="/audits/new" className="mt-4 inline-block">
+                <Button size="sm">
+                  <PlusCircle className="h-4 w-4" />
+                  Run First Audit
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Notes */}
