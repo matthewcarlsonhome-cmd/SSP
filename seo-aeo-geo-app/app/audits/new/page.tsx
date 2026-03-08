@@ -15,6 +15,10 @@ import {
   BarChart3,
   MessageSquare,
   Settings,
+  Wand2,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,6 +106,79 @@ function NewAuditPage() {
   const [painPoints, setPainPoints] = useState("");
   const [previousSeo, setPreviousSeo] = useState("");
   const [budget, setBudget] = useState("");
+
+  // Auto-populate state
+  const [isAutoPopulating, setIsAutoPopulating] = useState(false);
+  const [autoPopulateStatus, setAutoPopulateStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [autoPopulateError, setAutoPopulateError] = useState("");
+
+  const handleAutoPopulate = async () => {
+    if (!websiteUrl) return;
+    setIsAutoPopulating(true);
+    setAutoPopulateStatus("loading");
+    setAutoPopulateError("");
+
+    try {
+      const res = await fetch("/api/autopopulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: websiteUrl }),
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to research business");
+      }
+
+      const data = await res.json();
+
+      // Populate all fields from the response
+      if (data.client_name) setClientName(data.client_name);
+      if (data.business_type) setBusinessType(data.business_type);
+      if (data.industry) setIndustry(data.industry);
+      if (data.target_geography) setTargetGeography(data.target_geography);
+      if (data.primary_goal) setPrimaryGoal(data.primary_goal);
+      if (data.cms_platform) setCmsPlatform(data.cms_platform);
+      if (data.pain_points) setPainPoints(data.pain_points);
+
+      if (data.competitors?.length) {
+        setCompetitors(
+          data.competitors.map((c: { url: string; name: string }) => ({
+            url: c.url || "",
+            name: c.name || "",
+          }))
+        );
+      }
+
+      if (data.keywords?.length) {
+        setKeywords(
+          data.keywords.map((k: { keyword: string; priority: string }) => ({
+            keyword: k.keyword || "",
+            priority: k.priority || "medium",
+            currentRanking: "",
+          }))
+        );
+      }
+
+      if (data.gbp) {
+        if (data.gbp.claimed) setGbpClaimed(data.gbp.claimed);
+        if (data.gbp.url) setGbpUrl(data.gbp.url);
+        if (data.gbp.reviewCount) setReviewCount(data.gbp.reviewCount);
+        if (data.gbp.avgRating) setAvgRating(data.gbp.avgRating);
+      }
+
+      setAutoPopulateStatus("success");
+      // Reset success indicator after 5 seconds
+      setTimeout(() => setAutoPopulateStatus("idle"), 5000);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      setAutoPopulateError(msg);
+      setAutoPopulateStatus("error");
+    } finally {
+      setIsAutoPopulating(false);
+    }
+  };
 
   // Pre-fill form when re-running a previous audit
   useEffect(() => {
@@ -308,11 +385,62 @@ function NewAuditPage() {
                     placeholder="https://example.com"
                     type="url"
                     value={websiteUrl}
-                    onChange={(e) => setWebsiteUrl(e.target.value)}
+                    onChange={(e) => {
+                      setWebsiteUrl(e.target.value);
+                      // Reset auto-populate status when URL changes
+                      if (autoPopulateStatus !== "idle") setAutoPopulateStatus("idle");
+                    }}
                     required
                   />
                 </div>
               </div>
+
+              {/* Auto-populate button */}
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground">
+                    Auto-fill from website
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Uses AI to research the business and fill in all fields automatically
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant={autoPopulateStatus === "success" ? "outline" : "default"}
+                  size="sm"
+                  onClick={handleAutoPopulate}
+                  disabled={!websiteUrl || isAutoPopulating}
+                  className="shrink-0"
+                >
+                  {isAutoPopulating ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Researching...
+                    </>
+                  ) : autoPopulateStatus === "success" ? (
+                    <>
+                      <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+                      Filled
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="h-3.5 w-3.5" />
+                      Auto-fill
+                    </>
+                  )}
+                </Button>
+              </div>
+              {autoPopulateStatus === "error" && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                  <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-destructive">Auto-fill failed</p>
+                    <p className="text-xs text-destructive/80 mt-0.5">{autoPopulateError}</p>
+                    <p className="text-xs text-muted-foreground mt-1">You can still fill in the fields manually.</p>
+                  </div>
+                </div>
+              )}
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2">
