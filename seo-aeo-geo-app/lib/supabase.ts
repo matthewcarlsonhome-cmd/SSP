@@ -67,6 +67,37 @@ export type Client = {
   updated_at: string;
 };
 
+/**
+ * Mark any jobs stuck in non-terminal states as failed.
+ * Called once on first dashboard load to clean up after server restarts.
+ */
+let _staleJobsCleanedUp = false;
+export async function cleanupStaleJobs() {
+  if (_staleJobsCleanedUp) return;
+  _staleJobsCleanedUp = true;
+
+  const supabase = getServiceClient();
+  const staleStatuses = ["pending", "crawling", "analyzing_competitors", "optimizing_pages", "generating_report"];
+
+  // Mark any non-terminal jobs older than 10 minutes as failed
+  const cutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+
+  const { data, error } = await supabase
+    .from("audit_jobs")
+    .update({
+      status: "failed",
+      error_message: "Pipeline interrupted — server was restarted. Please re-run this audit.",
+      completed_at: new Date().toISOString(),
+    })
+    .in("status", staleStatuses)
+    .lt("created_at", cutoff)
+    .select("id");
+
+  if (!error && data?.length) {
+    console.log(`[cleanup] Marked ${data.length} stale job(s) as failed: ${data.map(j => j.id).join(", ")}`);
+  }
+}
+
 export type PageAudit = {
   id: string;
   job_id: string;

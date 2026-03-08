@@ -13,6 +13,8 @@ import {
   Eye,
   Download,
   Loader2,
+  Trash2,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,6 +55,22 @@ export default function ClientProfilePage() {
   const clientId = params.id as string;
   const [client, setClient] = useState<ClientData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDeleteAudit = async (auditId: string) => {
+    if (!confirm("Delete this audit? This cannot be undone.")) return;
+    setDeletingId(auditId);
+    try {
+      const res = await fetch(`/api/jobs/${auditId}`, { method: "DELETE" });
+      if (res.ok && client) {
+        setClient({
+          ...client,
+          audits: client.audits.filter((a) => a.id !== auditId),
+        });
+      }
+    } catch { /* ignore */ }
+    setDeletingId(null);
+  };
 
   useEffect(() => {
     fetch(`/api/clients/${clientId}`, { cache: "no-store" })
@@ -249,6 +267,23 @@ export default function ClientProfilePage() {
                             </Button>
                           </Link>
                         )}
+                      {(audit.status === "completed" || audit.status === "failed") && (
+                        <Link href={`/audits/new?rerun=${audit.id}`}>
+                          <Button variant="outline" size="sm">
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Re-run
+                          </Button>
+                        </Link>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteAudit(audit.id)}
+                        disabled={deletingId === audit.id}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </div>
                 </CardContent>

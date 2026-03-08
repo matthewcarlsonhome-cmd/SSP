@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Upload,
   Plus,
@@ -62,10 +62,21 @@ const PRIMARY_GOALS = [
 type Competitor = { url: string; name: string };
 type Keyword = { keyword: string; priority: string; currentRanking: string };
 
-export default function NewAuditPage() {
+export default function NewAuditPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>}>
+      <NewAuditPage />
+    </Suspense>
+  );
+}
+
+function NewAuditPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rerunJobId = searchParams.get("rerun");
   const [mode, setMode] = useState<"form" | "upload">("form");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRerun, setIsRerun] = useState(false);
 
   // Form state
   const [clientName, setClientName] = useState("");
@@ -91,6 +102,50 @@ export default function NewAuditPage() {
   const [painPoints, setPainPoints] = useState("");
   const [previousSeo, setPreviousSeo] = useState("");
   const [budget, setBudget] = useState("");
+
+  // Pre-fill form when re-running a previous audit
+  useEffect(() => {
+    if (!rerunJobId) return;
+    fetch(`/api/jobs/${rerunJobId}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => {
+        const brief = data.input_brief;
+        if (!brief) return;
+        setIsRerun(true);
+        setClientName(brief.client_name || "");
+        setWebsiteUrl(brief.website_url || "");
+        setBusinessType(brief.business_type || "");
+        setIndustry(brief.industry || "");
+        setTargetGeography(brief.target_geography || "");
+        setPrimaryGoal(brief.primary_goal || "");
+        if (brief.competitors?.length) {
+          setCompetitors(brief.competitors.map((c: Competitor) => ({ url: c.url || "", name: c.name || "" })));
+        }
+        if (brief.keywords?.length) {
+          setKeywords(brief.keywords.map((k: Keyword) => ({
+            keyword: k.keyword || "",
+            priority: k.priority || "medium",
+            currentRanking: k.currentRanking || "",
+          })));
+        }
+        if (brief.gbp) {
+          setGbpClaimed(brief.gbp.claimed || "");
+          setGbpUrl(brief.gbp.url || "");
+          setReviewCount(brief.gbp.reviewCount || "");
+          setAvgRating(brief.gbp.avgRating || "");
+        }
+        if (brief.analytics) {
+          setMonthlyTraffic(brief.analytics.monthlyTraffic || "");
+          setConversionRate(brief.analytics.conversionRate || "");
+          setTopLandingPages(brief.analytics.topLandingPages || "");
+        }
+        setCmsPlatform(brief.cms_platform || "");
+        setPainPoints(brief.pain_points || "");
+        setPreviousSeo(brief.previous_seo || "");
+        setBudget(brief.budget || "");
+      })
+      .catch(() => {});
+  }, [rerunJobId]);
 
   const addCompetitor = () =>
     setCompetitors([...competitors, { url: "", name: "" }]);
@@ -158,10 +213,13 @@ export default function NewAuditPage() {
           <ArrowLeft className="h-4 w-4" />
           Back to Dashboard
         </Link>
-        <h1 className="text-3xl font-bold tracking-tight">New Client Audit</h1>
+        <h1 className="text-3xl font-bold tracking-tight">
+          {isRerun ? "Re-run Client Audit" : "New Client Audit"}
+        </h1>
         <p className="mt-2 text-muted-foreground max-w-xl">
-          Enter your client&apos;s details below or upload a brief document. The
-          AI pipeline will generate a complete optimization package.
+          {isRerun
+            ? "Review and update the details below, then re-run the audit to track changes over time."
+            : "Enter your client\u2019s details below or upload a brief document. The AI pipeline will generate a complete optimization package."}
         </p>
       </div>
 
@@ -654,7 +712,7 @@ export default function NewAuditPage() {
               ) : (
                 <>
                   <Rocket className="h-5 w-5" />
-                  Run Audit
+                  {isRerun ? "Re-run Audit" : "Run Audit"}
                 </>
               )}
             </Button>
