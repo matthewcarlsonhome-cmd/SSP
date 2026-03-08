@@ -48,7 +48,7 @@ API Layer (Next.js API Routes)
 ├── POST/GET /api/jobs — create/list audit jobs
 ├── GET /api/jobs/[id] — job detail with relational data
 ├── DELETE /api/jobs/[id] — delete with cascade
-├── GET /api/jobs/[id]/download — DOCX, CSV, ZIP downloads
+├── GET /api/jobs/[id]/download — DOCX, Markdown, CSV (roadmap/links/citations), Schema ZIP
 ├── POST /api/pipeline/run — trigger async pipeline
 ├── POST /api/parse-upload — document parsing via Claude
 ├── GET/POST /api/clients — client CRUD
@@ -104,6 +104,15 @@ The pipeline runs 4 agents sequentially, each building on the output of the prev
 - **Output:** `offpage_strategy`, `roadmap`, `measurement_framework`, `technical_audit`
 - **Key behavior:** Synthesizes all prior data into GBP plan, review strategy, link building, roadmap
 
+### Agent 5: Report Formatter
+- **Model:** MODEL_DEEP (use Sonnet for production — this is the client-facing output)
+- **Web searches:** None
+- **Max tokens:** 32,000
+- **Output:** `formatted_report` — polished Markdown with narrative prose, tables, step-by-step implementation checklists
+- **Key behavior:** Takes raw JSON from all prior agents and transforms it into a professional, readable report
+- **Non-fatal:** If Agent 5 fails, the pipeline still completes — raw data is available via the structured report viewer tabs
+- **Why it exists:** Eliminates the "run raw output through a separate Claude session" step. Agent 5 produces the polished report automatically.
+
 ### Pipeline Timing Constants
 ```
 BATCH_SIZE = 5 pages
@@ -116,19 +125,19 @@ INTER_AGENT_DELAY = 10s
 ### Model Configuration
 ```typescript
 // In lib/agents/pipeline.ts — change these for production vs. testing
-const MODEL_DEEP = "claude-haiku-4-5-20251001";   // For agents 1, 2, 4
+const MODEL_DEEP = "claude-haiku-4-5-20251001";   // For agents 1, 2, 4, 5
 const MODEL_BATCH = "claude-haiku-4-5-20251001";  // For agent 3 batches
 
 // Production settings (higher quality, higher cost):
-// MODEL_DEEP = "claude-sonnet-4-20250514"
-// MODEL_BATCH = "claude-haiku-4-5-20251001"  (keep Haiku for batches to spread rate limit load)
+// MODEL_DEEP = "claude-sonnet-4-20250514"       // CRITICAL for Agent 5 report quality
+// MODEL_BATCH = "claude-haiku-4-5-20251001"     // Keep Haiku for batches to spread rate limit load
 ```
 
 ---
 
 ## 5. Database Schema
 
-**10 tables** across 2 migrations:
+**10 tables** across 3 migrations:
 
 | Table | Purpose |
 |-------|---------|
@@ -188,20 +197,22 @@ seo-aeo-geo-app/
 │   ├── utils.ts                            # cn() utility
 │   ├── agents/
 │   │   ├── pipeline.ts                     # Pipeline orchestration engine
-│   │   ├── prompts.ts                      # All agent prompts + message builders
+│   │   ├── prompts.ts                      # All 5 agent prompts + message builders
 │   │   └── schemas.ts                      # Zod output validation schemas
 │   ├── reports/
 │   │   ├── docx-generator.ts               # Word report builder
+│   │   ├── markdown-generator.ts           # Markdown report (Agent 5 or fallback)
 │   │   ├── pdf-generator.ts                # PDF summary builder
-│   │   ├── schema-packager.ts              # JSON-LD ZIP builder
-│   │   └── roadmap-csv.ts                  # CSV roadmap builder
+│   │   ├── schema-packager.ts              # JSON-LD ZIP with CMS instructions
+│   │   └── roadmap-csv.ts                  # CSV exports (roadmap, links, citations)
 │   └── utils/
 │       ├── scoring.ts                      # Health score calculator
 │       └── validators.ts                   # Input validation
 ├── supabase/
 │   └── migrations/
 │       ├── 001_initial_schema.sql          # Core 9 tables + RLS + indexes
-│       └── 002_audit_logs.sql              # audit_logs table
+│       ├── 002_audit_logs.sql              # audit_logs table
+│       └── 003_formatted_report.sql        # formatted_report TEXT column on audit_jobs
 ├── skill/
 │   └── references/schema-templates.md      # JSON-LD schema templates
 ├── package.json
@@ -293,6 +304,17 @@ ANTHROPIC_API_KEY=your-anthropic-api-key
 **Commit:** `0924172` — "Add detailed API request/response logging"
 **Location:** `lib/claude.ts:37-167`
 
+### Problem 9: Unformatted, Unusable Raw Output
+**Symptom:** Report viewer displayed huge unformatted blocks of JSON data. Users had to copy raw output into a separate Claude Opus session to get a polished report.
+**Root cause:** No formatting layer existed between raw JSON agent output and the UI. The `renderJsonSection()` helper was doing `JSON.stringify()` on nested objects.
+**Solution (multi-part):**
+1. Added **Agent 5 (Report Formatter)** — transforms raw JSON from all 4 agents into polished Markdown with narrative prose, tables, and step-by-step implementation guides
+2. Added **markdown-generator.ts** — code-generated fallback if Agent 5 fails, ensuring reports are always formatted
+3. **Rebuilt the entire report viewer** — replaced generic JSON dumper with structured components: per-page implementation checklists (Steps 1-9), character count validation, schema code blocks with copy buttons, proper tables for all data
+4. Added **Schema code with `<script>` wrappers** and CMS-specific installation instructions (WordPress, Shopify, Squarespace, Wix)
+5. Added **Markdown export** as a download format
+**Key files:** `lib/agents/prompts.ts` (Agent 5 prompt), `lib/agents/pipeline.ts` (Agent 5 execution), `lib/reports/markdown-generator.ts`, `lib/reports/schema-packager.ts`, `app/audits/[id]/report/page.tsx`
+
 ---
 
 ## 9. Key Design Decisions & Rationale
@@ -320,15 +342,18 @@ Next.js App Router aggressively caches by default. For a data-driven app where e
 ## 10. Current State & Known Limitations
 
 ### Working
-- Full 4-agent pipeline executes end-to-end
+- Full 5-agent pipeline executes end-to-end (Agent 5 = Report Formatter)
 - Dashboard with audit list, stats, delete, re-run
 - Client brief intake form (direct entry mode)
 - Real-time progress tracking with polling
-- 8-tab interactive report viewer
+- 8-tab interactive report viewer with "Full Report" Markdown tab
+- Per-page implementation checklists (Steps 1-9) with character count validation
 - Client management (list, detail, search)
 - DOCX report generation
-- CSV roadmap export
-- Schema code ZIP packaging
+- Markdown report generation (Agent 5 polished or code-generated fallback)
+- CSV exports: roadmap, link opportunities, citation tasks
+- Schema code ZIP with `<script>` wrappers + CMS-specific installation instructions
+- Copy buttons on schema code blocks
 - Stale job cleanup on dashboard load
 - Truncated JSON auto-repair
 - Comprehensive API logging
@@ -397,7 +422,8 @@ const MODEL_BATCH = "claude-haiku-4-5-20251001";
 7. **Inter-agent delays** (10s) and inter-batch delays (5s) are required to avoid rate limiting
 8. **Truncated JSON** is expected — the repair function in `lib/claude.ts` handles it, but agents with large outputs need sufficient `maxTokens`
 9. **New database tables** need: RLS policy, index on foreign keys, and addition to `supabase_realtime` publication if polling/subscriptions are needed
-10. **The pipeline runs in-process** (not in a background worker). Long-running audits tie up a server process. If the server restarts, the job is abandoned and `cleanupStaleJobs()` marks it failed on next dashboard load.
+10. **Agent 5 (Report Formatter)** must use MODEL_DEEP (Sonnet in production) — it produces the client-facing output. Haiku produces noticeably lower quality reports.
+11. **The pipeline runs in-process** (not in a background worker). Long-running audits tie up a server process. If the server restarts, the job is abandoned and `cleanupStaleJobs()` marks it failed on next dashboard load.
 
 ---
 
@@ -418,6 +444,7 @@ const MODEL_BATCH = "claude-haiku-4-5-20251001";
 | Mar 8 | `0924172` | Add detailed API request/response logging |
 | Mar 8 | `92d0f97` | Switch all agents to Haiku for cheap testing |
 | Mar 8 | `fa910af` | Fix truncated JSON — repair function, increase max_tokens, polling replaces realtime |
+| Mar 8 | — | Agent 5 report formatter, schema packager rewrite, Markdown export, rebuilt report viewer, character count validation |
 
 ---
 

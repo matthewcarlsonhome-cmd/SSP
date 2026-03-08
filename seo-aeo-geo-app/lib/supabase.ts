@@ -35,6 +35,7 @@ export type AuditJob = {
   offpage_strategy: Record<string, unknown> | null;
   roadmap: Record<string, unknown> | null;
   measurement_framework: Record<string, unknown> | null;
+  formatted_report: string | null;
   report_docx_path: string | null;
   report_pdf_path: string | null;
   schema_zip_path: string | null;
