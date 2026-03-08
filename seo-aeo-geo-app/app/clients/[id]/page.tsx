@@ -55,7 +55,7 @@ export default function ClientProfilePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/clients/${clientId}`)
+    fetch(`/api/clients/${clientId}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         if (data.id) setClient(data);
