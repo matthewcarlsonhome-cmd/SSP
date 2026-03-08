@@ -17,9 +17,10 @@ import {
 } from "./prompts";
 
 const BATCH_SIZE = 5;
-const AGENT_TIMEOUT_MS = 120_000; // 2 minutes per agent call
-const BATCH_TIMEOUT_MS = 90_000; // 90 seconds per batch
+const AGENT_TIMEOUT_MS = 600_000; // 10 minutes — rate limit waits can be 5min+
+const BATCH_TIMEOUT_MS = 300_000; // 5 minutes per batch
 const INTER_BATCH_DELAY_MS = 5_000; // delay between batches to avoid rate limits
+const INTER_AGENT_DELAY_MS = 10_000; // delay between agents to avoid rate limits
 
 // Use Haiku for high-volume batch work, Sonnet for deep analysis
 const MODEL_DEEP = "claude-sonnet-4-20250514";
@@ -35,6 +36,7 @@ type AgentConfig = {
   model?: string;
   maxTokens?: number;
   useWebSearch?: boolean;
+  maxWebSearches?: number;
 };
 
 async function updateJob(
@@ -102,8 +104,14 @@ async function runAgentWithRetry(
         messages: [{ role: "user", content: userMessage }],
       };
       // Only include web_search when the agent actually needs it (Agents 1, 2, 4)
+      // Use max_uses to cap how many searches each agent can make to control token usage
       if (config.useWebSearch !== false) {
-        claudeOptions.tools = [{ type: "web_search_20250305", name: "web_search" }];
+        const webSearchTool = {
+          type: "web_search_20250305",
+          name: "web_search",
+          ...(config.maxWebSearches ? { max_uses: config.maxWebSearches } : {}),
+        };
+        claudeOptions.tools = [webSearchTool];
       }
 
       const response = await withTimeout(
@@ -175,6 +183,8 @@ export async function runPipeline(jobId: string) {
         progressStart: 5,
         progressEnd: 25,
         outputField: "site_crawl_results",
+        maxTokens: 8000,
+        maxWebSearches: 5, // Limit: homepage + 3-4 key pages
       },
       jobId,
       buildAgent1UserMessage(brief),
@@ -188,6 +198,9 @@ export async function runPipeline(jobId: string) {
     const pageCount = crawl.pages?.length || 0;
     await writeLog(jobId, "info", `Found ${pageCount} pages to analyze`, "Site Crawler");
 
+    // Delay between agents to avoid back-to-back rate limits
+    await new Promise((r) => setTimeout(r, INTER_AGENT_DELAY_MS));
+
     // ─── Agent 2: Competitor Intelligence ───
     const competitorAnalysis = await runAgentWithRetry(
       {
@@ -198,6 +211,7 @@ export async function runPipeline(jobId: string) {
         progressEnd: 45,
         outputField: "competitor_analysis",
         maxTokens: 16000,
+        maxWebSearches: 5, // Limit competitor lookups
       },
       jobId,
       buildAgent2UserMessage(brief, crawlResults),
@@ -364,6 +378,9 @@ export async function runPipeline(jobId: string) {
       "Page Optimizer"
     );
 
+    // Delay before Agent 4
+    await new Promise((r) => setTimeout(r, INTER_AGENT_DELAY_MS));
+
     // ─── Agent 4: Off-Page Strategist ───
     const offpageResult = await runAgentWithRetry(
       {
@@ -374,6 +391,7 @@ export async function runPipeline(jobId: string) {
         progressEnd: 90,
         outputField: "offpage_strategy",
         maxTokens: 16000,
+        maxWebSearches: 3, // Minimal searches — mostly synthesis from prior data
       },
       jobId,
       buildAgent4UserMessage(

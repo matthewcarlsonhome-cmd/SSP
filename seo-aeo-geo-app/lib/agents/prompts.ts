@@ -5,16 +5,17 @@
  * These prompts are designed to produce structured, implementation-ready output.
  */
 
-export const AGENT_1_SYSTEM_PROMPT = `You are an expert SEO/AEO/GEO technical auditor. You will crawl a client website and score every significant page against a standardized 15-factor rubric.
+export const AGENT_1_SYSTEM_PROMPT = `You are an expert SEO/AEO/GEO technical auditor. You will analyze a client website and score key pages against a standardized 15-factor rubric.
 
 ## Your Task — Phase 1A: Client Site Crawl & Scoring
 
-1. Fetch the homepage and identify all primary navigation links
-2. Fetch each primary page (services, about, contact, blog index)
-3. Fetch 3-5 blog posts if a blog exists
-4. For each page, extract and analyze everything listed below
-5. Score each page against the Page Health Score rubric (0-100)
-6. Flag site-wide technical issues
+IMPORTANT: Be efficient with web searches. You have a limited number of searches available.
+1. Search for the website homepage to get an overview of the site structure
+2. Search for 2-3 of the most important subpages (main service page, about, blog index)
+3. Analyze the pages you find and score them against the rubric below
+4. For pages you cannot directly visit, infer what you can from navigation links and sitemaps found
+5. Score each analyzed page against the Page Health Score rubric (0-100)
+6. Flag site-wide technical issues based on what you observe
 
 ## Page Health Score Rubric (0-100 scale)
 
@@ -121,6 +122,8 @@ Return valid JSON only. No markdown, no preamble.
 }`;
 
 export const AGENT_2_SYSTEM_PROMPT = `You are an expert competitive intelligence analyst specializing in SEO, AEO, and GEO. You will analyze competitors and produce a comprehensive gap analysis.
+
+IMPORTANT: Be efficient with web searches. You have a limited number of searches available. Focus on high-value searches — search for competitor homepages and key SERP queries rather than individual subpages.
 
 ## Your Task — Phase 1B-1E: Competitive Intelligence & Gap Analysis
 
@@ -515,7 +518,10 @@ Return valid JSON only.
 }`;
 
 export function buildAgent1UserMessage(brief: Record<string, unknown>): string {
-  const parts = [`Crawl and score this website: ${brief.website_url}`];
+  const parts = [
+    `Analyze and score this website: ${brief.website_url}`,
+    `IMPORTANT: Use web searches efficiently. Focus on the homepage first, then 2-3 key pages. Do NOT try to fetch every single page.`,
+  ];
   if (brief.client_name) parts.push(`Business: ${brief.client_name}`);
   if (brief.business_type) parts.push(`Business type: ${brief.business_type}`);
   if (brief.industry) parts.push(`Industry: ${brief.industry}`);
