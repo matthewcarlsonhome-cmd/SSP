@@ -561,7 +561,7 @@ export function buildAgent2UserMessage(
   }
 
   parts.push("\n## Site Crawl Results (from Phase 1A)");
-  parts.push(JSON.stringify(crawlResults, null, 2));
+  parts.push(JSON.stringify(crawlResults));
 
   return parts.join("\n");
 }
@@ -586,11 +586,44 @@ export function buildAgent3UserMessage(
     parts.push(`Keywords: ${keywords.map((k) => k.keyword).join(", ")}`);
   }
 
-  parts.push("\n## Site Crawl Results");
-  parts.push(JSON.stringify(crawlResults, null, 2));
+  // Summarize crawl results — Agent 3 only needs page URLs and health scores, not full details
+  const crawl = crawlResults as {
+    site_overview?: Record<string, unknown>;
+    pages?: Array<{ url: string; page_type?: string; health_score?: number; title_tag?: string; h1?: string; issues?: string[] }>;
+  };
+  if (crawl?.pages) {
+    parts.push("\n## Site Crawl Summary");
+    parts.push(JSON.stringify({
+      site_overview: crawl.site_overview,
+      pages: crawl.pages.map(p => ({
+        url: p.url,
+        page_type: p.page_type,
+        health_score: p.health_score,
+        title_tag: p.title_tag,
+        h1: p.h1,
+        issues: p.issues,
+      })),
+    }));
+  } else {
+    parts.push("\n## Site Crawl Results");
+    parts.push(JSON.stringify(crawlResults));
+  }
 
-  parts.push("\n## Competitor Analysis & Gap Analysis");
-  parts.push(JSON.stringify(competitorAnalysis, null, 2));
+  // Summarize competitor analysis — only include gap analysis, not full competitor details
+  const comp = competitorAnalysis as {
+    gap_analysis?: Record<string, unknown>;
+    competitors?: Array<{ name: string; url: string; strengths?: string[]; weaknesses?: string[] }>;
+  };
+  if (comp?.gap_analysis) {
+    parts.push("\n## Competitive Gap Summary");
+    parts.push(JSON.stringify({
+      competitor_names: comp.competitors?.map(c => `${c.name} (${c.url})`),
+      gap_analysis: comp.gap_analysis,
+    }));
+  } else {
+    parts.push("\n## Competitor Analysis");
+    parts.push(JSON.stringify(competitorAnalysis));
+  }
 
   parts.push(`\n## Pages to Optimize in This Batch`);
   parts.push(pageUrls.join("\n"));
@@ -622,14 +655,34 @@ export function buildAgent4UserMessage(
     parts.push(`GBP: claimed=${gbp.claimed}, reviews=${gbp.reviewCount}, rating=${gbp.avgRating}`);
   }
 
+  // Compact JSON — no pretty-printing to save tokens
   parts.push("\n## Site Crawl Results");
-  parts.push(JSON.stringify(crawlResults, null, 2));
+  parts.push(JSON.stringify(crawlResults));
 
   parts.push("\n## Competitor Analysis");
-  parts.push(JSON.stringify(competitorAnalysis, null, 2));
+  parts.push(JSON.stringify(competitorAnalysis));
 
-  parts.push("\n## Page Optimizations");
-  parts.push(JSON.stringify(pageOptimizations, null, 2));
+  // Summarize page optimizations — Agent 4 needs the overview, not full content
+  const opts = pageOptimizations as Array<{
+    url?: string; page_type?: string; health_score?: number; primary_keyword?: string;
+    search_intent?: string; cluster_role?: string; title_tag?: { recommended?: string };
+    issues?: string[];
+  }>;
+  if (Array.isArray(opts) && opts.length > 0 && opts[0]?.url) {
+    parts.push("\n## Page Optimization Summary");
+    parts.push(JSON.stringify(opts.map(p => ({
+      url: p.url,
+      page_type: p.page_type,
+      health_score: p.health_score,
+      primary_keyword: p.primary_keyword,
+      search_intent: p.search_intent,
+      cluster_role: p.cluster_role,
+      recommended_title: p.title_tag?.recommended,
+    }))));
+  } else {
+    parts.push("\n## Page Optimizations");
+    parts.push(JSON.stringify(pageOptimizations));
+  }
 
   return parts.join("\n");
 }

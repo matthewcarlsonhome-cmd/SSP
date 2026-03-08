@@ -1,5 +1,13 @@
 const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages";
 
+// Track cumulative token usage across all API calls in this process
+let _totalInputTokens = 0;
+let _totalOutputTokens = 0;
+
+export function getTokenUsage() {
+  return { input: _totalInputTokens, output: _totalOutputTokens, total: _totalInputTokens + _totalOutputTokens };
+}
+
 type ClaudeMessage = {
   role: "user" | "assistant";
   content: string;
@@ -54,7 +62,14 @@ export async function callClaude(options: ClaudeOptions) {
     });
 
     if (response.ok) {
-      return response.json();
+      const data = await response.json();
+      // Track token usage from the response
+      if (data.usage) {
+        _totalInputTokens += data.usage.input_tokens || 0;
+        _totalOutputTokens += data.usage.output_tokens || 0;
+        console.log(`[tokens] call: ${data.usage.input_tokens}in/${data.usage.output_tokens}out | cumulative: ${_totalInputTokens}in/${_totalOutputTokens}out`);
+      }
+      return data;
     }
 
     // Handle rate limits with Retry-After header
