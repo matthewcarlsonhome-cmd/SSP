@@ -24,7 +24,7 @@ export async function callClaude(options: ClaudeOptions) {
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set");
 
   const {
-    model = "claude-sonnet-4-20250514",
+    model = "claude-sonnet-4-20250514", // default; pipeline overrides per-agent
     maxTokens = 16000,
     system,
     tools,
