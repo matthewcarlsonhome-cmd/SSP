@@ -10,10 +10,12 @@ import {
   AGENT_2_SYSTEM_PROMPT,
   AGENT_3_SYSTEM_PROMPT,
   AGENT_4_SYSTEM_PROMPT,
+  AGENT_5_SYSTEM_PROMPT,
   buildAgent1UserMessage,
   buildAgent2UserMessage,
   buildAgent3UserMessage,
   buildAgent4UserMessage,
+  buildAgent5UserMessage,
 } from "./prompts";
 
 const BATCH_SIZE = 5;
@@ -495,13 +497,59 @@ export async function runPipeline(jobId: string) {
       }
     }
 
-    // ─── Report Generation ───
+    // ─── Agent 5: Report Formatter ───
     await updateJob(jobId, {
       status: "generating_report",
       progress: 90,
-      current_step: "Generating downloadable reports...",
+      current_step: "Formatting professional report...",
     });
-    await writeLog(jobId, "info", "Generating report package");
+    await writeLog(jobId, "info", "Starting Report Formatter (Agent 5) — generating polished Markdown report", "Report Formatter");
+
+    // Delay before Agent 5
+    await new Promise((r) => setTimeout(r, INTER_AGENT_DELAY_MS));
+
+    let formattedReport = "";
+    try {
+      const agent5Message = buildAgent5UserMessage(
+        brief,
+        crawlResults,
+        competitorAnalysis,
+        allOptimizations,
+        offpageResult,
+        offpage.technical_audit || null,
+        offpage.roadmap || null,
+        offpage.measurement_framework || null,
+        job.topical_architecture || null
+      );
+
+      console.log(`\n[PIPELINE] Agent: Report Formatter | Model: ${MODEL_DEEP} | WebSearch: false`);
+      console.log(`[PIPELINE] User message size: ${agent5Message.length} chars`);
+
+      const agent5Response = await withTimeout(
+        callClaude({
+          model: MODEL_DEEP,
+          maxTokens: 32000,
+          system: AGENT_5_SYSTEM_PROMPT,
+          messages: [{ role: "user", content: agent5Message }],
+        }),
+        AGENT_TIMEOUT_MS,
+        "Report Formatter"
+      );
+
+      formattedReport = extractTextContent(agent5Response);
+
+      await updateJob(jobId, {
+        formatted_report: formattedReport,
+        progress: 98,
+        current_step: "Report formatted successfully",
+      });
+
+      await writeLog(jobId, "success", `Report formatted — ${formattedReport.length} characters of polished Markdown`, "Report Formatter");
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      await writeLog(jobId, "warn", `Report formatting failed (${msg}) — raw data still available`, "Report Formatter");
+      // Non-fatal — pipeline continues with raw data
+    }
 
     // Log total token usage for this pipeline run
     const tokenUsage = getTokenUsage();

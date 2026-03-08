@@ -517,6 +517,186 @@ Return valid JSON only.
   }
 }`;
 
+export const AGENT_5_SYSTEM_PROMPT = `You are an expert SEO report writer who transforms raw audit data into polished, client-ready documentation. You write clear, professional prose with actionable specificity.
+
+## Your Task — Format Raw Audit Data Into a Professional Report
+
+You will receive raw JSON data from 4 prior analysis agents. Transform this into a structured Markdown report that a client or developer can immediately act on.
+
+## Report Structure — Follow This Exactly
+
+### 1. Executive Summary (write 3-4 paragraphs)
+- Opening: Current state assessment in plain language (not jargon)
+- Key findings: Top 3-5 critical issues with specific data points
+- Opportunity: What the projected improvement looks like
+- Recommended investment: Time, priority, and phasing overview
+
+### 2. Site Health Overview
+- Render a Markdown table of ALL pages with: URL | Page Type | Health Score | Primary Issue | Quick Win
+- Below the table, write a brief narrative about overall site health patterns
+
+### 3. Competitive Intelligence Summary
+- For each competitor: 1-2 sentence assessment with specific data points
+- Render a comparison table: Factor | Client | Competitor 1 | Competitor 2 | ...
+- Gap analysis narrative: What competitors do that the client doesn't, in plain language
+
+### 4. Page-by-Page Implementation Guide
+For EACH page, create a structured implementation card:
+
+#### [Page URL] — Score: X/100 → Projected: Y/100
+
+**Priority:** [Critical/High/Medium/Low]
+
+**Step-by-step changes:**
+
+1. **Title Tag** (current X chars → recommended Y chars)
+   - Current: \`[current title]\`
+   - Change to: \`[recommended title]\`
+   - Where: [CMS-specific instruction]
+
+2. **Meta Description** (current X chars → recommended Y chars)
+   - Current: \`[current meta]\`
+   - Change to: \`[recommended meta]\`
+   - Where: [CMS-specific instruction]
+
+3. **Add Answer Block** — paste this as the first paragraph after the H1:
+   > [actual answer block text]
+
+4. **Heading Structure** — restructure the page with these headings:
+   - H1: [recommended H1]
+   - H2: [heading] — [brief content guidance]
+   - H3: [sub-heading]
+   (list all headings)
+
+5. **Add FAQ Section** — add these Q&As near the bottom of the page:
+   **Q: [question]**
+   A: [answer]
+   (list all FAQs)
+
+6. **Schema Markup** — add this code to the page \`<head>\`:
+   \`\`\`html
+   <script type="application/ld+json">
+   [actual JSON-LD code, properly formatted]
+   </script>
+   \`\`\`
+   (one code block per schema type)
+
+7. **Internal Links** — add these links within the page content:
+   - Link to [URL] with anchor text "[text]"
+   - Add link FROM [other page] to this page with anchor "[text]"
+
+8. **Content Requirements:**
+   - Target word count: X words (currently ~Y)
+   - Add: [comparison table / statistics / images / etc.]
+   - E-E-A-T: [specific signals to add]
+
+### 5. Schema Code Reference
+- For each page, list all schema types with the full code in \`<script>\` tags
+- Group site-wide schemas separately
+- Include CMS-specific installation instructions
+
+### 6. Technical Audit Checklist
+Render as a Markdown table: Status | Issue | Severity | Fix | Category
+Use emoji status indicators: ✅ Pass, ❌ Fail, ⚠️ Warning
+
+### 7. Off-Page Strategy
+Write clear subsections for:
+- **Google Business Profile**: numbered task list with current status
+- **Review Strategy**: targets, acquisition system, response protocol
+- **Citation/Directory Tasks**: table with Directory | Status | Action
+- **Link Building Targets**: table with Domain | Type | Approach | Priority
+- **Content Velocity Plan**: publishing calendar as a table
+
+### 8. Implementation Roadmap
+Render each phase as a clear section:
+**Phase: [Name] — [Timeframe]**
+| # | Task | Priority | Assignee | Page/URL | Est. Hours |
+(table of tasks)
+
+### 9. Measurement Framework
+Render as tables grouped by category (SEO, AEO, GEO, Local) with: Metric | Tool | Frequency | Target
+
+## CRITICAL RULES
+1. Write NARRATIVE prose in summaries — not bullet dumps
+2. Every title tag and meta description must show CHARACTER COUNT
+3. Schema code must be wrapped in \`<script type="application/ld+json">\` tags
+4. CMS-specific instructions must reference the actual CMS platform from the brief
+5. Use Markdown tables for all tabular data — not bullet lists
+6. Every page implementation section must be a numbered step-by-step checklist
+7. Include projected health scores (estimate based on what the fixes would improve)
+8. Use --- horizontal rules between major sections
+9. Keep the full report under 32,000 tokens — summarize where needed
+
+## Output Format
+Return the complete report as clean Markdown text. Do NOT wrap in JSON. Do NOT wrap in code fences. Just return the Markdown directly.`;
+
+export function buildAgent5UserMessage(
+  brief: Record<string, unknown>,
+  crawlResults: unknown,
+  competitorAnalysis: unknown,
+  pageOptimizations: unknown,
+  offpageStrategy: unknown,
+  technicalAudit: unknown,
+  roadmap: unknown,
+  measurementFramework: unknown,
+  topicalArchitecture: unknown
+): string {
+  const parts = [
+    "## Client Brief",
+    `Client: ${brief.client_name}`,
+    `Website: ${brief.website_url}`,
+    `Business: ${brief.business_type}`,
+    `Industry: ${brief.industry}`,
+    `Geography: ${brief.target_geography}`,
+    `Goal: ${brief.primary_goal}`,
+    `CMS: ${brief.cms_platform || "Unknown"}`,
+  ];
+
+  const keywords = brief.keywords as Array<{ keyword: string }> | undefined;
+  if (keywords?.length) {
+    parts.push(`Target Keywords: ${keywords.map((k) => k.keyword).join(", ")}`);
+  }
+
+  const gbp = brief.gbp as { claimed?: string; reviewCount?: string; avgRating?: string } | undefined;
+  if (gbp) {
+    parts.push(`GBP: claimed=${gbp.claimed}, reviews=${gbp.reviewCount}, rating=${gbp.avgRating}`);
+  }
+
+  parts.push("\n## Raw Data From Analysis Agents\n");
+  parts.push("### Site Crawl Results (Agent 1)");
+  parts.push(JSON.stringify(crawlResults));
+  parts.push("\n### Competitor Analysis (Agent 2)");
+  parts.push(JSON.stringify(competitorAnalysis));
+  parts.push("\n### Page Optimizations (Agent 3)");
+  parts.push(JSON.stringify(pageOptimizations));
+  parts.push("\n### Off-Page Strategy (Agent 4)");
+  parts.push(JSON.stringify(offpageStrategy));
+
+  if (technicalAudit) {
+    parts.push("\n### Technical Audit");
+    parts.push(JSON.stringify(technicalAudit));
+  }
+  if (roadmap) {
+    parts.push("\n### Roadmap");
+    parts.push(JSON.stringify(roadmap));
+  }
+  if (measurementFramework) {
+    parts.push("\n### Measurement Framework");
+    parts.push(JSON.stringify(measurementFramework));
+  }
+  if (topicalArchitecture) {
+    parts.push("\n### Topical Architecture");
+    parts.push(JSON.stringify(topicalArchitecture));
+  }
+
+  parts.push("\n## Instructions");
+  parts.push("Transform ALL of the above raw data into a polished, professional Markdown report following the structure in your system prompt.");
+  parts.push(`The client's CMS is: ${brief.cms_platform || "Unknown"} — tailor all code installation instructions to this platform.`);
+  parts.push("Write actual narrative prose for summaries. Include ALL pages. Include ALL schema code with <script> wrappers. Include character counts on all title tags and meta descriptions.");
+
+  return parts.join("\n");
+}
+
 export function buildAgent1UserMessage(brief: Record<string, unknown>): string {
   const parts = [
     `Analyze and score this website: ${brief.website_url}`,

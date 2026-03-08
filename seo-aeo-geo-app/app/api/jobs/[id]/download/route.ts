@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase";
 import { generateDocxReport } from "@/lib/reports/docx-generator";
-import { generateRoadmapCsv } from "@/lib/reports/roadmap-csv";
+import { generateRoadmapCsv, generateLinkOpportunitiesCsv, generateCitationTasksCsv } from "@/lib/reports/roadmap-csv";
 import { generateSchemaPackage } from "@/lib/reports/schema-packager";
+import { generateMarkdownReport } from "@/lib/reports/markdown-generator";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(
   request: NextRequest,
@@ -44,12 +47,40 @@ export async function GET(
           },
         });
       }
+      case "markdown":
+      case "md": {
+        const markdown = generateMarkdownReport(job);
+        return new NextResponse(markdown, {
+          headers: {
+            "Content-Type": "text/markdown; charset=utf-8",
+            "Content-Disposition": `attachment; filename="${clientName}-SEO-AEO-GEO-Report.md"`,
+          },
+        });
+      }
       case "csv": {
         const csv = generateRoadmapCsv(job);
         return new NextResponse(csv, {
           headers: {
             "Content-Type": "text/csv",
             "Content-Disposition": `attachment; filename="${clientName}-roadmap.csv"`,
+          },
+        });
+      }
+      case "links-csv": {
+        const csv = generateLinkOpportunitiesCsv(job);
+        return new NextResponse(csv, {
+          headers: {
+            "Content-Type": "text/csv",
+            "Content-Disposition": `attachment; filename="${clientName}-link-opportunities.csv"`,
+          },
+        });
+      }
+      case "citations-csv": {
+        const csv = generateCitationTasksCsv(job);
+        return new NextResponse(csv, {
+          headers: {
+            "Content-Type": "text/csv",
+            "Content-Disposition": `attachment; filename="${clientName}-citation-tasks.csv"`,
           },
         });
       }
