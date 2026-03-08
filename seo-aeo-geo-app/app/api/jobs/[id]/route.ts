@@ -38,3 +38,40 @@ export async function GET(
     );
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const supabase = getServiceClient();
+
+    // Verify job exists
+    const { data: job, error: fetchError } = await supabase
+      .from("audit_jobs")
+      .select("id, status")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !job) {
+      return NextResponse.json({ error: "Job not found" }, { status: 404 });
+    }
+
+    // Delete the job — related records (page_audits, logs, etc.) cascade automatically
+    const { error: deleteError } = await supabase
+      .from("audit_jobs")
+      .delete()
+      .eq("id", id);
+
+    if (deleteError) throw deleteError;
+
+    return NextResponse.json({ success: true, id });
+  } catch (error) {
+    console.error("Failed to delete job:", error);
+    return NextResponse.json(
+      { error: "Failed to delete job" },
+      { status: 500 }
+    );
+  }
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -18,6 +18,8 @@ import {
   AlertCircle,
   SkipForward,
   XCircle,
+  Trash2,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -135,12 +137,26 @@ function levelIcon(level: string) {
 
 export default function AuditProgressPage() {
   const params = useParams();
+  const router = useRouter();
   const jobId = params.id as string;
   const [job, setJob] = useState<JobData | null>(null);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [elapsed, setElapsed] = useState(0);
+  const [deleting, setDeleting] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
+
+  const handleDelete = async () => {
+    if (!confirm("Delete this audit? This cannot be undone.")) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/jobs/${jobId}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/");
+      }
+    } catch { /* ignore */ }
+    setDeleting(false);
+  };
 
   // Fetch initial job data
   useEffect(() => {
@@ -271,22 +287,40 @@ export default function AuditProgressPage() {
                 : "SEO/AEO/GEO Audit in progress"}
             </p>
           </div>
-          {isComplete && (
-            <div className="flex gap-2">
-              <Link href={`/audits/${jobId}/report`}>
-                <Button>
-                  <Eye className="h-4 w-4" />
-                  View Report
+          <div className="flex gap-2">
+            {isComplete && (
+              <>
+                <Link href={`/audits/${jobId}/report`}>
+                  <Button>
+                    <Eye className="h-4 w-4" />
+                    View Report
+                  </Button>
+                </Link>
+                <a href={`/api/jobs/${jobId}/download?format=docx`}>
+                  <Button variant="outline">
+                    <Download className="h-4 w-4" />
+                    Download
+                  </Button>
+                </a>
+              </>
+            )}
+            {(isComplete || isFailed) && (
+              <Link href={`/audits/new?rerun=${jobId}`}>
+                <Button variant="outline">
+                  <RefreshCw className="h-4 w-4" />
+                  Re-run
                 </Button>
               </Link>
-              <a href={`/api/jobs/${jobId}/download?format=docx`}>
-                <Button variant="outline">
-                  <Download className="h-4 w-4" />
-                  Download
-                </Button>
-              </a>
-            </div>
-          )}
+            )}
+            <Button
+              variant="ghost"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="text-muted-foreground hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 

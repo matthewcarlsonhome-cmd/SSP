@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceClient } from "@/lib/supabase";
+import { getServiceClient, cleanupStaleJobs } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -137,6 +137,9 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   try {
+    // Clean up any jobs stuck from a previous server session
+    await cleanupStaleJobs();
+
     const supabase = getServiceClient();
 
     const { data: jobs, error } = await supabase

@@ -10,6 +10,8 @@ import {
   Users,
   FileBarChart,
   ArrowRight,
+  Trash2,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -38,6 +40,7 @@ type Audit = {
 export default function DashboardPage() {
   const [audits, setAudits] = useState<Audit[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/jobs", { cache: "no-store" })
@@ -46,6 +49,18 @@ export default function DashboardPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this audit? This cannot be undone.")) return;
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/jobs/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setAudits((prev) => prev.filter((a) => a.id !== id));
+      }
+    } catch { /* ignore */ }
+    setDeletingId(null);
+  };
 
   const completedCount = audits.filter((a) => a.status === "completed").length;
   const clientCount = new Set(audits.map((a) => a.clients?.id).filter(Boolean)).size;
@@ -133,16 +148,32 @@ export default function DashboardPage() {
                         </div>
                       )}
                     </div>
-                    {audit.status === "completed" && (
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Link href={`/audits/${audit.id}/report`}>
-                          <Button variant="outline" size="sm"><Eye className="h-3.5 w-3.5" /> View</Button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {audit.status === "completed" && (
+                        <>
+                          <Link href={`/audits/${audit.id}/report`}>
+                            <Button variant="outline" size="sm"><Eye className="h-3.5 w-3.5" /> View</Button>
+                          </Link>
+                          <a href={`/api/jobs/${audit.id}/download?format=docx`}>
+                            <Button variant="outline" size="sm"><Download className="h-3.5 w-3.5" /> Download</Button>
+                          </a>
+                        </>
+                      )}
+                      {(audit.status === "completed" || audit.status === "failed") && audit.clients && (
+                        <Link href={`/audits/new?rerun=${audit.id}`}>
+                          <Button variant="outline" size="sm"><RefreshCw className="h-3.5 w-3.5" /> Re-run</Button>
                         </Link>
-                        <a href={`/api/jobs/${audit.id}/download?format=docx`}>
-                          <Button variant="outline" size="sm"><Download className="h-3.5 w-3.5" /> Download</Button>
-                        </a>
-                      </div>
-                    )}
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(audit.id)}
+                        disabled={deletingId === audit.id}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
