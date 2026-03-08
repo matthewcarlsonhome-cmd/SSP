@@ -124,15 +124,22 @@ async function runAgentWithRetry(
       );
 
       const text = extractTextContent(response);
-      const output = parseJsonFromResponse(text);
+      const stopReason = (response as Record<string, unknown>).stop_reason as string | undefined;
+      const output = parseJsonFromResponse(text, stopReason);
 
+      const wasTruncated = stopReason === "max_tokens";
       await updateJob(jobId, {
         [config.outputField]: output,
         progress: config.progressEnd,
-        current_step: `${config.name} complete`,
+        current_step: `${config.name} complete${wasTruncated ? " (output truncated)" : ""}`,
       });
 
-      await writeLog(jobId, "success", `${config.name} completed`, config.name);
+      await writeLog(
+        jobId,
+        wasTruncated ? "warn" : "success",
+        `${config.name} completed${wasTruncated ? " — output was truncated by max_tokens limit, some data may be incomplete" : ""}`,
+        config.name
+      );
 
       return output;
     } catch (error) {
@@ -186,7 +193,7 @@ export async function runPipeline(jobId: string) {
         progressStart: 5,
         progressEnd: 25,
         outputField: "site_crawl_results",
-        maxTokens: 8000,
+        maxTokens: 16000,
         maxWebSearches: 5, // Limit: homepage + 3-4 key pages
       },
       jobId,
@@ -276,7 +283,7 @@ export async function runPipeline(jobId: string) {
               progressEnd: Math.round(batchProgress + 30 / totalBatches),
               outputField: "page_optimizations",
               model: MODEL_BATCH,
-              maxTokens: 8000,
+              maxTokens: 16000,
               useWebSearch: false, // Page optimizer works from crawl data, no web search needed
             },
             jobId,
@@ -393,7 +400,7 @@ export async function runPipeline(jobId: string) {
         progressStart: 75,
         progressEnd: 90,
         outputField: "offpage_strategy",
-        maxTokens: 16000,
+        maxTokens: 32000,
         maxWebSearches: 3, // Minimal searches — mostly synthesis from prior data
       },
       jobId,

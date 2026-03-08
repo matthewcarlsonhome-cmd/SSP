@@ -176,14 +176,83 @@ export function extractTextContent(
     .join("");
 }
 
-export function parseJsonFromResponse(text: string): unknown {
+/**
+ * Try to repair truncated JSON by closing open brackets/braces.
+ * This handles the common case where max_tokens cuts off a response mid-JSON.
+ */
+function repairTruncatedJson(text: string): string {
+  // Track open brackets
+  let inString = false;
+  let escape = false;
+  const stack: string[] = [];
+
+  for (const ch of text) {
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+
+    if (ch === "{") stack.push("}");
+    else if (ch === "[") stack.push("]");
+    else if (ch === "}" || ch === "]") stack.pop();
+  }
+
+  // If we're mid-string, close it
+  let repaired = text;
+  if (inString) repaired += '"';
+
+  // Remove any trailing incomplete key-value (e.g. `"key": ` or `"key": "val`)
+  // by trimming back to the last complete value
+  repaired = repaired.replace(/,\s*"[^"]*"?\s*:?\s*"?[^"]*$/, "");
+  repaired = repaired.replace(/,\s*$/, "");
+
+  // Close all open brackets in reverse order
+  while (stack.length > 0) {
+    repaired += stack.pop();
+  }
+
+  return repaired;
+}
+
+export function parseJsonFromResponse(text: string, stopReason?: string): unknown {
+  // Extract JSON from markdown code block or raw text
+  let jsonText = text;
   const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
-  if (jsonMatch) return JSON.parse(jsonMatch[1]);
+  if (jsonMatch) {
+    jsonText = jsonMatch[1];
+  } else {
+    const braceMatch = text.match(/\{[\s\S]*/);
+    if (braceMatch) jsonText = braceMatch[0];
+  }
 
-  const braceMatch = text.match(/\{[\s\S]*\}/);
-  if (braceMatch) return JSON.parse(braceMatch[0]);
-
-  return JSON.parse(text);
+  // Try parsing as-is first
+  try {
+    return JSON.parse(jsonText);
+  } catch {
+    // If it was truncated (max_tokens), try to repair
+    if (stopReason === "max_tokens") {
+      console.log(`[JSON] Response was truncated (max_tokens). Attempting repair...`);
+      try {
+        const repaired = repairTruncatedJson(jsonText);
+        const result = JSON.parse(repaired);
+        console.log(`[JSON] Repair successful — parsed truncated JSON`);
+        return result;
+      } catch (repairError) {
+        console.log(`[JSON] Repair failed: ${repairError}`);
+      }
+    }
+    // Re-throw original error
+    return JSON.parse(jsonText);
+  }
 }
 
 export async function runAgentWithRetry(
@@ -194,7 +263,8 @@ export async function runAgentWithRetry(
     try {
       const response = await callClaude(options);
       const text = extractTextContent(response);
-      return parseJsonFromResponse(text);
+      const stopReason = (response as Record<string, unknown>).stop_reason as string | undefined;
+      return parseJsonFromResponse(text, stopReason);
     } catch (error) {
       if (attempt === retries) throw error;
       await new Promise((r) => setTimeout(r, 2000 * Math.pow(2, attempt)));
