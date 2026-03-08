@@ -15,6 +15,10 @@ import {
   BarChart3,
   MessageSquare,
   Settings,
+  Wand2,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,6 +106,147 @@ function NewAuditPage() {
   const [painPoints, setPainPoints] = useState("");
   const [previousSeo, setPreviousSeo] = useState("");
   const [budget, setBudget] = useState("");
+
+  // Upload state
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Auto-populate state
+  const [isAutoPopulating, setIsAutoPopulating] = useState(false);
+  const [autoPopulateStatus, setAutoPopulateStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [autoPopulateError, setAutoPopulateError] = useState("");
+
+  // Shared function to populate form fields from parsed data
+  const populateFromData = (data: Record<string, unknown>) => {
+    if (data.client_name) setClientName(data.client_name as string);
+    if (data.website_url) setWebsiteUrl(data.website_url as string);
+    if (data.business_type) setBusinessType(data.business_type as string);
+    if (data.industry) setIndustry(data.industry as string);
+    if (data.target_geography) {
+      const geo = data.target_geography;
+      setTargetGeography(Array.isArray(geo) ? geo.join(", ") : String(geo));
+    }
+    if (data.primary_goal) setPrimaryGoal(data.primary_goal as string);
+    if (data.cms_platform) setCmsPlatform(data.cms_platform as string);
+    if (data.pain_points) setPainPoints(data.pain_points as string);
+    if (data.previous_seo) setPreviousSeo(data.previous_seo as string);
+    if (data.budget) setBudget(data.budget as string);
+
+    const comps = data.competitors as { url: string; name: string }[] | undefined;
+    if (comps?.length) {
+      setCompetitors(comps.map((c) => ({ url: c.url || "", name: c.name || "" })));
+    }
+
+    const kws = data.keywords as { keyword: string; priority: string }[] | undefined;
+    if (kws?.length) {
+      setKeywords(kws.map((k) => ({
+        keyword: k.keyword || "",
+        priority: k.priority || "medium",
+        currentRanking: "",
+      })));
+    }
+
+    const gbp = data.gbp as Record<string, string> | undefined;
+    if (gbp) {
+      if (gbp.claimed) setGbpClaimed(gbp.claimed);
+      if (gbp.url) setGbpUrl(gbp.url);
+      if (gbp.reviewCount) setReviewCount(gbp.reviewCount);
+      if (gbp.avgRating) setAvgRating(gbp.avgRating);
+    }
+
+    const analytics = data.analytics as Record<string, string> | undefined;
+    if (analytics) {
+      if (analytics.monthlyTraffic) setMonthlyTraffic(analytics.monthlyTraffic);
+      if (analytics.conversionRate) setConversionRate(analytics.conversionRate);
+      if (analytics.topLandingPages) setTopLandingPages(analytics.topLandingPages);
+    }
+  };
+
+  const handleFileUpload = async (file: File) => {
+    setUploadFile(file);
+    setIsUploading(true);
+    setUploadError("");
+    setUploadSuccess(false);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/parse-upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to parse document");
+      }
+
+      const data = await res.json();
+      populateFromData(data);
+      setUploadSuccess(true);
+      // Switch to form mode so user can review
+      setMode("form");
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      setUploadError(msg);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileUpload(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleAutoPopulate = async () => {
+    if (!websiteUrl) return;
+    setIsAutoPopulating(true);
+    setAutoPopulateStatus("loading");
+    setAutoPopulateError("");
+
+    try {
+      const res = await fetch("/api/autopopulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: websiteUrl }),
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to research business");
+      }
+
+      const data = await res.json();
+      populateFromData(data);
+      setAutoPopulateStatus("success");
+      // Reset success indicator after 5 seconds
+      setTimeout(() => setAutoPopulateStatus("idle"), 5000);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      setAutoPopulateError(msg);
+      setAutoPopulateStatus("error");
+    } finally {
+      setIsAutoPopulating(false);
+    }
+  };
 
   // Pre-fill form when re-running a previous audit
   useEffect(() => {
@@ -253,21 +398,107 @@ function NewAuditPage() {
       {mode === "upload" && (
         <Card>
           <CardContent className="p-8">
-            <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border p-12 text-center hover:border-primary/50 transition-colors cursor-pointer">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 mb-4">
-                <Upload className="h-7 w-7 text-primary" />
-              </div>
-              <h3 className="text-base font-semibold text-foreground">
-                Drop your brief here
-              </h3>
-              <p className="mt-2 text-sm text-muted-foreground max-w-xs">
-                Supports .docx, .pdf, .txt, .csv, and .xlsx files. We&apos;ll
-                extract client details and pre-fill the form.
-              </p>
-              <Button variant="outline" className="mt-4">
-                Browse Files
-              </Button>
+            <div
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-12 text-center transition-colors ${
+                isDragging
+                  ? "border-primary bg-primary/5"
+                  : isUploading
+                  ? "border-primary/30 bg-primary/5"
+                  : "border-border hover:border-primary/50 cursor-pointer"
+              }`}
+              onClick={() => {
+                if (!isUploading) {
+                  document.getElementById("file-upload-input")?.click();
+                }
+              }}
+            >
+              <input
+                id="file-upload-input"
+                type="file"
+                accept=".txt,.csv,.json,.md,.docx,.xlsx,.pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFileUpload(file);
+                  e.target.value = ""; // reset so same file can be re-uploaded
+                }}
+              />
+
+              {isUploading ? (
+                <>
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 mb-4">
+                    <Loader2 className="h-7 w-7 text-primary animate-spin" />
+                  </div>
+                  <h3 className="text-base font-semibold text-foreground">
+                    Parsing {uploadFile?.name}...
+                  </h3>
+                  <p className="mt-2 text-sm text-muted-foreground max-w-xs">
+                    AI is extracting client details from your document. This takes about 10-15 seconds.
+                  </p>
+                </>
+              ) : uploadSuccess ? (
+                <>
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-success/10 mb-4">
+                    <CheckCircle2 className="h-7 w-7 text-success" />
+                  </div>
+                  <h3 className="text-base font-semibold text-foreground">
+                    Brief parsed successfully
+                  </h3>
+                  <p className="mt-2 text-sm text-muted-foreground max-w-xs">
+                    Form fields have been populated. Switch to &ldquo;Enter Details&rdquo; to review and edit before running the audit.
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="mt-4"
+                    onClick={(e) => { e.stopPropagation(); setMode("form"); }}
+                  >
+                    Review Form
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 mb-4">
+                    <Upload className="h-7 w-7 text-primary" />
+                  </div>
+                  <h3 className="text-base font-semibold text-foreground">
+                    {isDragging ? "Drop your file here" : "Drop your brief here"}
+                  </h3>
+                  <p className="mt-2 text-sm text-muted-foreground max-w-xs">
+                    Supports .txt, .csv, .json, .md, .docx, .xlsx, and .pdf files.
+                    AI will extract client details and pre-fill the form.
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="mt-4"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      document.getElementById("file-upload-input")?.click();
+                    }}
+                  >
+                    Browse Files
+                  </Button>
+                </>
+              )}
             </div>
+
+            {uploadError && (
+              <div className="mt-4 flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-destructive">Upload failed</p>
+                  <p className="text-xs text-destructive/80 mt-0.5">{uploadError}</p>
+                </div>
+              </div>
+            )}
+
+            {uploadSuccess && (
+              <div className="mt-4 p-3 rounded-lg bg-muted/50 text-sm text-muted-foreground">
+                Want to upload a different file? Just drag and drop or click the area above.
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -308,11 +539,62 @@ function NewAuditPage() {
                     placeholder="https://example.com"
                     type="url"
                     value={websiteUrl}
-                    onChange={(e) => setWebsiteUrl(e.target.value)}
+                    onChange={(e) => {
+                      setWebsiteUrl(e.target.value);
+                      // Reset auto-populate status when URL changes
+                      if (autoPopulateStatus !== "idle") setAutoPopulateStatus("idle");
+                    }}
                     required
                   />
                 </div>
               </div>
+
+              {/* Auto-populate button */}
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground">
+                    Auto-fill from website
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Uses AI to research the business and fill in all fields automatically
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant={autoPopulateStatus === "success" ? "outline" : "default"}
+                  size="sm"
+                  onClick={handleAutoPopulate}
+                  disabled={!websiteUrl || isAutoPopulating}
+                  className="shrink-0"
+                >
+                  {isAutoPopulating ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Researching...
+                    </>
+                  ) : autoPopulateStatus === "success" ? (
+                    <>
+                      <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+                      Filled
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="h-3.5 w-3.5" />
+                      Auto-fill
+                    </>
+                  )}
+                </Button>
+              </div>
+              {autoPopulateStatus === "error" && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                  <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-destructive">Auto-fill failed</p>
+                    <p className="text-xs text-destructive/80 mt-0.5">{autoPopulateError}</p>
+                    <p className="text-xs text-muted-foreground mt-1">You can still fill in the fields manually.</p>
+                  </div>
+                </div>
+              )}
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2">
