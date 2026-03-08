@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   PlusCircle,
   Download,
@@ -12,6 +13,9 @@ import {
   ArrowRight,
   Trash2,
   RefreshCw,
+  Loader2,
+  AlertCircle,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,23 +36,61 @@ type Audit = {
   status: string;
   progress: number;
   current_step: string | null;
+  error_message: string | null;
   created_at: string;
+  started_at: string | null;
   total_pages_audited: number | null;
   clients: AuditClient | null;
 };
 
+function formatElapsed(startedAt: string): string {
+  const seconds = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}m ${s.toString().padStart(2, "0")}s`;
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  crawling: "Crawling site",
+  analyzing_competitors: "Analyzing competitors",
+  optimizing_pages: "Optimizing pages",
+  generating_report: "Building strategy",
+  formatting_report: "Formatting report",
+};
+
 export default function DashboardPage() {
+  const router = useRouter();
   const [audits, setAudits] = useState<Audit[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [, setTick] = useState(0); // force re-render for elapsed time
 
-  useEffect(() => {
+  const fetchAudits = useCallback(() => {
     fetch("/api/jobs", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setAudits(data); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    fetchAudits();
+    setLoading(false);
+  }, [fetchAudits]);
+
+  // Poll for updates when there are running audits
+  useEffect(() => {
+    const hasRunning = audits.some(
+      (a) => a.status !== "completed" && a.status !== "failed"
+    );
+    if (!hasRunning) return;
+
+    const poll = setInterval(() => {
+      fetchAudits();
+      setTick((t) => t + 1); // update elapsed times
+    }, 5000);
+
+    return () => clearInterval(poll);
+  }, [audits, fetchAudits]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this audit? This cannot be undone.")) return;
@@ -121,63 +163,97 @@ export default function DashboardPage() {
             </Link>
           </div>
           <div className="space-y-3">
-            {audits.map((audit) => (
-              <Card key={audit.id} className="transition-shadow hover:shadow-md">
-                <CardContent className="p-6">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3">
-                        <h3 className="text-base font-semibold text-foreground truncate">
-                          {audit.clients?.name || "Unknown Client"}
-                        </h3>
-                        <Badge variant={audit.status === "completed" ? "success" : audit.status === "failed" ? "destructive" : "default"}>
-                          {audit.status === "completed" ? "Completed" : audit.status === "failed" ? "Failed" : "Running"}
-                        </Badge>
-                      </div>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {audit.clients?.target_geography || audit.clients?.industry || ""} &middot; {formatDate(audit.created_at)}
-                        {audit.total_pages_audited ? ` · ${audit.total_pages_audited} pages` : ""}
-                      </p>
-                      {audit.status !== "completed" && audit.status !== "failed" && (
-                        <div className="mt-3 max-w-md">
-                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
-                            <span>{audit.current_step || "Processing..."}</span>
-                            <span>{audit.progress}%</span>
-                          </div>
-                          <Progress value={audit.progress} />
+            {audits.map((audit) => {
+              const isRunning = audit.status !== "completed" && audit.status !== "failed";
+              const isFailed = audit.status === "failed";
+              const statusLabel = STATUS_LABELS[audit.status] || audit.status;
+
+              return (
+                <Card
+                  key={audit.id}
+                  className={`transition-shadow hover:shadow-md ${isRunning ? "border-primary/20 cursor-pointer" : isFailed ? "border-destructive/20" : "cursor-pointer"}`}
+                  onClick={() => {
+                    if (isRunning || isFailed) {
+                      router.push(`/audits/${audit.id}`);
+                    } else if (audit.status === "completed") {
+                      router.push(`/audits/${audit.id}/report`);
+                    }
+                  }}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3">
+                          {isRunning && <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />}
+                          {isFailed && <AlertCircle className="h-4 w-4 text-destructive shrink-0" />}
+                          <h3 className="text-base font-semibold text-foreground truncate">
+                            {audit.clients?.name || "Unknown Client"}
+                          </h3>
+                          <Badge variant={audit.status === "completed" ? "success" : isFailed ? "destructive" : "default"}>
+                            {audit.status === "completed" ? "Completed" : isFailed ? "Failed" : statusLabel}
+                          </Badge>
+                          {isRunning && audit.started_at && (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Clock className="h-3 w-3" />
+                              {formatElapsed(audit.started_at)}
+                            </span>
+                          )}
                         </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {audit.status === "completed" && (
-                        <>
-                          <Link href={`/audits/${audit.id}/report`}>
-                            <Button variant="outline" size="sm"><Eye className="h-3.5 w-3.5" /> View</Button>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {audit.clients?.target_geography || audit.clients?.industry || ""} &middot; {formatDate(audit.created_at)}
+                          {audit.total_pages_audited ? ` · ${audit.total_pages_audited} pages` : ""}
+                        </p>
+                        {isRunning && (
+                          <div className="mt-3 max-w-md">
+                            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
+                              <span>{audit.current_step || "Initializing pipeline..."}</span>
+                              <span>{audit.progress}%</span>
+                            </div>
+                            <Progress value={audit.progress} />
+                          </div>
+                        )}
+                        {isFailed && audit.error_message && (
+                          <p className="mt-2 text-sm text-destructive truncate max-w-lg" title={audit.error_message}>
+                            {audit.error_message}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {audit.status === "completed" && (
+                          <>
+                            <Link href={`/audits/${audit.id}/report`}>
+                              <Button variant="outline" size="sm"><Eye className="h-3.5 w-3.5" /> View</Button>
+                            </Link>
+                            <a href={`/api/jobs/${audit.id}/download?format=docx`}>
+                              <Button variant="outline" size="sm"><Download className="h-3.5 w-3.5" /> Download</Button>
+                            </a>
+                          </>
+                        )}
+                        {isRunning && (
+                          <Link href={`/audits/${audit.id}`}>
+                            <Button variant="outline" size="sm"><Eye className="h-3.5 w-3.5" /> Details</Button>
                           </Link>
-                          <a href={`/api/jobs/${audit.id}/download?format=docx`}>
-                            <Button variant="outline" size="sm"><Download className="h-3.5 w-3.5" /> Download</Button>
-                          </a>
-                        </>
-                      )}
-                      {(audit.status === "completed" || audit.status === "failed") && audit.clients && (
-                        <Link href={`/audits/new?rerun=${audit.id}`}>
-                          <Button variant="outline" size="sm"><RefreshCw className="h-3.5 w-3.5" /> Re-run</Button>
-                        </Link>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(audit.id)}
-                        disabled={deletingId === audit.id}
-                        className="text-muted-foreground hover:text-destructive"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                        )}
+                        {(audit.status === "completed" || isFailed) && audit.clients && (
+                          <Link href={`/audits/new?rerun=${audit.id}`}>
+                            <Button variant="outline" size="sm"><RefreshCw className="h-3.5 w-3.5" /> Re-run</Button>
+                          </Link>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(audit.id)}
+                          disabled={deletingId === audit.id}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
       )}

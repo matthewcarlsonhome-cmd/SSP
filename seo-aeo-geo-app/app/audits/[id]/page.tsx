@@ -74,8 +74,13 @@ const STEP_MAP: Record<
     icon: Zap,
   },
   generating_report: {
-    label: "Off-Page & Report",
-    description: "Building strategy and assembling deliverables",
+    label: "Off-Page Strategy",
+    description: "Building link building, citation, and GBP strategy",
+    icon: FileText,
+  },
+  formatting_report: {
+    label: "Report Formatting",
+    description: "Generating polished professional report with Agent 5",
     icon: FileText,
   },
 };
@@ -85,7 +90,11 @@ const STEP_ORDER = [
   "analyzing_competitors",
   "optimizing_pages",
   "generating_report",
+  "formatting_report",
 ];
+
+// Stall detection: how long (in seconds) without progress change before warning
+const STALL_THRESHOLD_SECONDS = 120;
 
 function getStepStatus(
   stepKey: string,
@@ -144,6 +153,8 @@ export default function AuditProgressPage() {
   const [loading, setLoading] = useState(true);
   const [elapsed, setElapsed] = useState(0);
   const [deleting, setDeleting] = useState(false);
+  const [stalled, setStalled] = useState(false);
+  const lastProgressRef = useRef<{ value: number; time: number }>({ value: -1, time: Date.now() });
   const logEndRef = useRef<HTMLDivElement>(null);
 
   const handleDelete = async () => {
@@ -193,7 +204,18 @@ export default function AuditProgressPage() {
       fetch(`/api/jobs/${jobId}`, { cache: "no-store" })
         .then((r) => r.json())
         .then((data) => {
-          if (data.id) setJob(data);
+          if (data.id) {
+            setJob(data);
+            // Track progress changes for stall detection
+            const progress = data.progress || 0;
+            if (progress !== lastProgressRef.current.value) {
+              lastProgressRef.current = { value: progress, time: Date.now() };
+              setStalled(false);
+            } else {
+              const stalledFor = (Date.now() - lastProgressRef.current.time) / 1000;
+              setStalled(stalledFor > STALL_THRESHOLD_SECONDS && data.status !== "completed" && data.status !== "failed");
+            }
+          }
         })
         .catch(() => {});
 
@@ -361,7 +383,20 @@ export default function AuditProgressPage() {
           </div>
           <Progress value={job.progress} className="h-2.5" />
           {isFailed && job.error_message && (
-            <p className="mt-3 text-sm text-destructive">{job.error_message}</p>
+            <div className="mt-3 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+              <p className="text-sm font-medium text-destructive">Error Details</p>
+              <p className="mt-1 text-sm text-destructive/80 break-words">{job.error_message}</p>
+            </div>
+          )}
+          {stalled && !isComplete && !isFailed && (
+            <div className="mt-3 p-3 rounded-lg bg-warning/10 border border-warning/20">
+              <p className="text-sm font-medium text-warning">Pipeline may be stalled</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                No progress change in over 2 minutes. The pipeline may be waiting on a rate limit retry,
+                processing a large response, or may have encountered an error. Check the live output below
+                for details. If no new logs appear, the pipeline may have crashed — try deleting and re-running.
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -452,8 +487,8 @@ export default function AuditProgressPage() {
         })}
       </div>
 
-      {/* Live output log */}
-      {logs.length > 0 && (
+      {/* Live output log — always visible when audit is not in a terminal state or has logs */}
+      {(logs.length > 0 || (!isComplete && !isFailed)) && (
         <Card className="border-primary/20">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
@@ -461,10 +496,19 @@ export default function AuditProgressPage() {
               {!isComplete && !isFailed && (
                 <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
               )}
+              <span className="text-xs font-normal text-muted-foreground ml-auto">
+                {logs.length} {logs.length === 1 ? "entry" : "entries"}
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="rounded-lg bg-muted/50 p-4 font-mono text-xs max-h-72 overflow-y-auto space-y-1">
+            <div className="rounded-lg bg-muted/50 p-4 font-mono text-xs max-h-96 overflow-y-auto space-y-1">
+              {logs.length === 0 && !isComplete && !isFailed && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Waiting for pipeline to start...</span>
+                </div>
+              )}
               {logs.map((log) => (
                 <div key={log.id} className="flex items-start gap-2">
                   {levelIcon(log.level)}
@@ -507,6 +551,12 @@ export default function AuditProgressPage() {
                 <Button variant="outline" size="sm">
                   <Download className="h-3.5 w-3.5" />
                   DOCX Report
+                </Button>
+              </a>
+              <a href={`/api/jobs/${jobId}/download?format=markdown`}>
+                <Button variant="outline" size="sm">
+                  <Download className="h-3.5 w-3.5" />
+                  Markdown Report
                 </Button>
               </a>
               <a href={`/api/jobs/${jobId}/download?format=csv`}>
