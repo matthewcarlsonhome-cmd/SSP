@@ -22,8 +22,8 @@ const BATCH_TIMEOUT_MS = 300_000; // 5 minutes per batch
 const INTER_BATCH_DELAY_MS = 5_000; // delay between batches to avoid rate limits
 const INTER_AGENT_DELAY_MS = 10_000; // delay between agents to avoid rate limits
 
-// Use Haiku for high-volume batch work, Sonnet for deep analysis
-const MODEL_DEEP = "claude-sonnet-4-20250514";
+// Model selection — set both to Haiku for cheap testing, swap MODEL_DEEP to Sonnet for production
+const MODEL_DEEP = "claude-haiku-4-5-20251001";  // Switch to "claude-sonnet-4-20250514" for production quality
 const MODEL_BATCH = "claude-haiku-4-5-20251001";
 
 type AgentConfig = {
