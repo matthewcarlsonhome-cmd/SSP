@@ -40,22 +40,49 @@ export async function callClaude(options: ClaudeOptions) {
   if (system) body.system = system;
   if (tools?.length) body.tools = tools;
 
-  const response = await fetch(CLAUDE_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify(body),
-  });
+  // Retry with backoff for rate limits (429)
+  const maxRetries = 5;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const response = await fetch(CLAUDE_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify(body),
+    });
 
-  if (!response.ok) {
+    if (response.ok) {
+      return response.json();
+    }
+
+    // Handle rate limits with Retry-After header
+    if (response.status === 429) {
+      const retryAfter = response.headers.get("retry-after");
+      const waitMs = retryAfter
+        ? parseInt(retryAfter) * 1000
+        : Math.min(60000, 5000 * Math.pow(2, attempt)); // 5s, 10s, 20s, 40s, 60s
+      console.log(`Rate limited (attempt ${attempt + 1}/${maxRetries + 1}). Waiting ${waitMs / 1000}s...`);
+      if (attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, waitMs));
+        continue;
+      }
+    }
+
+    // Handle overloaded (529)
+    if (response.status === 529 && attempt < maxRetries) {
+      const waitMs = 10000 * Math.pow(2, attempt);
+      console.log(`API overloaded (attempt ${attempt + 1}). Waiting ${waitMs / 1000}s...`);
+      await new Promise((r) => setTimeout(r, waitMs));
+      continue;
+    }
+
     const error = await response.text();
     throw new Error(`Claude API error (${response.status}): ${error}`);
   }
 
-  return response.json();
+  throw new Error("Claude API: max retries exceeded");
 }
 
 export function extractTextContent(
