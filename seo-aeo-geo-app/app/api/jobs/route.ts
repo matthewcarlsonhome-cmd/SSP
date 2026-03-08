@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, cleanupStaleJobs } from "@/lib/supabase";
+import { runPipeline } from "@/lib/agents/pipeline";
 
 export const dynamic = "force-dynamic";
 
@@ -116,13 +117,31 @@ export async function POST(request: NextRequest) {
 
     if (jobError) throw jobError;
 
-    // Trigger pipeline (async — fire and forget)
-    fetch(`${request.nextUrl.origin}/api/pipeline/run`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobId: job!.id }),
-    }).catch(() => {
-      // Pipeline will handle its own errors
+    // Trigger pipeline directly (fire and forget — no self-referencing HTTP call)
+    const jobId = job!.id;
+    runPipeline(jobId).catch(async (error) => {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`Pipeline failed for job ${jobId}:`, msg);
+      try {
+        await supabase
+          .from("audit_jobs")
+          .update({
+            status: "failed",
+            error_message: msg,
+            current_step: "Pipeline crashed — see error below",
+          })
+          .eq("id", jobId);
+        await supabase.from("audit_logs").insert({
+          job_id: jobId,
+          level: "error",
+          message: `Pipeline crashed: ${msg}`,
+          agent: null,
+          detail: null,
+          page_url: null,
+        });
+      } catch (dbError) {
+        console.error("Failed to persist pipeline error:", dbError);
+      }
     });
 
     return NextResponse.json({ id: job!.id, clientId });
