@@ -2,6 +2,7 @@ import {
   callClaude,
   extractTextContent,
   parseJsonFromResponse,
+  getTokenUsage,
 } from "@/lib/claude";
 import { getServiceClient } from "@/lib/supabase";
 import {
@@ -18,7 +19,7 @@ import {
 const BATCH_SIZE = 5;
 const AGENT_TIMEOUT_MS = 120_000; // 2 minutes per agent call
 const BATCH_TIMEOUT_MS = 90_000; // 90 seconds per batch
-const INTER_BATCH_DELAY_MS = 3_000; // delay between batches to avoid rate limits
+const INTER_BATCH_DELAY_MS = 5_000; // delay between batches to avoid rate limits
 
 // Use Haiku for high-volume batch work, Sonnet for deep analysis
 const MODEL_DEEP = "claude-sonnet-4-20250514";
@@ -33,6 +34,7 @@ type AgentConfig = {
   outputField: string;
   model?: string;
   maxTokens?: number;
+  useWebSearch?: boolean;
 };
 
 async function updateJob(
@@ -93,14 +95,19 @@ async function runAgentWithRetry(
         config.name
       );
 
+      const claudeOptions: Parameters<typeof callClaude>[0] = {
+        model: config.model || MODEL_DEEP,
+        maxTokens: config.maxTokens || 16000,
+        system: config.systemPrompt,
+        messages: [{ role: "user", content: userMessage }],
+      };
+      // Only include web_search when the agent actually needs it (Agents 1, 2, 4)
+      if (config.useWebSearch !== false) {
+        claudeOptions.tools = [{ type: "web_search_20250305", name: "web_search" }];
+      }
+
       const response = await withTimeout(
-        callClaude({
-          model: config.model || MODEL_DEEP,
-          maxTokens: config.maxTokens || 16000,
-          system: config.systemPrompt,
-          tools: [{ type: "web_search_20250305", name: "web_search" }],
-          messages: [{ role: "user", content: userMessage }],
-        }),
+        callClaude(claudeOptions),
         timeoutMs,
         config.name
       );
@@ -252,7 +259,8 @@ export async function runPipeline(jobId: string) {
               progressEnd: Math.round(batchProgress + 30 / totalBatches),
               outputField: "page_optimizations",
               model: MODEL_BATCH,
-              maxTokens: 16000,
+              maxTokens: 8000,
+              useWebSearch: false, // Page optimizer works from crawl data, no web search needed
             },
             jobId,
             buildAgent3UserMessage(
@@ -467,6 +475,14 @@ export async function runPipeline(jobId: string) {
     });
     await writeLog(jobId, "info", "Generating report package");
 
+    // Log total token usage for this pipeline run
+    const tokenUsage = getTokenUsage();
+    await writeLog(
+      jobId,
+      "info",
+      `Token usage: ${tokenUsage.input} input + ${tokenUsage.output} output = ${tokenUsage.total} total`
+    );
+
     // Mark complete
     await updateJob(jobId, {
       status: "completed",
@@ -474,6 +490,7 @@ export async function runPipeline(jobId: string) {
       current_step: "Audit complete",
       completed_at: new Date().toISOString(),
       total_pages_audited: pageUrls.length,
+      total_tokens_used: tokenUsage.total,
     });
 
     await writeLog(
