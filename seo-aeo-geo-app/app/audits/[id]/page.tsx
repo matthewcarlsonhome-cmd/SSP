@@ -158,7 +158,7 @@ export default function AuditProgressPage() {
     setDeleting(false);
   };
 
-  // Fetch initial job data
+  // Fetch initial job data and logs
   useEffect(() => {
     fetch(`/api/jobs/${jobId}`, { cache: "no-store" })
       .then((r) => r.json())
@@ -167,10 +167,7 @@ export default function AuditProgressPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [jobId]);
 
-  // Fetch existing logs
-  useEffect(() => {
     supabase
       .from("audit_logs")
       .select("*")
@@ -181,40 +178,38 @@ export default function AuditProgressPage() {
       });
   }, [jobId]);
 
-  // Subscribe to real-time job updates
+  // Poll for job updates every 5 seconds as primary update mechanism.
+  // Supabase realtime can be unreliable (requires specific project config),
+  // so polling ensures the UI always reflects the latest state.
   useEffect(() => {
-    const channel = supabase
-      .channel(`job-${jobId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "audit_jobs",
-          filter: `id=eq.${jobId}`,
-        },
-        (payload) => {
-          setJob((prev) => (prev ? { ...prev, ...payload.new } : prev));
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "audit_logs",
-          filter: `job_id=eq.${jobId}`,
-        },
-        (payload) => {
-          setLogs((prev) => [...prev, payload.new as AuditLog]);
-        }
-      )
-      .subscribe();
+    const poll = setInterval(() => {
+      // Don't poll if job is already in a terminal state
+      if (job?.status === "completed" || job?.status === "failed") {
+        clearInterval(poll);
+        return;
+      }
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [jobId]);
+      // Fetch latest job state
+      fetch(`/api/jobs/${jobId}`, { cache: "no-store" })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.id) setJob(data);
+        })
+        .catch(() => {});
+
+      // Fetch latest logs
+      supabase
+        .from("audit_logs")
+        .select("*")
+        .eq("job_id", jobId)
+        .order("timestamp", { ascending: true })
+        .then(({ data }) => {
+          if (data) setLogs(data as AuditLog[]);
+        });
+    }, 5000);
+
+    return () => clearInterval(poll);
+  }, [jobId, job?.status]);
 
   // Auto-scroll logs
   useEffect(() => {
