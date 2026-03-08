@@ -40,7 +40,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/jobs")
+    fetch("/api/jobs", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setAudits(data); })
       .catch(() => {})

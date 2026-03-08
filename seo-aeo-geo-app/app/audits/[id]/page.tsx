@@ -144,7 +144,7 @@ export default function AuditProgressPage() {
 
   // Fetch initial job data
   useEffect(() => {
-    fetch(`/api/jobs/${jobId}`)
+    fetch(`/api/jobs/${jobId}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         if (data.id) setJob(data);

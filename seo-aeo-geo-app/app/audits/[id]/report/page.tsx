@@ -191,7 +191,7 @@ export default function ReportViewerPage() {
   const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/jobs/${jobId}`)
+    fetch(`/api/jobs/${jobId}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         if (data.id) setJob(data);
