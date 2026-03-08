@@ -93,9 +93,12 @@ async function runAgentWithRetry(
       await writeLog(
         jobId,
         "info",
-        `Starting ${config.name}${attempt > 0 ? ` (retry ${attempt})` : ""}`,
+        `Starting ${config.name}${attempt > 0 ? ` (retry ${attempt})` : ""} [model: ${config.model || MODEL_DEEP}, maxTokens: ${config.maxTokens || 16000}, webSearch: ${config.useWebSearch !== false}, maxSearches: ${config.maxWebSearches || "unlimited"}]`,
         config.name
       );
+
+      console.log(`\n[PIPELINE] Agent: ${config.name} | Model: ${config.model || MODEL_DEEP} | WebSearch: ${config.useWebSearch !== false} | MaxSearches: ${config.maxWebSearches || "unlimited"}`);
+      console.log(`[PIPELINE] User message size: ${userMessage.length} chars`);
 
       const claudeOptions: Parameters<typeof callClaude>[0] = {
         model: config.model || MODEL_DEEP,
