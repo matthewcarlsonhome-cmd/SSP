@@ -18,6 +18,11 @@ import {
 const BATCH_SIZE = 5;
 const AGENT_TIMEOUT_MS = 120_000; // 2 minutes per agent call
 const BATCH_TIMEOUT_MS = 90_000; // 90 seconds per batch
+const INTER_BATCH_DELAY_MS = 3_000; // delay between batches to avoid rate limits
+
+// Use Haiku for high-volume batch work, Sonnet for deep analysis
+const MODEL_DEEP = "claude-sonnet-4-20250514";
+const MODEL_BATCH = "claude-haiku-4-5-20251001";
 
 type AgentConfig = {
   name: string;
@@ -90,7 +95,7 @@ async function runAgentWithRetry(
 
       const response = await withTimeout(
         callClaude({
-          model: config.model || "claude-sonnet-4-20250514",
+          model: config.model || MODEL_DEEP,
           maxTokens: config.maxTokens || 16000,
           system: config.systemPrompt,
           tools: [{ type: "web_search_20250305", name: "web_search" }],
@@ -231,6 +236,11 @@ export async function runPipeline(jobId: string) {
         "Page Optimizer"
       );
 
+      // Delay between batches to avoid rate limits
+      if (i > 0) {
+        await new Promise((r) => setTimeout(r, INTER_BATCH_DELAY_MS));
+      }
+
       try {
         const batchResult = await withTimeout(
           runAgentWithRetry(
@@ -241,6 +251,7 @@ export async function runPipeline(jobId: string) {
               progressStart: Math.round(batchProgress),
               progressEnd: Math.round(batchProgress + 30 / totalBatches),
               outputField: "page_optimizations",
+              model: MODEL_BATCH,
               maxTokens: 16000,
             },
             jobId,
