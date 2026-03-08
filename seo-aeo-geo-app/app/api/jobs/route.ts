@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
         status: "pending",
         progress: 0,
         input_brief: brief,
-        current_step: "Initializing audit...",
+        current_step: "Queued — waiting for pipeline to start...",
       })
       .select("id")
       .single();
@@ -146,7 +146,7 @@ export async function GET() {
       .from("audit_jobs")
       .select(
         `
-        id, status, progress, current_step, created_at, started_at, completed_at,
+        id, status, progress, current_step, error_message, created_at, started_at, completed_at,
         total_pages_audited, estimated_cost,
         clients (id, name, website_url, target_geography, industry)
       `

@@ -180,10 +180,12 @@ export async function runPipeline(jobId: string) {
   await updateJob(jobId, {
     started_at: new Date().toISOString(),
     status: "crawling",
-    progress: 0,
+    progress: 1,
+    current_step: "Pipeline started — preparing Agent 1 (Site Crawler)...",
   });
 
-  await writeLog(jobId, "info", "Pipeline started");
+  await writeLog(jobId, "info", "Pipeline started — 5-agent sequence beginning");
+  await writeLog(jobId, "info", `Client: ${(brief.business_name || brief.website_url || "Unknown")} | Model: ${MODEL_DEEP}`);
 
   try {
     // ─── Agent 1: Site Crawler & Scorer ───
@@ -499,9 +501,9 @@ export async function runPipeline(jobId: string) {
 
     // ─── Agent 5: Report Formatter ───
     await updateJob(jobId, {
-      status: "generating_report",
+      status: "formatting_report",
       progress: 90,
-      current_step: "Formatting professional report...",
+      current_step: "Formatting professional report with Agent 5...",
     });
     await writeLog(jobId, "info", "Starting Report Formatter (Agent 5) — generating polished Markdown report", "Report Formatter");
 
