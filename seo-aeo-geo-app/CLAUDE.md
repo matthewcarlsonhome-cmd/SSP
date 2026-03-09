@@ -212,7 +212,8 @@ seo-aeo-geo-app/
 │   └── migrations/
 │       ├── 001_initial_schema.sql          # Core 9 tables + RLS + indexes
 │       ├── 002_audit_logs.sql              # audit_logs table
-│       └── 003_formatted_report.sql        # formatted_report TEXT column on audit_jobs
+│       ├── 003_formatted_report.sql        # formatted_report TEXT column on audit_jobs
+│       └── 004_auth_and_billing.sql        # user_profiles, credit_transactions, credit_packages
 ├── skill/
 │   └── references/schema-templates.md      # JSON-LD schema templates
 ├── package.json
@@ -231,6 +232,10 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ANTHROPIC_API_KEY=your-anthropic-api-key
+
+# Optional — for Stripe billing (not required for demo)
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
 ```
 
 **Important:** The `SUPABASE_SERVICE_ROLE_KEY` is used server-side only (in pipeline and API routes) to bypass RLS. Never expose it to the client.
@@ -343,12 +348,13 @@ Next.js App Router aggressively caches by default. For a data-driven app where e
 
 ### Working
 - Full 5-agent pipeline executes end-to-end (Agent 5 = Report Formatter)
+- **User-selectable AI model** (Haiku or Sonnet) on the audit form with cost comparison
 - Dashboard with audit list, stats, delete, re-run
-- Client brief intake form (direct entry mode)
-- Real-time progress tracking with polling
+- Client brief intake form with auto-populate from URL and document upload
+- Real-time progress tracking with polling + live output logs
 - 8-tab interactive report viewer with "Full Report" Markdown tab
 - Per-page implementation checklists (Steps 1-9) with character count validation
-- Client management (list, detail, search)
+- Client management (list, detail, search, delete)
 - DOCX report generation
 - Markdown report generation (Agent 5 polished or code-generated fallback)
 - CSV exports: roadmap, link opportunities, citation tasks
@@ -357,13 +363,16 @@ Next.js App Router aggressively caches by default. For a data-driven app where e
 - Stale job cleanup on dashboard load
 - Truncated JSON auto-repair
 - Comprehensive API logging
+- HTML pre-fetcher for ground-truth SEO signal extraction (schema, meta, headings)
+- **Authentication UI** (Google OAuth via Supabase Auth) — optional, app works without login
+- **Billing page** with pricing tiers, credit packages, and transaction history UI
+- **Navigation** with auth state, credits badge, and Billing link
 
 ### Not Yet Implemented
-- **Authentication:** No login/signup. All data is accessible without auth. Supabase Auth schema is designed (RLS policies exist) but UI not built.
-- **File upload parsing:** API endpoint exists (`/api/parse-upload`) but upload UI mode in the brief form is not wired up.
+- **Stripe integration:** Checkout route is a placeholder — needs `STRIPE_SECRET_KEY` and webhook for actual payment processing.
+- **Credit enforcement:** Credits are tracked but not deducted/enforced on audit creation. App currently allows unlimited runs.
 - **PDF report generation:** `pdf-generator.ts` exists but may need refinement.
 - **Supabase Realtime:** Replaced with polling. Can be re-enabled when Supabase project is configured.
-- **Cost tracking:** Token usage is logged but not displayed to users or converted to dollar amounts.
 - **Agency branding:** No logo customization on reports.
 - **Batch client processing:** No "run all 34 clients" feature yet.
 - **Delta comparison:** No before/after comparison between audit runs.
@@ -397,16 +406,15 @@ npm run dev                   # http://localhost:3000
 5. Monitor progress at `/audits/[id]`
 6. View results at `/audits/[id]/report`
 
-### Switching Between Test and Production Quality
-Edit `seo-aeo-geo-app/lib/agents/pipeline.ts` lines 26-27:
-```typescript
-// Testing (cheap, ~$0.15-0.30 per audit):
-const MODEL_DEEP = "claude-haiku-4-5-20251001";
-const MODEL_BATCH = "claude-haiku-4-5-20251001";
+### Model Selection
+Model is now user-selectable on the New Audit form (Haiku or Sonnet). The choice is stored on the `audit_jobs.model_used` column and the pipeline reads it at runtime.
 
-// Production (high quality, ~$1.70-3.20 per audit):
-const MODEL_DEEP = "claude-sonnet-4-20250514";
-const MODEL_BATCH = "claude-haiku-4-5-20251001";
+```typescript
+// In lib/agents/pipeline.ts — models are resolved per-job:
+const MODELS = {
+  haiku: "claude-haiku-4-5-20251001",    // ~$0.15-0.30 per audit, 1 credit
+  sonnet: "claude-sonnet-4-20250514",    // ~$1.50-3.00 per audit, 5 credits
+};
 ```
 
 ---

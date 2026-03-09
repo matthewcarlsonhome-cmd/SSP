@@ -102,7 +102,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create audit job
+    // Create audit job with model selection
+    const modelChoice = brief.model === "sonnet" ? "sonnet" : "haiku";
     const { data: job, error: jobError } = await supabase
       .from("audit_jobs")
       .insert({
@@ -111,6 +112,7 @@ export async function POST(request: NextRequest) {
         progress: 0,
         input_brief: brief,
         current_step: "Queued — waiting for pipeline to start...",
+        model_used: modelChoice,
       })
       .select("id")
       .single();

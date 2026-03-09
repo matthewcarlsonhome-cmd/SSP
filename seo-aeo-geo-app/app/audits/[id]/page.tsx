@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { supabase } from "@/lib/supabase";
+// Logs are fetched via API (service client) to bypass RLS
 
 type AuditLog = {
   id: string;
@@ -47,6 +47,9 @@ type JobData = {
   started_at: string | null;
   completed_at: string | null;
   total_pages_audited: number | null;
+  model_used: string | null;
+  credits_used: number | null;
+  audit_logs?: AuditLog[];
   clients: {
     id: string;
     name: string;
@@ -174,19 +177,13 @@ export default function AuditProgressPage() {
     fetch(`/api/jobs/${jobId}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
-        if (data.id) setJob(data);
+        if (data.id) {
+          setJob(data);
+          if (data.audit_logs) setLogs(data.audit_logs as AuditLog[]);
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-
-    supabase
-      .from("audit_logs")
-      .select("*")
-      .eq("job_id", jobId)
-      .order("timestamp", { ascending: true })
-      .then(({ data }) => {
-        if (data) setLogs(data as AuditLog[]);
-      });
   }, [jobId]);
 
   // Poll for job updates every 5 seconds as primary update mechanism.
@@ -200,12 +197,13 @@ export default function AuditProgressPage() {
         return;
       }
 
-      // Fetch latest job state
+      // Fetch latest job state + logs in one request
       fetch(`/api/jobs/${jobId}`, { cache: "no-store" })
         .then((r) => r.json())
         .then((data) => {
           if (data.id) {
             setJob(data);
+            if (data.audit_logs) setLogs(data.audit_logs as AuditLog[]);
             // Track progress changes for stall detection
             const progress = data.progress || 0;
             if (progress !== lastProgressRef.current.value) {
@@ -218,16 +216,6 @@ export default function AuditProgressPage() {
           }
         })
         .catch(() => {});
-
-      // Fetch latest logs
-      supabase
-        .from("audit_logs")
-        .select("*")
-        .eq("job_id", jobId)
-        .order("timestamp", { ascending: true })
-        .then(({ data }) => {
-          if (data) setLogs(data as AuditLog[]);
-        });
     }, 5000);
 
     return () => clearInterval(poll);
@@ -295,7 +283,14 @@ export default function AuditProgressPage() {
         </Link>
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">{clientName}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold tracking-tight">{clientName}</h1>
+              {job.model_used && (
+                <Badge variant={job.model_used === "sonnet" ? "default" : "secondary"} className="text-xs">
+                  {job.model_used === "sonnet" ? "Sonnet" : "Haiku"}
+                </Badge>
+              )}
+            </div>
             <p className="mt-1 text-muted-foreground">
               {isComplete
                 ? "SEO/AEO/GEO Audit complete"

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Navigation } from "@/components/navigation";
+import { AuthProvider } from "@/lib/auth-context";
 
 export const metadata: Metadata = {
   title: "SEO/AEO/GEO Optimizer",
@@ -22,10 +23,12 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen antialiased">
-        <Navigation />
-        <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-          {children}
-        </main>
+        <AuthProvider>
+          <Navigation />
+          <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+            {children}
+          </main>
+        </AuthProvider>
       </body>
     </html>
   );
