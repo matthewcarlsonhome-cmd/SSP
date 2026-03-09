@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -52,10 +52,31 @@ type ClientData = {
 
 export default function ClientProfilePage() {
   const params = useParams();
+  const router = useRouter();
   const clientId = params.id as string;
   const [client, setClient] = useState<ClientData | null>(null);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingClient, setDeletingClient] = useState(false);
+
+  const handleDeleteClient = async () => {
+    if (!client) return;
+    if (!confirm(`Delete "${client.name}" and all their audits? This cannot be undone.`)) return;
+    setDeletingClient(true);
+    try {
+      const res = await fetch(`/api/clients/${clientId}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/clients");
+      } else {
+        const err = await res.json();
+        alert(err.error || "Failed to delete client");
+        setDeletingClient(false);
+      }
+    } catch {
+      alert("Failed to delete client");
+      setDeletingClient(false);
+    }
+  };
 
   const handleDeleteAudit = async (auditId: string) => {
     if (!confirm("Delete this audit? This cannot be undone.")) return;
@@ -130,12 +151,27 @@ export default function ClientProfilePage() {
               )}
             </div>
           </div>
-          <Link href="/audits/new">
-            <Button>
-              <PlusCircle className="h-4 w-4" />
-              New Audit
+          <div className="flex items-center gap-2">
+            <Link href="/audits/new">
+              <Button>
+                <PlusCircle className="h-4 w-4" />
+                New Audit
+              </Button>
+            </Link>
+            <Button
+              variant="outline"
+              onClick={handleDeleteClient}
+              disabled={deletingClient}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              {deletingClient ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+              Delete
             </Button>
-          </Link>
+          </div>
         </div>
       </div>
 

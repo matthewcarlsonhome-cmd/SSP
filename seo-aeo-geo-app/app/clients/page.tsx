@@ -9,6 +9,7 @@ import {
   Calendar,
   FileBarChart,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,24 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<ClientItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async (clientId: string, clientName: string) => {
+    if (!confirm(`Delete "${clientName}" and all their audits? This cannot be undone.`)) return;
+    setDeletingId(clientId);
+    try {
+      const res = await fetch(`/api/clients/${clientId}`, { method: "DELETE" });
+      if (res.ok) {
+        setClients((prev) => prev.filter((c) => c.id !== clientId));
+      } else {
+        const err = await res.json();
+        alert(err.error || "Failed to delete client");
+      }
+    } catch {
+      alert("Failed to delete client");
+    }
+    setDeletingId(null);
+  };
 
   useEffect(() => {
     fetch("/api/clients", { cache: "no-store" })
@@ -95,19 +114,34 @@ export default function ClientsPage() {
       {filtered.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((client) => (
-            <Link key={client.id} href={`/clients/${client.id}`}>
-              <Card className="h-full transition-all hover:shadow-md hover:border-primary/20 cursor-pointer">
-                <CardContent className="p-6 space-y-4">
-                  <div>
-                    <h3 className="font-semibold text-foreground">
+            <Card key={client.id} className="h-full transition-all hover:shadow-md hover:border-primary/20">
+              <CardContent className="p-6 space-y-4">
+                <div className="flex items-start justify-between">
+                  <Link href={`/clients/${client.id}`} className="flex-1 min-w-0 cursor-pointer">
+                    <h3 className="font-semibold text-foreground hover:text-primary transition-colors">
                       {client.name}
                     </h3>
                     <div className="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground">
                       <Globe className="h-3.5 w-3.5" />
                       {client.website_url.replace(/^https?:\/\//, "")}
                     </div>
-                  </div>
+                  </Link>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDelete(client.id, client.name)}
+                    disabled={deletingId === client.id}
+                    className="shrink-0 text-muted-foreground hover:text-destructive -mr-2 -mt-2"
+                  >
+                    {deletingId === client.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
 
+                <Link href={`/clients/${client.id}`} className="block cursor-pointer">
                   <div className="flex items-center gap-2 flex-wrap">
                     {client.industry && (
                       <Badge variant="secondary">{client.industry}</Badge>
@@ -119,7 +153,7 @@ export default function ClientsPage() {
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between pt-2 border-t">
+                  <div className="flex items-center justify-between pt-2 mt-4 border-t">
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <FileBarChart className="h-3.5 w-3.5" />
@@ -134,9 +168,9 @@ export default function ClientsPage() {
                       )}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            </Link>
+                </Link>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
