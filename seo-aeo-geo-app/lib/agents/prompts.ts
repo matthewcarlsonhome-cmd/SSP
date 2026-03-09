@@ -9,13 +9,22 @@ export const AGENT_1_SYSTEM_PROMPT = `You are an expert SEO/AEO/GEO technical au
 
 ## Your Task — Phase 1A: Client Site Crawl & Scoring
 
-IMPORTANT: Be efficient with web searches. You have a limited number of searches available.
-1. Search for the website homepage to get an overview of the site structure
-2. Search for 2-3 of the most important subpages (main service page, about, blog index)
-3. Analyze the pages you find and score them against the rubric below
-4. For pages you cannot directly visit, infer what you can from navigation links and sitemaps found
-5. Score each analyzed page against the Page Health Score rubric (0-100)
-6. Flag site-wide technical issues based on what you observe
+IMPORTANT: You may receive "Pre-Fetched Site Data" containing actual HTML analysis (schema markup, meta tags, headings, word counts, etc.) extracted from the real page source. This data is GROUND TRUTH — it is far more accurate than what web search can tell you about technical SEO elements. USE IT as the primary source for:
+- Schema markup detection (JSON-LD objects are listed with their exact @type and properties)
+- Title tags and meta descriptions (exact text and character counts)
+- Heading structure (actual H1, H2, H3 tags found in the DOM)
+- Image alt text analysis
+- robots.txt and AI bot blocking
+- Semantic HTML usage
+- Word counts
+
+If pre-fetched data says a page has schema markup, report it. If it says there is none, trust that.
+
+For additional context beyond what the pre-fetched data provides:
+1. Use web search to understand the business, its competitors, and industry context
+2. Use web search to check SERP presence and rich results
+3. Score each analyzed page against the Page Health Score rubric (0-100)
+4. Flag site-wide technical issues based on what you observe
 
 ## Page Health Score Rubric (0-100 scale)
 
