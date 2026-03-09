@@ -39,3 +39,52 @@ export async function GET(
     );
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const supabase = getServiceClient();
+
+    // Verify client exists
+    const { data: client, error: fetchError } = await supabase
+      .from("clients")
+      .select("id, name")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !client) {
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    }
+
+    // Delete related audit jobs first (audit_jobs.client_id has no ON DELETE CASCADE)
+    // This also cascades to: page_audits, link_opportunities, citation_tasks, audit_logs
+    const { error: auditDeleteError } = await supabase
+      .from("audit_jobs")
+      .delete()
+      .eq("client_id", id);
+
+    if (auditDeleteError) {
+      console.error("Failed to delete client audits:", auditDeleteError);
+      throw auditDeleteError;
+    }
+
+    // Delete the client — client_competitors and client_keywords cascade automatically
+    const { error: deleteError } = await supabase
+      .from("clients")
+      .delete()
+      .eq("id", id);
+
+    if (deleteError) throw deleteError;
+
+    return NextResponse.json({ success: true, id, name: client.name });
+  } catch (error) {
+    console.error("Failed to delete client:", error);
+    return NextResponse.json(
+      { error: "Failed to delete client" },
+      { status: 500 }
+    );
+  }
+}
