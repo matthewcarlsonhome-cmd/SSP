@@ -5,6 +5,7 @@ import {
   getTokenUsage,
 } from "@/lib/claude";
 import { getServiceClient } from "@/lib/supabase";
+import { fetchSiteSignals, formatSiteSignalsForPrompt } from "@/lib/utils/html-fetcher";
 import {
   AGENT_1_SYSTEM_PROMPT,
   AGENT_2_SYSTEM_PROMPT,
@@ -188,7 +189,39 @@ export async function runPipeline(jobId: string) {
   await writeLog(jobId, "info", `Client: ${(brief.business_name || brief.website_url || "Unknown")} | Model: ${MODEL_DEEP}`);
 
   try {
+    // ─── Pre-fetch: Fetch actual HTML for ground-truth SEO signals ───
+    await updateJob(jobId, {
+      current_step: "Fetching website HTML for technical analysis...",
+      progress: 2,
+    });
+    await writeLog(jobId, "info", `Fetching actual HTML from ${brief.website_url}...`, "HTML Fetcher");
+
+    let siteSignalsText = "";
+    try {
+      const siteSignals = await fetchSiteSignals(brief.website_url as string, 4);
+      siteSignalsText = formatSiteSignalsForPrompt(siteSignals);
+
+      const schemaCount = [siteSignals.homepage, ...siteSignals.subpages]
+        .filter(Boolean)
+        .reduce((sum, p) => sum + (p?.schemaObjects.length || 0), 0);
+      const pagesFetched = (siteSignals.homepage ? 1 : 0) + siteSignals.subpages.length;
+
+      await writeLog(
+        jobId,
+        "success",
+        `Fetched ${pagesFetched} pages | ${schemaCount} schema objects found | robots.txt: ${siteSignals.robotsTxt.exists ? "found" : "missing"}`,
+        "HTML Fetcher"
+      );
+    } catch (fetchError) {
+      const msg = fetchError instanceof Error ? fetchError.message : String(fetchError);
+      await writeLog(jobId, "warn", `HTML fetch failed (${msg}) — Agent 1 will rely on web search only`, "HTML Fetcher");
+    }
+
     // ─── Agent 1: Site Crawler & Scorer ───
+    const agent1Message = siteSignalsText
+      ? `${buildAgent1UserMessage(brief)}\n\n${siteSignalsText}`
+      : buildAgent1UserMessage(brief);
+
     const crawlResults = await runAgentWithRetry(
       {
         name: "Site Crawler",
@@ -198,10 +231,10 @@ export async function runPipeline(jobId: string) {
         progressEnd: 25,
         outputField: "site_crawl_results",
         maxTokens: 16000,
-        maxWebSearches: 5, // Limit: homepage + 3-4 key pages
+        maxWebSearches: 5,
       },
       jobId,
-      buildAgent1UserMessage(brief),
+      agent1Message,
       AGENT_TIMEOUT_MS
     );
 
