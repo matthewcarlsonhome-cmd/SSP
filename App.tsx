@@ -153,6 +153,9 @@ import { AuthGate } from './components/AuthGate';                  // Login gate
 // ─────────────────────────────────────────────────────────────────────────────
 import AgenticHomePage from './pages/agentic/AgenticHomePage';
 import WorkflowComparePage from './pages/agentic/WorkflowComparePage';
+import AgenticRunnerPage from './pages/agentic/AgenticRunnerPage';
+import SideBySideRunnerPage from './pages/agentic/SideBySideRunnerPage';
+import ControlTowerPage from './pages/agentic/ControlTowerPage';
 import { useAuth } from './hooks/useAuth';
 
 /**
@@ -327,6 +330,9 @@ function App() {
                     <Route path="/agentic" element={<RouteErrorBoundary pageName="Agentic Lab"><AdminOnlyRoute><AgenticHomePage /></AdminOnlyRoute></RouteErrorBoundary>} />
                     <Route path="/agentic/compare" element={<RouteErrorBoundary pageName="Workflow Compare"><AdminOnlyRoute><WorkflowComparePage /></AdminOnlyRoute></RouteErrorBoundary>} />
                     <Route path="/agentic/compare/:workflowId" element={<RouteErrorBoundary pageName="Workflow Compare"><AdminOnlyRoute><WorkflowComparePage /></AdminOnlyRoute></RouteErrorBoundary>} />
+                    <Route path="/agentic/run/:workflowId" element={<RouteErrorBoundary pageName="Agentic Runner"><AdminOnlyRoute><AgenticRunnerPage /></AdminOnlyRoute></RouteErrorBoundary>} />
+                    <Route path="/agentic/side-by-side/:workflowId" element={<RouteErrorBoundary pageName="Shadow Run"><AdminOnlyRoute><SideBySideRunnerPage /></AdminOnlyRoute></RouteErrorBoundary>} />
+                    <Route path="/agentic/control-tower" element={<RouteErrorBoundary pageName="Control Tower"><AdminOnlyRoute><ControlTowerPage /></AdminOnlyRoute></RouteErrorBoundary>} />
                   </Routes>
                 </main>
 

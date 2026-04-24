@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, GitBranch, Network, ShieldCheck, Activity, Workflow } from 'lucide-react';
+import { ArrowRight, GitBranch, Network, ShieldCheck, Activity, Workflow, Play, ArrowRightLeft } from 'lucide-react';
 import { Card, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 
 interface SurfaceTile {
@@ -19,6 +19,15 @@ interface SurfaceTile {
 
 const SURFACES: SurfaceTile[] = [
   {
+    to: '/agentic/run/ppc-master-weekly-workflow',
+    title: 'Agentic Runner',
+    description:
+      'Execute the PPC Master Weekly DAG end-to-end with parallel rounds, structured output ' +
+      'extraction, and optional AI planning. Live status renders on the dependency graph.',
+    icon: Play,
+    status: 'live',
+  },
+  {
     to: '/agentic/compare/ppc-master-weekly-workflow',
     title: 'Workflow Compare',
     description:
@@ -28,13 +37,22 @@ const SURFACES: SurfaceTile[] = [
     status: 'live',
   },
   {
-    to: '/agentic',
+    to: '/agentic/side-by-side/ppc-master-weekly-workflow',
+    title: 'Shadow Run',
+    description:
+      'Run the agentic DAG and compare structurally against the legacy linear workflow. The ' +
+      'safety mechanism for graduating workflows from beta to primary.',
+    icon: ArrowRightLeft,
+    status: 'live',
+  },
+  {
+    to: '/agentic/control-tower',
     title: 'Control Tower',
     description:
       'Live activity feed of agent runs, pending approvals, blockers, and today\'s ' +
       'auto-completed work. Becomes the primary surface once an agent is running.',
     icon: Activity,
-    status: 'planned',
+    status: 'live',
   },
   {
     to: '/agentic',
