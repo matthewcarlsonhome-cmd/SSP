@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, GitBranch, Network, ShieldCheck, Activity, Workflow, Play, ArrowRightLeft } from 'lucide-react';
+import { ArrowRight, GitBranch, Network, ShieldCheck, Activity, Workflow, Play, ArrowRightLeft, Bot } from 'lucide-react';
 import { Card, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 
 interface SurfaceTile {
@@ -55,21 +55,30 @@ const SURFACES: SurfaceTile[] = [
     status: 'live',
   },
   {
-    to: '/agentic',
+    to: '/agentic/agents',
+    title: 'Agents',
+    description:
+      'Per-agent dashboard. Trigger spec, recent runs, manual fire. PPC Ops Agent is the ' +
+      'first registered agent.',
+    icon: Bot,
+    status: 'live',
+  },
+  {
+    to: '/agentic/entities?type=account',
     title: 'Entity Inspector',
     description:
       'Pick a client or account to see everything the system knows about it: recent runs, ' +
       'current facts from entity_context, upcoming deliverables, open risks.',
     icon: Network,
-    status: 'planned',
+    status: 'live',
   },
   {
-    to: '/agentic',
+    to: '/agentic/approvals',
     title: 'Approvals Queue',
     description:
       'Actions an agent wants to take that are gated by policy. Approve, edit, or reject.',
     icon: ShieldCheck,
-    status: 'planned',
+    status: 'live',
   },
 ];
 

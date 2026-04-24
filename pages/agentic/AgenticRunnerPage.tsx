@@ -19,6 +19,7 @@ import {
   HAND_AUTHORED_DAGS,
   adaptWorkflowToDAG,
   buildExecutionRounds,
+  persistRun,
   plan,
   runAgenticDAG,
   toRuntimeState,
@@ -107,7 +108,7 @@ const AgenticRunnerPage: React.FC = () => {
       setActivePlan(executionPlan);
 
       setPhase('running');
-      await runAgenticDAG(dag, {
+      const finalResults = await runAgenticDAG(dag, {
         provider: providerState.provider,
         apiKey: providerState.apiKey,
         userInputs: inputs,
@@ -120,6 +121,24 @@ const AgenticRunnerPage: React.FC = () => {
           }
         },
       });
+
+      // Best-effort persistence to agentic.* schema. Failures here do not
+      // affect the in-page results; the persistence layer is silent on
+      // errors so the UI stays responsive even when supabase is offline.
+      const failed = Object.values(finalResults).some((r) => r.status === 'failed');
+      void persistRun(
+        {
+          agentId: 'manual:web',
+          workflowId,
+          plan: executionPlan,
+          triggerEventId: null,
+        },
+        finalResults,
+        executionPlan.rounds,
+        failed ? 'failed' : 'succeeded',
+        `Manual run from /agentic/run/${workflowId}`,
+      );
+
       setPhase('done');
     } catch (err) {
       setPhase('error');

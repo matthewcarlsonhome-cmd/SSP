@@ -67,3 +67,46 @@ export {
 
 // Hand-authored DAGs (production-grade workflow definitions with contracts)
 export { HAND_AUTHORED_DAGS, PPC_MASTER_WEEKLY_DAG } from './contracts/ppcMasterWeekly';
+
+// Persistence
+export { persistRun, type RunPersistenceContext } from './persistence';
+
+// Evaluator
+export {
+  DEFAULT_EVALUATOR,
+  createLLMEvaluator,
+  type EvaluationResult,
+  type Evaluator,
+  type EvaluatorDecision,
+} from './evaluator';
+
+// Policy
+export {
+  DEFAULT_RULES,
+  evaluateAction,
+  type PolicyContext,
+  type PolicyDecision,
+  type PolicyEvaluation,
+  type PolicyRule,
+  type ProposedAction,
+  type ProposedActionKind,
+} from './policy';
+
+// Agents + triggers
+export {
+  AGENTS,
+  PPC_OPS_AGENT,
+  getAgent,
+  listAgents,
+  type Agent,
+  type AgentRunInput,
+  type AgentRunOutcome,
+  type AgentTriggerSpec,
+} from './agents';
+
+export {
+  agentsForEvent,
+  dispatchEvent,
+  type TriggerEvent,
+  type TriggerSource,
+} from './triggers';

@@ -156,6 +156,9 @@ import WorkflowComparePage from './pages/agentic/WorkflowComparePage';
 import AgenticRunnerPage from './pages/agentic/AgenticRunnerPage';
 import SideBySideRunnerPage from './pages/agentic/SideBySideRunnerPage';
 import ControlTowerPage from './pages/agentic/ControlTowerPage';
+import EntityInspectorPage from './pages/agentic/EntityInspectorPage';
+import ApprovalsPage from './pages/agentic/ApprovalsPage';
+import AgentConsolePage from './pages/agentic/AgentConsolePage';
 import { useAuth } from './hooks/useAuth';
 
 /**
@@ -333,6 +336,10 @@ function App() {
                     <Route path="/agentic/run/:workflowId" element={<RouteErrorBoundary pageName="Agentic Runner"><AdminOnlyRoute><AgenticRunnerPage /></AdminOnlyRoute></RouteErrorBoundary>} />
                     <Route path="/agentic/side-by-side/:workflowId" element={<RouteErrorBoundary pageName="Shadow Run"><AdminOnlyRoute><SideBySideRunnerPage /></AdminOnlyRoute></RouteErrorBoundary>} />
                     <Route path="/agentic/control-tower" element={<RouteErrorBoundary pageName="Control Tower"><AdminOnlyRoute><ControlTowerPage /></AdminOnlyRoute></RouteErrorBoundary>} />
+                    <Route path="/agentic/entities" element={<RouteErrorBoundary pageName="Entity Inspector"><AdminOnlyRoute><EntityInspectorPage /></AdminOnlyRoute></RouteErrorBoundary>} />
+                    <Route path="/agentic/approvals" element={<RouteErrorBoundary pageName="Approvals"><AdminOnlyRoute><ApprovalsPage /></AdminOnlyRoute></RouteErrorBoundary>} />
+                    <Route path="/agentic/agents" element={<RouteErrorBoundary pageName="Agents"><AdminOnlyRoute><AgentConsolePage /></AdminOnlyRoute></RouteErrorBoundary>} />
+                    <Route path="/agentic/agents/:agentId" element={<RouteErrorBoundary pageName="Agent Console"><AdminOnlyRoute><AgentConsolePage /></AdminOnlyRoute></RouteErrorBoundary>} />
                   </Routes>
                 </main>
 
