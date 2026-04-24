@@ -33,6 +33,8 @@ import { useProviderConfig } from '../../components/ProviderConfig';
 import { Button } from '../../components/ui/Button';
 import { Card, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 import WorkflowDAG from '../../components/agentic/WorkflowDAG';
+import DocumentIntake from '../../components/agentic/DocumentIntake';
+import type { IntakeFieldSpec } from '../../lib/agentic';
 
 const DEFAULT_WORKFLOW_ID = 'ppc-master-weekly-workflow';
 
@@ -49,6 +51,7 @@ const AgenticRunnerPage: React.FC = () => {
   }, [workflowId, workflow]);
 
   const [usePlanner, setUsePlanner] = React.useState(false);
+  const [showIntake, setShowIntake] = React.useState(false);
   const [inputs, setInputs] = React.useState<Record<string, string>>({});
   const [activePlan, setActivePlan] = React.useState<ExecutionPlan | null>(null);
   const [results, setResults] = React.useState<Record<string, StepRunResult>>({});
@@ -223,6 +226,36 @@ const AgenticRunnerPage: React.FC = () => {
           </p>
         </Card>
       )}
+
+      {/* Document intake — toggleable, sits above the runner column for clarity */}
+      <div className="mb-4">
+        <button
+          type="button"
+          onClick={() => setShowIntake((v) => !v)}
+          className="text-sm text-primary underline underline-offset-4"
+        >
+          {showIntake ? 'Hide' : 'Use'} document intake (paste raw context, auto-fill inputs)
+        </button>
+        {showIntake && workflow && providerState.apiKey && (
+          <div className="mt-3">
+            <DocumentIntake
+              fields={
+                workflow.globalInputs.map((g) => ({
+                  id: g.id,
+                  label: g.label,
+                  description: g.placeholder,
+                })) as IntakeFieldSpec[]
+              }
+              provider={providerState.provider}
+              apiKey={providerState.apiKey}
+              onExtracted={(values) => {
+                setInputs((prev) => ({ ...prev, ...values }));
+                setShowIntake(false);
+              }}
+            />
+          </div>
+        )}
+      </div>
 
       <div className="grid lg:grid-cols-[1fr_2fr] gap-4">
         {/* LEFT: inputs + DAG + plan */}

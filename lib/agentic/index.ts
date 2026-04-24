@@ -67,6 +67,17 @@ export {
 
 // Hand-authored DAGs (production-grade workflow definitions with contracts)
 export { HAND_AUTHORED_DAGS, PPC_MASTER_WEEKLY_DAG } from './contracts/ppcMasterWeekly';
+export {
+  CUSTOMER_CHURN_PREVENTION_DAG,
+  DIGITAL_MARKETING_AUDIT_DAG,
+  MARKETING_CAMPAIGN_DAG,
+  SALES_ACCOUNT_PURSUIT_DAG,
+  SEO_CLIENT_ONBOARDING_DAG,
+  TIER_2_HAND_AUTHORED_DAGS,
+} from './contracts/tier2Workflows';
+
+// Document-first intake
+export { extractIntake, type IntakeFieldSpec, type IntakeResult } from './intake';
 
 // Persistence
 export { persistRun, type RunPersistenceContext } from './persistence';

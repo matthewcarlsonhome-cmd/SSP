@@ -179,7 +179,15 @@ export const PPC_MASTER_WEEKLY_DAG: AgenticDAG = {
 /**
  * Registry of hand-authored agentic DAGs. As more workflows are upgraded from
  * inferred-only to fully authored contracts, register them here.
+ *
+ * Tier 2 (Sales Account Pursuit, Customer Churn Prevention, SEO Onboarding,
+ * Marketing Campaign Launch, Digital Marketing Audit) live in
+ * ./tier2Workflows.ts and are merged into HAND_AUTHORED_DAGS via the
+ * lib/agentic/index.ts re-export.
  */
+import { TIER_2_HAND_AUTHORED_DAGS } from './tier2Workflows';
+
 export const HAND_AUTHORED_DAGS: Record<string, AgenticDAG> = {
   'ppc-master-weekly-workflow': PPC_MASTER_WEEKLY_DAG,
+  ...TIER_2_HAND_AUTHORED_DAGS,
 };
