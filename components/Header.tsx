@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Moon, Sun, Briefcase, Users, LogIn, LogOut, Loader2, ChevronDown, LayoutDashboard, Package, Menu, X, Settings, FileSpreadsheet, Trophy, Lock, User, Wand2, Download, Shield, BookOpen, Layers, Import, FolderOpen, CreditCard } from 'lucide-react';
+import { Moon, Sun, Briefcase, Users, LogIn, LogOut, Loader2, ChevronDown, LayoutDashboard, Package, Menu, X, Settings, FileSpreadsheet, Trophy, Lock, User, Wand2, Download, Shield, BookOpen, Layers, Import, FolderOpen, CreditCard, GitBranch } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme.tsx';
 import { useAuth } from '../hooks/useAuth.tsx';
 import { useToast } from '../hooks/useToast.tsx';
@@ -138,6 +138,24 @@ const Header: React.FC = () => {
                 Workflows
               </Button>
             </Link>
+
+            {/* Agentic Lab — admin-only beta. Hidden entirely for non-admins. */}
+            {isAdmin && (
+              <Link to="/agentic">
+                <Button
+                  variant={location.pathname.startsWith('/agentic') ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="gap-2"
+                  title="Agentic workflow lab (beta)"
+                >
+                  <GitBranch className="h-4 w-4" />
+                  Agentic
+                  <span className="ml-1 text-[9px] px-1 py-0.5 rounded bg-amber-500/15 text-amber-700 uppercase tracking-wider font-semibold">
+                    Beta
+                  </span>
+                </Button>
+              </Link>
+            )}
 
             {/* More Dropdown - Consolidated menu for secondary features */}
             <div className="relative" ref={toolsMenuRef}>

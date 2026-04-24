@@ -146,6 +146,33 @@ import AuthCallbackPage from './pages/AuthCallbackPage';           // OAuth call
 import ClientPortalPage from './pages/ClientPortalPage';           // B2B client marketing portal
 import { AuthGate } from './components/AuthGate';                  // Login gate with onboarding
 
+// ─────────────────────────────────────────────────────────────────────────────
+// AGENTIC LAB (Beta — admin only)
+// Isolated experiment for the Business OS / DAG / agentic workflow direction.
+// Existing workflow product is unaffected; gated by useAuth().isAdmin.
+// ─────────────────────────────────────────────────────────────────────────────
+import AgenticHomePage from './pages/agentic/AgenticHomePage';
+import WorkflowComparePage from './pages/agentic/WorkflowComparePage';
+import { useAuth } from './hooks/useAuth';
+
+/**
+ * AdminOnlyRoute — renders children only for admins. Non-admins get a 404-style
+ * fallback so the experiment stays invisible to the rest of the user base.
+ */
+const AdminOnlyRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAdmin, loading } = useAuth();
+  if (loading) return null;
+  if (!isAdmin) {
+    return (
+      <div className="container mx-auto max-w-2xl px-4 py-20 text-center">
+        <h1 className="text-2xl font-semibold mb-2">Page not found</h1>
+        <p className="text-muted-foreground">The page you’re looking for doesn’t exist.</p>
+      </div>
+    );
+  }
+  return <>{children}</>;
+};
+
 /**
  * Main App Component
  *
@@ -291,6 +318,15 @@ function App() {
                         - /portal/:slug: Dedicated portal for each client
                     ═══════════════════════════════════════════════════════ */}
                     <Route path="/portal/:slug" element={<RouteErrorBoundary pageName="Client Portal"><ClientPortalPage /></RouteErrorBoundary>} />
+
+                    {/* ═══════════════════════════════════════════════════════
+                        AGENTIC LAB (Beta — admin only)
+                        Isolated experiment for the Business OS / DAG model.
+                        Existing workflow routes above are untouched.
+                    ═══════════════════════════════════════════════════════ */}
+                    <Route path="/agentic" element={<RouteErrorBoundary pageName="Agentic Lab"><AdminOnlyRoute><AgenticHomePage /></AdminOnlyRoute></RouteErrorBoundary>} />
+                    <Route path="/agentic/compare" element={<RouteErrorBoundary pageName="Workflow Compare"><AdminOnlyRoute><WorkflowComparePage /></AdminOnlyRoute></RouteErrorBoundary>} />
+                    <Route path="/agentic/compare/:workflowId" element={<RouteErrorBoundary pageName="Workflow Compare"><AdminOnlyRoute><WorkflowComparePage /></AdminOnlyRoute></RouteErrorBoundary>} />
                   </Routes>
                 </main>
 
