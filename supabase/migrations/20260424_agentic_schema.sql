@@ -89,9 +89,15 @@ CREATE TABLE IF NOT EXISTS agentic.entity_context (
 
 CREATE INDEX IF NOT EXISTS idx_agentic_entity_context_lookup
   ON agentic.entity_context(entity_type, entity_id, key);
-CREATE INDEX IF NOT EXISTS idx_agentic_entity_context_valid
+-- Partial index for the "currently-valid facts" query path. Postgres rejects
+-- non-IMMUTABLE functions in index predicates (NOW() is STABLE) because a
+-- time-based predicate would silently drift, so we only index rows with no
+-- expiry here. Queries that need the not-yet-expired set should filter
+-- `valid_until IS NULL OR valid_until > NOW()` at SELECT time — the lookup
+-- index above keeps that fast.
+CREATE INDEX IF NOT EXISTS idx_agentic_entity_context_active
   ON agentic.entity_context(entity_type, entity_id, key, valid_from DESC)
-  WHERE valid_until IS NULL OR valid_until > NOW();
+  WHERE valid_until IS NULL;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- policies: human-set guardrails. Evaluated by the policy engine before any
