@@ -79,6 +79,39 @@ export {
 // Document-first intake
 export { extractIntake, type IntakeFieldSpec, type IntakeResult } from './intake';
 
+// Orchestrator — task classification + model routing
+export {
+  routeDag,
+  routeModel,
+  type DagRoutingPlan,
+  type ModelChoice,
+  type RoutingContext,
+} from './orchestrator';
+
+export { classifyStep, type ClassifyStepArgs } from './taskClassifier';
+
+// Cost modeling — model registry, price table, cost estimation
+export {
+  MODEL_REGISTRY,
+  calculateCost,
+  centsToDollarString,
+  estimateCost,
+  estimateTokens,
+  formatCostCompact,
+  getModel,
+  listModels,
+  modelsByTier,
+  type CostBreakdown,
+  type ModelProfile,
+  type ModelTierKey,
+  type Provider,
+  type TaskClassification,
+  type TaskComplexity,
+  type TaskKind,
+  type TaskStakes,
+  type TokenUsage,
+} from './costing';
+
 // Persistence
 export { persistRun, type RunPersistenceContext } from './persistence';
 
