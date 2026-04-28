@@ -182,13 +182,24 @@ implementing):
 | smart | Claude Opus 4.7 | ~12–25× | Strategic recommendations, multi-domain synthesis, novel scenarios, judgment calls with stakes |
 | reasoning | Opus + extended thinking, OpenAI o-series | ~25–60× (thinking tokens dominate) | Optimization, multi-constraint planning, debugging complex issues, budget allocation across competing priorities |
 
-These ratios make the orchestration savings concrete. A 7-step PPC Master
-Weekly run with everything blanket-routed to Opus could cost ~$2.00. The
-same run intelligently routed (Haiku for extraction, Sonnet for analysis,
-Opus only for the strategic merge step) might cost ~$0.20. Over 50 runs/
-year × 45 accounts, that's the difference between $4,500 and $450 just on
-this one workflow — and the agentic system is going to add many more
-workflows.
+These ratios make the orchestration savings concrete. With the price
+registry in `lib/agentic/costing.ts`, a 7-step PPC Master Weekly run with
+~5K input + 2K output per step works out to:
+
+- **Blanket Opus:** ~$1.58 per run (every step on Opus 4.7)
+- **Blanket Sonnet:** ~$0.32 per run
+- **Mostly-Sonnet routing** (1 Opus merge, 4 Sonnet analyses, 2 Haiku
+  extractions): ~$0.44 per run — **~3.6× cheaper than blanket Opus**
+- **Haiku-heavy routing** (1 Opus merge, 1 Sonnet, 5 Haiku) where work
+  permits: ~$0.34 per run — **~4.6× cheaper than blanket Opus**
+
+The exact numbers vary with prompt size and output length, but the order
+of magnitude is the point: at 50 runs/year per workflow × 45 accounts ×
+multiple workflows × multiple agents, the difference between blanket-Opus
+and intelligent routing is the difference between five-figure and four-
+figure annual spend on this one program. These are tested invariants —
+see `tests/lib/agenticCosting.test.ts` for the exact assertions over the
+registry.
 
 ### 4.4 The routing function
 
