@@ -159,6 +159,7 @@ import ControlTowerPage from './pages/agentic/ControlTowerPage';
 import EntityInspectorPage from './pages/agentic/EntityInspectorPage';
 import ApprovalsPage from './pages/agentic/ApprovalsPage';
 import AgentConsolePage from './pages/agentic/AgentConsolePage';
+import CostExplorerPage from './pages/agentic/CostExplorerPage';
 import { useAuth } from './hooks/useAuth';
 
 /**
@@ -340,6 +341,7 @@ function App() {
                     <Route path="/agentic/approvals" element={<RouteErrorBoundary pageName="Approvals"><AdminOnlyRoute><ApprovalsPage /></AdminOnlyRoute></RouteErrorBoundary>} />
                     <Route path="/agentic/agents" element={<RouteErrorBoundary pageName="Agents"><AdminOnlyRoute><AgentConsolePage /></AdminOnlyRoute></RouteErrorBoundary>} />
                     <Route path="/agentic/agents/:agentId" element={<RouteErrorBoundary pageName="Agent Console"><AdminOnlyRoute><AgentConsolePage /></AdminOnlyRoute></RouteErrorBoundary>} />
+                    <Route path="/agentic/costs" element={<RouteErrorBoundary pageName="Cost Explorer"><AdminOnlyRoute><CostExplorerPage /></AdminOnlyRoute></RouteErrorBoundary>} />
                   </Routes>
                 </main>
 

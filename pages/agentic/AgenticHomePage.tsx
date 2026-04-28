@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, GitBranch, Network, ShieldCheck, Activity, Workflow, Play, ArrowRightLeft, Bot } from 'lucide-react';
+import { ArrowRight, GitBranch, Network, ShieldCheck, Activity, Workflow, Play, ArrowRightLeft, Bot, DollarSign } from 'lucide-react';
 import { Card, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 
 interface SurfaceTile {
@@ -78,6 +78,16 @@ const SURFACES: SurfaceTile[] = [
     description:
       'Actions an agent wants to take that are gated by policy. Approve, edit, or reject.',
     icon: ShieldCheck,
+    status: 'live',
+  },
+  {
+    to: '/agentic/costs',
+    title: 'Cost Explorer',
+    description:
+      'Model registry, per-workflow routing decisions, and system-wide cost projections. ' +
+      'Compare router-driven cost against blanket-Opus / blanket-Sonnet / blanket-Haiku ' +
+      'strategies to see savings live.',
+    icon: DollarSign,
     status: 'live',
   },
 ];
