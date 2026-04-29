@@ -1,494 +1,630 @@
-# CLAUDE.md — SEO/AEO/GEO Optimizer Project Knowledge Base
+# CLAUDE.md — SEO/AEO/GEO Optimizer Knowledge Base
 
-> **Review this file at the start of every development session.**
-> Last updated: 2026-03-08
+> **Read this file at the start of every development session.**
+> Last updated: 2026-04-29
 
 ---
 
-## 1. Project Overview
+## 1. What This Project Is
 
-The SEO/AEO/GEO Optimizer is a web application built for SSP (a digital marketing agency managing 30-40 client accounts). It accepts a client brief, orchestrates a 4-agent AI pipeline using the Claude API, and produces a complete, implementation-ready SEO/AEO/GEO optimization package.
+The SEO/AEO/GEO Optimizer is a SaaS application that accepts a client brief (website URL + business details), runs a 5-agent Claude AI pipeline, and produces an implementation-ready optimization package covering traditional SEO, Answer Engine Optimization (AEO), and Generative Engine Optimization (GEO).
 
-**Core promise:** Upload or enter client info → wait 5-10 minutes → download a complete optimization package that would take a senior SEO strategist 20-40 hours to produce manually.
+**What makes it novel:** Most SEO tools analyze. This one *writes*. Agent 3 generates actual title tags, meta descriptions, answer blocks, FAQ content, and JSON-LD schema code — ready to paste into a CMS. The output is a complete deliverable, not a list of recommendations.
+
+**Core value proposition:** Enter client info, wait 5-8 minutes, download a package that would take a senior SEO strategist 20-40 hours to produce manually. Cost: $0.15-$3.00 in API fees depending on model choice.
 
 **Repository:** `matthewcarlsonhome-cmd/SSP`
 **App directory:** `seo-aeo-geo-app/`
-**Deployment:** Render (Web Service) + Supabase (database/auth/storage)
+**Live URL:** `https://ssp-43pp.onrender.com`
+**Deployment:** Render (Web Service) + Supabase (Postgres + Auth)
 
 ---
 
 ## 2. Technology Stack
 
-| Layer | Technology | Version |
-|-------|-----------|---------|
-| Framework | Next.js | 16.1.6 |
-| Language | TypeScript | 5.9.3 |
-| UI | React 19 + Tailwind CSS 4 | |
-| Components | Custom (shadcn/ui pattern) + Lucide icons | |
-| Database | Supabase (Postgres) | |
-| AI | Claude API (Anthropic) | anthropic-version: 2023-06-01 |
-| Report Gen | docx, jsPDF, JSZip, PapaParse | |
-| Validation | Zod 4 | |
-| Auth | Supabase Auth (planned, not yet implemented) | |
+| Layer | Technology | Version | Why |
+|-------|-----------|---------|-----|
+| Framework | Next.js (App Router) | 16.1.6 | Server-side API routes + React UI in one codebase |
+| Language | TypeScript | 5.9.3 | Strict mode — catches agent output mismatches early |
+| UI | React 19 + Tailwind CSS 4 | latest | Rapid UI iteration, zero CSS files to manage |
+| Components | Custom shadcn/ui pattern + Lucide | | Consistent design system, tree-shakable icons |
+| Database | Supabase (Postgres) | | RLS policies, auth integration, JSONB for flexible AI output |
+| AI | Claude API (Anthropic) | 2023-06-01 | Web search tool, extended thinking, large context windows |
+| Auth | Supabase Auth (Google OAuth) | | Optional — app works without login for demos |
+| Report Gen | docx, JSZip, PapaParse | | DOCX reports, schema ZIP packages, CSV exports |
+| Validation | Zod 4 | 4.3.6 | Runtime validation of agent outputs + form inputs |
+| Testing | Vitest | 4.0.18 | 57 tests across 8 files — scoring, schemas, API, build |
+
+### Key Dependency Choices
+- **No remark/rehype for Markdown rendering** — custom line-by-line parser in the report viewer. Simpler, no SSR hydration issues, handles our specific output format.
+- **No background job queue** — pipeline runs in-process on Render. Simpler deploy, but jobs are abandoned on server restart (handled by stale job cleanup).
+- **No Redis/Bull** — not needed yet. If concurrent users exceed ~3-5, move to Supabase Edge Functions or a worker process.
+- **@supabase/ssr** for auth — cookie-based sessions that work with Next.js server components and API routes.
 
 ---
 
-## 3. Architecture
+## 3. Functional Readout — What Works Today
 
-```
-Frontend (Next.js App Router)
-├── Dashboard (/) — audit list, stats, stale job cleanup
-├── New Audit (/audits/new) — client brief intake form
-├── Audit Progress (/audits/[id]) — real-time pipeline status + logs
-├── Report Viewer (/audits/[id]/report) — 8-tab interactive report
-├── Clients (/clients) — client list with search
-└── Client Detail (/clients/[id]) — profile + audit history
+### Client Intake
+- Manual form with 15+ fields (name, URL, industry, geography, competitors, keywords, GBP, analytics, CMS, pain points)
+- **Auto-populate from URL** — enters a website URL, AI researches the business via web search and fills all fields (uses Haiku + 5 web searches)
+- **Document upload** — drag-and-drop .txt/.csv/.json/.md/.docx/.pdf, AI extracts structured data and populates form
+- **Re-run from previous audit** — pre-fills form from a prior job's `input_brief`
+- **Model selector** — Haiku (fast/$0.15-0.30, 1 credit) vs Sonnet (premium/$1.50-3.00, 5 credits) with visual cost/speed comparison
 
-API Layer (Next.js API Routes)
-├── POST/GET /api/jobs — create/list audit jobs
-├── GET /api/jobs/[id] — job detail with relational data
-├── DELETE /api/jobs/[id] — delete with cascade
-├── GET /api/jobs/[id]/download — DOCX, Markdown, CSV (roadmap/links/citations), Schema ZIP
-├── POST /api/pipeline/run — trigger async pipeline
-├── POST /api/parse-upload — document parsing via Claude
-├── GET/POST /api/clients — client CRUD
-└── GET /api/clients/[id] — client detail
+### Pipeline Execution
+- 5-agent sequential pipeline with HTML pre-fetch stage
+- Real-time progress tracking (5-second polling) with step visualization
+- **Live Output log** — timestamped, color-coded log entries from each agent
+- Stall detection — warns user after 2 minutes of no progress change
+- Error persistence — pipeline crashes are caught and saved to DB with user-visible error messages
+- Non-fatal Agent 5 — if report formatting fails, pipeline still completes with raw data
 
-AI Pipeline (lib/agents/)
-├── pipeline.ts — sequential orchestration engine
-├── prompts.ts — all 4 agent system prompts + message builders
-└── schemas.ts — Zod validation schemas for agent outputs
+### Report Output (6 download formats)
+- **Interactive 9-tab report viewer** (Formatted, Executive Summary, Competitive Intel, Page Optimization, Schema Code, Technical Audit, Off-Page Strategy, Roadmap, Measurement)
+- **DOCX** — Word document for client delivery
+- **Markdown** — Agent 5's polished report or code-generated fallback
+- **Schema ZIP** — JSON-LD with `<script>` wrappers + CMS installation instructions (WordPress, Shopify, Squarespace, Wix)
+- **Roadmap CSV** — prioritized task table
+- **Links CSV** — link building opportunities
+- **Citations CSV** — directory/citation action items
 
-Data Layer (Supabase)
-├── 10 tables (organizations, users, clients, client_competitors,
-│   client_keywords, audit_jobs, page_audits, link_opportunities,
-│   citation_tasks, audit_logs)
-├── Row-Level Security policies
-├── Real-time subscriptions (audit_jobs, audit_logs)
-└── Indexes for performance
-```
+### Client Management
+- Client list with search filter
+- Client detail page with audit history
+- Delete client (handles FK constraints — deletes audit_jobs first)
+- Delete individual audits
+
+### Authentication & Billing (Framework)
+- Google OAuth via Supabase Auth (optional, non-blocking)
+- 3 free credits on signup
+- Billing page with 3 pricing tiers (Starter $9.99/5cr, Professional $24.99/15cr, Agency $69.99/50cr)
+- Transaction history UI
+- Credits badge in navigation
+- Stripe checkout is a placeholder — needs `STRIPE_SECRET_KEY` to activate
+- Credits tracked but not enforced on audit creation (TODO)
+
+### Testing
+- 57 tests across 8 files: input validation, scoring logic, agent output schemas, JSON repair, report generation, prompt content, build integrity
+- Build test verifies: TypeScript compiles, 30 critical files exist, all API routes have force-dynamic, model constants are valid
 
 ---
 
-## 4. AI Agent Pipeline
+## 4. Architecture & Pipeline Design
 
-The pipeline runs 4 agents sequentially, each building on the output of the previous:
+### System Architecture
 
-### Agent 1: Site Crawler & Scorer
-- **Model:** Configurable (MODEL_DEEP constant)
-- **Web searches:** Max 5 (homepage + 2-3 key pages)
-- **Max tokens:** 16,000
-- **Output:** `site_crawl_results` — pages array with 15-factor health scores (0-100)
-- **Key behavior:** Scores against rubric covering title tags, answer blocks, schema, E-E-A-T, GEO extractability
-
-### Agent 2: Competitor Intelligence
-- **Model:** MODEL_DEEP
-- **Web searches:** Max 5
-- **Max tokens:** 16,000
-- **Output:** `competitor_analysis` — competitor profiles + 10-type gap analysis + AI citation audit
-- **Key behavior:** Searches for competitors, analyzes content architecture, identifies SERP feature gaps
-
-### Agent 3: Page Optimizer (Batched)
-- **Model:** MODEL_BATCH (currently Haiku for cost savings)
-- **Web searches:** Disabled (works from crawl data)
-- **Max tokens:** 16,000 per batch
-- **Batch size:** 5 pages per API call
-- **Output:** `page_optimizations` — per-page specs with ACTUAL written content
-- **Key behavior:** Generates real answer blocks, FAQ answers, JSON-LD schema code, heading structures
-- **Resilience:** Skip-on-failure per batch — one failed batch doesn't kill the pipeline
-
-### Agent 4: Off-Page Strategist
-- **Model:** MODEL_DEEP
-- **Web searches:** Max 3
-- **Max tokens:** 32,000
-- **Output:** `offpage_strategy`, `roadmap`, `measurement_framework`, `technical_audit`
-- **Key behavior:** Synthesizes all prior data into GBP plan, review strategy, link building, roadmap
-
-### Agent 5: Report Formatter
-- **Model:** MODEL_DEEP (use Sonnet for production — this is the client-facing output)
-- **Web searches:** None
-- **Max tokens:** 32,000
-- **Output:** `formatted_report` — polished Markdown with narrative prose, tables, step-by-step implementation checklists
-- **Key behavior:** Takes raw JSON from all prior agents and transforms it into a professional, readable report
-- **Non-fatal:** If Agent 5 fails, the pipeline still completes — raw data is available via the structured report viewer tabs
-- **Why it exists:** Eliminates the "run raw output through a separate Claude session" step. Agent 5 produces the polished report automatically.
-
-### Pipeline Timing Constants
 ```
-BATCH_SIZE = 5 pages
-AGENT_TIMEOUT = 600s (10 min)
-BATCH_TIMEOUT = 300s (5 min)
-INTER_BATCH_DELAY = 5s
-INTER_AGENT_DELAY = 10s
+Browser (React)                    Server (Next.js API Routes)
+─────────────────                  ─────────────────────────────
+                                   
+  New Audit Form ──POST /api/jobs──▶ Create audit_job (status=pending)
+                                     Spawn runPipeline() (fire-and-forget)
+                                     Return job ID immediately
+                                   
+  Progress Page  ──GET /api/jobs/[id]──▶ Read audit_job + audit_logs
+  (polls every 5s)                       Return { job, audit_logs[] }
+                                   
+  Report Viewer  ──GET /api/jobs/[id]──▶ Read completed job
+  (9-tab display)                        agent_outputs JSONB → tabs
+                                   
+                                   Pipeline (runs in-process)
+                                   ─────────────────────────
+                                   HTML Pre-fetch → Agent 1 → Agent 2 →
+                                   Agent 3 → Agent 4 → Agent 5
+                                   Each agent: Claude API call + DB write
 ```
 
-### Model Configuration
+### Pipeline Data Flow
+
+1. **Job creation** (`POST /api/jobs`) — Validates brief with Zod, inserts `audit_jobs` row, spawns `runPipeline()` as a detached async call, returns job ID to client.
+
+2. **HTML pre-fetch** — Before any agent runs, fetches the client's actual website HTML via `fetch()`. Extracts ground-truth SEO signals (existing `<title>`, meta description, `<h1>`-`<h6>` structure, JSON-LD schema, Open Graph tags, canonical URL). This data is unavailable via Claude's `web_search` tool which only returns text snippets.
+
+3. **Agent execution** — Each agent gets: the client brief, outputs from prior agents, and (for Agent 1) the HTML analysis. Agents use Claude's `web_search` tool for live competitive/market data.
+
+4. **Progress tracking** — Each agent writes timestamped entries to `audit_logs` table. Frontend polls `/api/jobs/[id]` every 5 seconds, receiving both job status and log entries (fetched server-side via service client to bypass RLS).
+
+5. **Output storage** — Each agent's parsed JSON output is stored in `audit_jobs.agent_outputs` (JSONB, keyed by agent number). Final report stored in `audit_jobs.final_report`.
+
+### The 5 Agents
+
+| # | Name | Model | Max Tokens | Web Searches | Progress Range |
+|---|------|-------|-----------|-------------|----------------|
+| 1 | SEO/AEO/GEO Auditor | MODEL_DEEP | 16,000 | 5 | 5-25% |
+| 2 | Competitive Intel | MODEL_DEEP | 16,000 | 10 | 25-45% |
+| 3 | Content Optimizer | MODEL_DEEP | 16,000 | 3 | 45-70% |
+| 4 | Off-Page Strategist | MODEL_DEEP | 12,000 | 8 | 70-85% |
+| 5 | Report Formatter | MODEL_BATCH (Haiku) | 16,000 | 0 | 85-95% |
+
+**MODEL_DEEP** resolves per-job: reads `audit_jobs.model_used` (set by user's Haiku/Sonnet choice at audit creation). Agent 5 always uses Haiku — it's a formatting pass, not analysis.
+
+**Model resolution code** (`lib/agents/pipeline.ts`):
 ```typescript
-// In lib/agents/pipeline.ts — change these for production vs. testing
-const MODEL_DEEP = "claude-haiku-4-5-20251001";   // For agents 1, 2, 4, 5
-const MODEL_BATCH = "claude-haiku-4-5-20251001";  // For agent 3 batches
-
-// Production settings (higher quality, higher cost):
-// MODEL_DEEP = "claude-sonnet-4-20250514"       // CRITICAL for Agent 5 report quality
-// MODEL_BATCH = "claude-haiku-4-5-20251001"     // Keep Haiku for batches to spread rate limit load
+const MODELS = {
+  haiku: "claude-haiku-4-5-20251001",
+  sonnet: "claude-sonnet-4-20250514",
+} as const;
+// MODEL_DEEP resolved from job.model_used at runtime
+// MODEL_BATCH always Haiku (formatting only)
 ```
 
+### Agent Input/Output Details
+
+**Agent 1 — SEO/AEO/GEO Auditor:**
+- Input: Client brief + HTML analysis (meta tags, headings, schema, OG tags)
+- Output: `currentSeoState`, `aeoReadiness`, `geoPresence`, `technicalIssues[]`, `contentGaps[]`, `healthScore` (0-100, 15-factor weighted rubric)
+- Key insight: HTML pre-fetch gives ground truth that web_search alone cannot provide
+
+**Agent 2 — Competitive Intel:**
+- Input: Brief + Agent 1 output
+- Output: `competitors[]` (up to 5, each with strengths/weaknesses/metrics), `marketGaps[]`, `benchmarks`, `quickWins[]`
+- Uses most web searches (10) for thorough competitive analysis
+
+**Agent 3 — Content Optimizer:**
+- Input: Brief + Agent 1 + Agent 2 outputs
+- Output: `titleTags[]`, `metaDescriptions[]`, `contentRecommendations[]`, `schemaMarkup` (JSON-LD code), `faqContent[]`, `answerBlocks[]`
+- **This is the novel differentiator** — generates actual implementation-ready content, not just recommendations
+
+**Agent 4 — Off-Page Strategist:**
+- Input: Brief + all prior agent outputs
+- Output: `linkBuilding` (targets, strategies), `citations[]`, `socialStrategy`, `contentDistribution`, `localSeo` (if applicable)
+
+**Agent 5 — Report Formatter:**
+- Input: All agent outputs
+- Output: Polished Markdown report with executive summary, organized sections, prioritized action items
+- Always uses Haiku (cost optimization — formatting doesn't need premium model)
+- **Non-fatal** — if Agent 5 fails, pipeline still completes with raw agent data
+
+### Health Score Rubric (15 Factors)
+
+The health score (0-100) in Agent 1's output weights these factors:
+1. Title tag optimization (8%)
+2. Meta description quality (6%)
+3. H1/heading structure (7%)
+4. Content depth & relevance (8%)
+5. Internal linking (5%)
+6. Schema markup presence (7%)
+7. Mobile responsiveness signals (6%)
+8. Page speed indicators (5%)
+9. AEO readiness (FAQ, answer blocks) (8%)
+10. GEO presence (AI citation likelihood) (8%)
+11. Local SEO signals (5%)
+12. Technical SEO (crawlability, indexing) (7%)
+13. Content freshness (5%)
+14. E-E-A-T signals (8%)
+15. Competitive positioning (7%)
+
+### Retry & Error Handling
+
+- Each agent call wrapped in `runAgentWithRetry()` — 2 retries with exponential backoff (2s, 4s)
+- JSON output parsing with repair: strips markdown fences, fixes trailing commas, handles truncated JSON
+- Agent 5 failure is non-fatal: pipeline saves raw data and marks job completed
+- Pipeline-level try/catch: any unhandled error → job status set to `failed` with error message saved to DB
+- Stale job cleanup: jobs stuck in non-terminal status for >30 minutes can be detected
+
 ---
 
-## 5. Database Schema
+## 5. Database Schema & File Structure
 
-**10 tables** across 3 migrations:
+### Database Tables (Supabase Postgres)
 
-| Table | Purpose |
-|-------|---------|
-| `organizations` | Agency/team grouping |
-| `users` | Team members (references auth.users) |
-| `clients` | Reusable client profiles |
-| `client_competitors` | Competitors per client |
-| `client_keywords` | Target keywords per client |
-| `audit_jobs` | Each pipeline run — stores all agent JSONB outputs |
-| `page_audits` | Individual page results (one row per page per job) |
-| `link_opportunities` | Backlink targets identified by Agent 4 |
-| `citation_tasks` | Directory/citation action items |
-| `audit_logs` | Real-time pipeline log messages |
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `clients` | Client directory | name, website_url, industry, geography, contact_email |
+| `audit_jobs` | Pipeline runs | client_id, status, input_brief (JSONB), agent_outputs (JSONB), final_report, model_used, credits_used, user_id |
+| `audit_logs` | Real-time progress | job_id, agent_step, message, log_type, timestamp |
+| `user_profiles` | Extends auth.users | email, credits, stripe_customer_id, preferred_model |
+| `credit_transactions` | Credit audit trail | user_id, amount, balance_after, type, job_id, model_used |
+| `credit_packages` | Pricing tiers | name, credits, price_cents, stripe_price_id, popular, active |
 
-**Key design decisions:**
-- Agent outputs stored as JSONB on `audit_jobs` for flexibility (schema-free AI output)
-- `page_audits` duplicates key fields from JSONB for queryability
-- `audit_logs` enables real-time progress streaming via polling
-- All tables have RLS policies scoped to organization membership
-- Migrations in `supabase/migrations/` — run manually via Supabase SQL editor
+**Migrations** (run in order via Supabase SQL editor):
+1. `001_initial_schema.sql` — clients, audit_jobs
+2. `002_audit_logs.sql` — audit_logs table
+3. `003_formatted_report.sql` — formatted_report column on audit_jobs
+4. `004_auth_and_billing.sql` — user_profiles, credit_transactions, credit_packages, RLS policies, auto-profile trigger
 
----
-
-## 6. File Structure
+### File Structure (Annotated)
 
 ```
 seo-aeo-geo-app/
-├── app/
-│   ├── layout.tsx                          # Root layout with navigation
-│   ├── page.tsx                            # Dashboard
-│   ├── globals.css                         # Tailwind + custom styles
+├── app/                          # Next.js App Router
+│   ├── layout.tsx                # Root layout — AuthProvider wrapper, Navigation
+│   ├── page.tsx                  # Dashboard — client list, recent audits, quick actions
+│   ├── globals.css               # Tailwind CSS imports + custom properties
+│   ├── api/                      # Server-side API routes (all force-dynamic)
+│   │   ├── jobs/
+│   │   │   ├── route.ts          # POST: create job + spawn pipeline
+│   │   │   └── [id]/
+│   │   │       ├── route.ts      # GET: job + logs (bypasses RLS)
+│   │   │       └── download/
+│   │   │           └── route.ts  # GET: DOCX/MD/CSV/ZIP downloads
+│   │   ├── clients/
+│   │   │   ├── route.ts          # GET/POST clients
+│   │   │   └── [id]/route.ts     # GET/DELETE client + cascade
+│   │   ├── autopopulate/route.ts # POST: AI fills form from URL
+│   │   ├── parse-upload/route.ts # POST: extract data from uploaded docs
+│   │   ├── pipeline/run/route.ts # POST: trigger pipeline (alternative entry)
+│   │   └── billing/
+│   │       ├── checkout/route.ts # POST: Stripe checkout (placeholder)
+│   │       └── transactions/route.ts  # GET: credit history
 │   ├── audits/
-│   │   ├── new/page.tsx                    # Client brief intake form
+│   │   ├── new/page.tsx          # Audit creation form (model selector, auto-populate)
 │   │   └── [id]/
-│   │       ├── page.tsx                    # Audit progress view
-│   │       └── report/page.tsx             # 8-tab report viewer
+│   │       ├── page.tsx          # Progress tracker (polling, live logs)
+│   │       └── report/page.tsx   # 9-tab report viewer + download buttons
 │   ├── clients/
-│   │   ├── page.tsx                        # Client list
-│   │   └── [id]/page.tsx                   # Client profile
-│   └── api/
-│       ├── jobs/route.ts                   # POST create / GET list
-│       ├── jobs/[id]/route.ts              # GET detail / DELETE
-│       ├── jobs/[id]/download/route.ts     # File downloads
-│       ├── pipeline/run/route.ts           # Trigger pipeline
-│       ├── parse-upload/route.ts           # Document parsing
-│       ├── clients/route.ts                # Client CRUD
-│       └── clients/[id]/route.ts           # Client detail
+│   │   ├── page.tsx              # Client list with search
+│   │   └── [id]/page.tsx         # Client detail + audit history
+│   ├── billing/page.tsx          # Pricing, credits balance, transactions
+│   ├── login/page.tsx            # Google OAuth login
+│   └── auth/callback/route.ts    # OAuth callback handler
+│
 ├── components/
-│   ├── navigation.tsx                      # Top nav bar
-│   └── ui/                                 # shadcn-style components
-│       ├── badge.tsx, button.tsx, card.tsx
-│       ├── input.tsx, label.tsx, select.tsx
-│       ├── progress.tsx, textarea.tsx
+│   ├── navigation.tsx            # Top nav — links, auth state, credits badge
+│   └── ui/                       # shadcn/ui-style components
+│       ├── badge.tsx, button.tsx, card.tsx, input.tsx,
+│       ├── label.tsx, progress.tsx, select.tsx, textarea.tsx
+│
 ├── lib/
-│   ├── claude.ts                           # Claude API wrapper with retry/logging
-│   ├── supabase.ts                         # Supabase client + types + stale cleanup
-│   ├── utils.ts                            # cn() utility
+│   ├── claude.ts                 # Anthropic client initialization
+│   ├── supabase.ts               # Supabase service client (server-side, bypasses RLS)
+│   ├── supabase-auth.ts          # Supabase browser client (auth-aware)
+│   ├── auth-context.tsx          # React context — user, profile, signIn/Out
+│   ├── utils.ts                  # cn() classname merger
 │   ├── agents/
-│   │   ├── pipeline.ts                     # Pipeline orchestration engine
-│   │   ├── prompts.ts                      # All 5 agent prompts + message builders
-│   │   └── schemas.ts                      # Zod output validation schemas
+│   │   ├── pipeline.ts           # 5-agent orchestration, retry logic, model resolution
+│   │   ├── prompts.ts            # All agent system/user prompts
+│   │   └── schemas.ts            # Zod schemas for agent outputs
 │   ├── reports/
-│   │   ├── docx-generator.ts               # Word report builder
-│   │   ├── markdown-generator.ts           # Markdown report (Agent 5 or fallback)
-│   │   ├── pdf-generator.ts                # PDF summary builder
-│   │   ├── schema-packager.ts              # JSON-LD ZIP with CMS instructions
-│   │   └── roadmap-csv.ts                  # CSV exports (roadmap, links, citations)
+│   │   ├── docx-generator.ts     # Word document generation
+│   │   ├── markdown-generator.ts # Markdown report builder
+│   │   ├── pdf-generator.ts      # PDF generation (if needed)
+│   │   ├── roadmap-csv.ts        # Prioritized task CSV
+│   │   └── schema-packager.ts    # JSON-LD ZIP with CMS instructions
 │   └── utils/
-│       ├── scoring.ts                      # Health score calculator
-│       └── validators.ts                   # Input validation
-├── supabase/
-│   └── migrations/
-│       ├── 001_initial_schema.sql          # Core 9 tables + RLS + indexes
-│       ├── 002_audit_logs.sql              # audit_logs table
-│       ├── 003_formatted_report.sql        # formatted_report TEXT column on audit_jobs
-│       └── 004_auth_and_billing.sql        # user_profiles, credit_transactions, credit_packages
-├── skill/
-│   └── references/schema-templates.md      # JSON-LD schema templates
-├── package.json
-├── next.config.ts
-├── tsconfig.json
-└── .env.example
+│       ├── html-fetcher.ts       # Fetch + parse HTML for SEO signals
+│       ├── scoring.ts            # Health score calculation
+│       └── validators.ts         # Input brief validation (Zod)
+│
+├── __tests__/                    # Vitest test suite (57 tests)
+├── supabase/migrations/          # 4 SQL migration files
+├── skill/                        # AI skill reference docs
+├── package.json                  # Dependencies
+├── tsconfig.json                 # TypeScript strict mode config
+└── vitest.config.ts              # Test configuration
 ```
 
 ---
 
-## 7. Environment Variables
+## 6. Problems Encountered & Solutions
+
+This section documents real issues hit during development and how they were resolved. Read this before making changes — many of these are non-obvious.
+
+### 6.1 Live Output Shows "0 entries / Waiting for pipeline to start"
+
+**Symptom:** Pipeline was running (visible in server logs — all 4 API calls completing), but the progress page showed 0 log entries and "Waiting for pipeline to start."
+
+**Root cause:** Supabase Row-Level Security (RLS). The `audit_logs` table had RLS enabled with policies requiring `auth.uid()` to match. The frontend used the Supabase anon key client, which has `auth.uid() = NULL` for unauthenticated users. RLS silently returns 0 rows instead of an error.
+
+**Fix:** Moved log fetching from the browser (direct Supabase query) to the API route (`/api/jobs/[id]`), which uses `getServiceClient()` — the service role key bypasses RLS. The API now returns `{ ...job, audit_logs: logs }` in a single response, and the frontend polls one endpoint instead of two.
+
+**Lesson:** Any time a Supabase query returns empty results unexpectedly, check RLS policies first. The service client in API routes is the bypass for server-side data access.
+
+### 6.2 Agent JSON Output Parsing Failures
+
+**Symptom:** Agents return valid analysis but wrapped in markdown code fences (` ```json ... ``` `) or with trailing commas, causing `JSON.parse()` to fail.
+
+**Fix:** Multi-layer JSON repair in `pipeline.ts`:
+1. Strip markdown code fences (`/```json?\n?/` and trailing ` ``` `)
+2. Fix trailing commas before `}` or `]`
+3. Handle truncated JSON (close open braces/brackets)
+4. Zod schema validation with `.passthrough()` to accept extra fields
+
+**Lesson:** Never trust LLM output to be clean JSON. Always strip, repair, then validate.
+
+### 6.3 Pipeline Runs In-Process (No Job Queue)
+
+**Problem:** `runPipeline()` executes as a fire-and-forget async call inside the API route handler. If the Render server restarts mid-pipeline, the job is abandoned.
+
+**Current mitigation:**
+- Jobs stuck in non-terminal status for >30 min can be detected
+- Error states are caught and persisted to DB
+- Agent 5 is non-fatal — even if formatting fails, raw data is preserved
+
+**Future fix:** Move to Supabase Edge Functions or a dedicated worker process with a proper job queue (pg-boss or similar).
+
+### 6.4 HTML Pre-Fetch vs Web Search Gap
+
+**Problem:** Claude's `web_search` tool returns text snippets from search results — it cannot see the actual HTML source of a page. This means critical SEO signals (existing `<title>`, meta tags, JSON-LD schema, heading hierarchy) were invisible to Agent 1.
+
+**Fix:** Added `html-fetcher.ts` — fetches the actual page HTML before any agent runs, parses it with regex/string extraction for: title, meta description, all headings (h1-h6), JSON-LD blocks, Open Graph tags, canonical URL. This "ground truth" is injected into Agent 1's prompt.
+
+**Lesson:** Web search gives market context; HTML fetch gives on-page reality. Both are needed for accurate SEO analysis.
+
+### 6.5 Model Selection Architecture
+
+**Problem:** Initially, model was hardcoded as a constant (`MODEL_DEEP`). Adding Haiku vs Sonnet choice required per-job model resolution without breaking the existing pipeline.
+
+**Fix:** 
+- User selects model on the audit creation form
+- Choice stored as `audit_jobs.model_used` (TEXT column)
+- Pipeline reads `job.model_used` at runtime and resolves to actual model ID
+- Agent 5 always uses Haiku regardless of user choice (it's formatting, not analysis)
+- `runAgentWithRetry()` accepts `defaultModel` parameter
+
+### 6.6 Supabase Client Confusion (3 Different Clients)
+
+**Problem:** Multiple Supabase client types needed for different contexts, easy to use the wrong one.
+
+**Resolution — the 3 clients:**
+| Client | File | Used In | RLS |
+|--------|------|---------|-----|
+| `getServiceClient()` | `lib/supabase.ts` | API routes, pipeline | Bypasses RLS (service role key) |
+| `createAuthClient()` | `lib/supabase-auth.ts` | Browser components | Subject to RLS (anon key + user JWT) |
+| `createServerClient()` | `app/auth/callback/route.ts` | Auth callback only | Cookie-based session exchange |
+
+**Rule:** API routes that read/write data → `getServiceClient()`. Browser components reading user's own data → `createAuthClient()`. Auth flow → `createServerClient()` with cookie handlers.
+
+### 6.7 Delete Client Fails on Foreign Key Constraints
+
+**Symptom:** Deleting a client returned a 500 error because `audit_jobs` references `clients(id)`.
+
+**Fix:** Delete cascade — the client delete API route first deletes all `audit_jobs` for the client, then deletes the client. Could alternatively use `ON DELETE CASCADE` in the FK constraint, but explicit deletion gives more control over cleanup (e.g., future file storage cleanup).
+
+### 6.8 Report Viewer Markdown Rendering
+
+**Problem:** Standard markdown libraries (remark/rehype) caused SSR hydration mismatches and added bundle bloat for a specific output format.
+
+**Fix:** Custom line-by-line markdown parser in the report viewer. Handles headers, bold, lists, code blocks, and tables — the exact subset that agent output uses. No hydration issues, smaller bundle, predictable rendering.
+
+### 6.9 Auto-Populate Rate Limits and Cost
+
+**Problem:** Auto-populate (enter URL → AI fills all form fields) could be expensive if it used the same model as audits.
+
+**Fix:** Auto-populate always uses Haiku with 5 web searches — fast and cheap (~$0.01-0.03 per auto-populate). The prompt is structured to extract specific fields, not do deep analysis.
+
+---
+
+## 7. Cost Optimization & Pricing Analysis
+
+### API Cost Breakdown Per Audit
+
+**Haiku pipeline (~$0.15-0.30):**
+| Component | Est. Cost | Notes |
+|-----------|----------|-------|
+| HTML pre-fetch | $0.00 | Direct HTTP, no API call |
+| Agent 1 (5 searches) | $0.03-0.05 | Input: brief + HTML analysis |
+| Agent 2 (10 searches) | $0.04-0.08 | Most searches, competitive data |
+| Agent 3 (3 searches) | $0.03-0.05 | Generates content, fewer searches |
+| Agent 4 (8 searches) | $0.03-0.06 | Link building research |
+| Agent 5 (0 searches) | $0.02-0.04 | Formatting only, always Haiku |
+| **Total** | **$0.15-0.28** | |
+
+**Sonnet pipeline (~$1.50-3.00):**
+Same structure but Agents 1-4 use Sonnet pricing (~5x Haiku). Agent 5 stays on Haiku.
+
+### Cost Optimization Strategies Already Implemented
+
+1. **Agent 5 always uses Haiku** — Report formatting doesn't benefit from premium models. Saves ~$0.20-0.40 per Sonnet audit.
+
+2. **Web search count tuning** — Each agent has a calibrated `max_searches` limit. Agent 2 gets 10 (needs broad competitive data), Agent 3 gets 3 (mainly writing, not researching).
+
+3. **Auto-populate uses Haiku** — The URL-to-form-fill feature always uses the cheapest model. Cost: ~$0.01-0.03 per use.
+
+4. **HTML pre-fetch is free** — Direct HTTP fetch + regex parsing instead of an API call. Extracts ground-truth SEO data at zero cost.
+
+5. **Prompt efficiency** — Agent prompts are structured to produce JSON output, reducing unnecessary prose tokens. Zod schemas enforce output structure so agents don't waste tokens on formatting.
+
+### Future Cost Reduction Opportunities
+
+1. **Prompt caching** — Cache system prompts with Anthropic's prompt caching feature. System prompts are ~2000 tokens each × 5 agents = 10K tokens that could be cached across runs. Savings: ~30-40% on input tokens for repeat audits.
+
+2. **Incremental audits** — For re-runs of the same client, only run agents whose inputs changed. If the website hasn't changed, skip Agent 1 and reuse prior output.
+
+3. **Batch API** — For non-urgent audits, use Anthropic's Batch API for 50% cost reduction. Trade-off: results in ~24 hours instead of real-time.
+
+4. **Token budget enforcement** — Set hard `max_tokens` limits per agent. Currently set to 12K-16K; many agents produce 4K-8K. Tighter limits = faster responses + lower cost.
+
+5. **Output streaming** — Stream agent responses to reduce time-to-first-byte. Currently waits for full response before parsing.
+
+### Pricing Model Analysis
+
+Current pricing vs. API costs:
+
+| Package | Price | Credits | Per-Credit | Haiku Cost | Haiku Margin | Sonnet Cost | Sonnet Margin |
+|---------|-------|---------|-----------|-----------|-------------|------------|--------------|
+| Starter | $9.99 | 5 | $2.00 | $0.28 | 86% | $3.00 | — |
+| Professional | $24.99 | 15 | $1.67 | $0.28 | 83% | $3.00 | — |
+| Agency | $69.99 | 50 | $1.40 | $0.28 | 80% | $3.00 | — |
+
+Haiku audits have 80-86% margin. Sonnet audits at 5 credits = $7.00-10.00 value, costing $1.50-3.00 in API fees — still healthy 57-78% margin. The 3 free credits on signup cost ~$0.45-0.84 in API fees (assuming all Haiku).
+
+---
+
+## 8. Report Output Recommendations
+
+### The Problem
+
+The current pipeline generates massive, detailed output — the combined agent outputs can be 15,000-30,000 tokens. This is comprehensive but overwhelming for clients. The data is hard to navigate, action items are buried in analysis, and code deliverables (schema markup, meta tags) are mixed in with strategic recommendations.
+
+### Recommended: Tiered Output Architecture
+
+Structure the final deliverable as four distinct tiers, each serving a different audience and use case:
+
+```
+Tier 1: Executive Summary (1-2 pages)
+  └── Health score, top 3 wins, top 3 risks, estimated impact, cost to implement
+  └── Audience: C-suite, client decision-makers
+  └── Generated by: Premium model summarizer (Opus/Sonnet) reading all agent outputs
+
+Tier 2: Strategic Recommendations (5-10 pages)
+  └── Prioritized action items grouped by: Quick Wins, Medium-Term, Long-Term
+  └── Each item: what to do, why, expected impact, difficulty level
+  └── Audience: Marketing managers, SEO team leads
+  └── Generated by: Agent 5 (restructured prompt)
+
+Tier 3: Detailed Analysis (current full report)
+  └── Complete competitive intel, page-by-page optimization, technical audit
+  └── Audience: SEO specialists, developers implementing changes
+  └── Generated by: Agents 1-4 (existing output, better organized)
+
+Tier 4: Code Deliverables (separate downloads)
+  └── Schema markup (JSON-LD) — ready to paste into CMS
+  └── Meta tag updates — title/description for each page
+  └── FAQ content blocks — structured Q&A for AEO
+  └── robots.txt / sitemap recommendations
+  └── Audience: Developers, webmasters
+  └── Generated by: Agent 3 output, packaged separately
+```
+
+### Implementation: Opus Summarizer Pass
+
+Add an optional "Agent 6" — a summarization pass using a premium model (Opus 4.7 or Sonnet) that reads all agent outputs and produces the Executive Summary (Tier 1) and Strategic Recommendations (Tier 2).
+
+**Proposed flow:**
+```
+Agents 1-4 (analysis) → Agent 5 (formatting) → Agent 6 (summarization)
+                                                  ↓
+                                          Executive Summary
+                                          + Prioritized Action Plan
+                                          + Client-Ready PDF Cover Page
+```
+
+**Agent 6 prompt structure:**
+- Input: All agent outputs (JSONB), client brief, health score
+- Instructions: "You are a senior SEO strategist presenting findings to a client. Produce: (1) A 500-word executive summary highlighting the 3 most impactful opportunities and 3 most critical risks. (2) A prioritized action plan with estimated effort and impact for each item. (3) A 90-day roadmap with weekly milestones."
+- Model: Opus 4.7 or Sonnet (user choice at audit creation)
+- Max tokens: 8,000
+- Web searches: 0 (pure synthesis, no new research)
+
+**Cost of Agent 6:**
+- Haiku input (reading all outputs): ~15K-30K input tokens
+- Opus output: ~4K-6K output tokens
+- Estimated cost: $0.30-0.80 per audit (Opus) or $0.08-0.15 (Sonnet)
+- Could be an optional premium add-on (e.g., +2 credits)
+
+### Implementation: Separate Code Deliverables
+
+Break Agent 3's output into distinct downloadable packages:
+
+1. **Schema Package (existing)** — JSON-LD files with `<script>` wrappers + CMS-specific installation instructions (WordPress, Shopify, Squarespace, Wix). Already implemented as ZIP download.
+
+2. **Meta Tag Package (new)** — CSV/spreadsheet with columns: Page URL, Current Title, Recommended Title, Current Description, Recommended Description, Priority. Directly importable into CMS bulk editors or Screaming Frog.
+
+3. **Content Package (new)** — FAQ content blocks, answer-optimized paragraphs, and featured snippet targets as separate Markdown files. Each piece labeled with target page and target keyword.
+
+4. **Technical Fixes Package (new)** — From Agent 1's technical issues: specific code changes needed (canonical tags, hreflang, structured data fixes), formatted as a developer task list with before/after code.
+
+### UI Changes for Tiered Output
+
+Update the report viewer to reflect the tiered structure:
+
+```
+Tab layout (current 9 tabs → restructured):
+  [Summary]  [Action Plan]  [Full Report ▾]  [Downloads ▾]
+                               ├── Competitive Intel
+                               ├── Page Optimization
+                               ├── Technical Audit
+                               ├── Off-Page Strategy
+                               └── Measurement
+                                            ├── Schema ZIP
+                                            ├── Meta Tags CSV
+                                            ├── Content Package
+                                            ├── Roadmap CSV
+                                            └── Full DOCX
+```
+
+The Summary tab becomes the default landing — clients see the executive summary first, then drill down into details as needed.
+
+---
+
+## 9. Future Design Considerations
+
+### Priority Roadmap
+
+**P0 — Ship blockers (do before launch):**
+- [ ] Enforce credit deduction on audit creation (currently tracked but not enforced)
+- [ ] Connect Stripe checkout with `STRIPE_SECRET_KEY` for real payments
+- [ ] Add webhook handler for Stripe payment confirmation → credit grant
+- [ ] Rate limiting on API routes (prevent abuse of free credits)
+
+**P1 — High value improvements:**
+- [ ] Implement Agent 6 (Opus summarizer) for executive summaries (see Section 8)
+- [ ] Separate code deliverables (meta tag CSV, content package, tech fixes)
+- [ ] Prompt caching for 30-40% input token cost reduction
+- [ ] Email delivery of completed reports (user enters email, gets report link)
+- [ ] Webhook/callback URL for API-first usage (agency integrations)
+
+**P2 — Scale and reliability:**
+- [ ] Move pipeline to background worker (pg-boss or Supabase Edge Functions)
+- [ ] Add Redis for job queue and rate limiting
+- [ ] Implement incremental audits (skip unchanged agents on re-runs)
+- [ ] Add retry UI — let users retry failed jobs without re-entering data
+- [ ] Multi-tenant support — agency accounts managing multiple client workspaces
+
+**P3 — Growth features:**
+- [ ] White-label reports (custom branding, logo, colors)
+- [ ] Scheduled audits (monthly monitoring with diff reports)
+- [ ] API access tier for programmatic audit submission
+- [ ] Competitor tracking over time (trend charts)
+- [ ] Integration with Google Search Console and Analytics APIs
+
+### Architectural Decisions to Preserve
+
+1. **Optional auth stays optional** — The app must always work without login for demos and quick evaluations. Auth gates billing and history, not core functionality.
+
+2. **Service client for all server-side reads** — Never use the anon/auth client in API routes. Always `getServiceClient()`. This avoids the RLS silent-empty-result trap.
+
+3. **Agent 5 is always Haiku** — Formatting doesn't justify premium model cost. This is a deliberate cost optimization, not a bug.
+
+4. **Agent 5 is non-fatal** — If the formatter crashes, the pipeline still completes with raw data. The report viewer handles both formatted and raw output. Don't make Agent 5 failure cascade.
+
+5. **JSON repair is mandatory** — Every agent output goes through strip → repair → parse → validate. Don't skip steps even if outputs "usually" come back clean.
+
+6. **Per-job model resolution** — The model is stored on the job row and read at runtime. Don't fall back to a global constant or environment variable.
+
+7. **HTML pre-fetch before agents** — This runs before Agent 1, not inside it. The fetched HTML is passed as context, not discovered via web_search.
+
+### Environment Variables Required
 
 ```bash
-# Required — set in Render dashboard under Environment
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-ANTHROPIC_API_KEY=your-anthropic-api-key
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=        # Project URL (public)
+NEXT_PUBLIC_SUPABASE_ANON_KEY=   # Anon key (public, subject to RLS)
+SUPABASE_SERVICE_ROLE_KEY=       # Service key (server-only, bypasses RLS)
 
-# Optional — for Stripe billing (not required for demo)
-STRIPE_SECRET_KEY=sk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_...
+# Anthropic
+ANTHROPIC_API_KEY=               # Claude API key
+
+# Stripe (optional — billing is placeholder without this)
+STRIPE_SECRET_KEY=               # Stripe secret key
+STRIPE_WEBHOOK_SECRET=           # Stripe webhook signing secret
+
+# App
+NEXT_PUBLIC_APP_URL=             # Public URL (for OAuth redirects)
 ```
 
-**Important:** The `SUPABASE_SERVICE_ROLE_KEY` is used server-side only (in pipeline and API routes) to bypass RLS. Never expose it to the client.
+### Testing Checklist
+
+Before deploying changes, verify:
+1. `npm run build` — TypeScript compiles without errors
+2. `npx vitest run` — All 57 tests pass
+3. Build test checks: 30 critical files exist, API routes have `force-dynamic`, model constants are valid
+4. Manual test: create audit → watch progress → view report → download DOCX
+5. If auth changes: test login → credits display → logout → anonymous access still works
+
+### Development Rules
+
+- All API routes must export `const dynamic = "force-dynamic"` (Next.js caching breaks Supabase queries)
+- All Supabase queries in API routes use `getServiceClient()`, never the anon client
+- Agent prompts live in `lib/agents/prompts.ts` — don't inline prompts in pipeline.ts
+- Agent output schemas live in `lib/agents/schemas.ts` — always validate with Zod
+- Test files go in `__tests__/` — naming convention: `{feature}.test.ts`
+- UI components follow shadcn/ui patterns in `components/ui/`
+- No remark/rehype — use the custom markdown parser in the report viewer
+- Tailwind CSS 4 — use `@theme` directive, not `tailwind.config.js` (CSS-first configuration)
 
 ---
 
-## 8. Problems Encountered & Solutions
-
-### Problem 1: Hardcoded Demo Data Persisting in UI
-**Symptom:** Dashboard and pages showed "Blue Lagoon Pools" demo data even after connecting to real database.
-**Root cause:** Initial build included hardcoded sample data in page components for UI development.
-**Solution:** Removed ALL hardcoded data from every page. Added proper loading states, error states, and empty states. All pages now fetch from API endpoints backed by Supabase.
-**Commit:** `a81a009` — "Remove all hardcoded demo data"
-
-### Problem 2: Next.js Route Caching Serving Stale Data
-**Symptom:** After running an audit, the dashboard still showed old data. Hard refresh fixed it.
-**Root cause:** Next.js aggressively caches API route responses and fetch() calls by default.
-**Solution:** Added `export const dynamic = 'force-dynamic'` to ALL API route handlers. Added `cache: 'no-store'` to ALL client-side `fetch()` calls.
-**Commit:** `589a3ca` — "Fix persistent cached data"
-**Rule:** Every new API route MUST include `export const dynamic = 'force-dynamic'`. Every new `fetch()` call MUST include `{ cache: 'no-store' }`.
-
-### Problem 3: Claude API Rate Limiting (429 Errors)
-**Symptom:** Pipeline failed mid-run with 429 rate limit errors, especially during Agent 1 and page optimization batches.
-**Root cause:** Agent 1 was performing 15-20+ web searches per call (220K+ input tokens), burning the entire per-minute token budget in one call. Subsequent agents hit rate limits.
-**Solution (multi-step):**
-1. Added `max_uses` to web_search tool: Agent 1 (5), Agent 2 (5), Agent 4 (3)
-2. Reduced Agent 1 scope to homepage + 2-3 key pages (not exhaustive crawl)
-3. Added efficiency instructions to agent prompts
-4. Added inter-agent delay (10s) and inter-batch delay (5s)
-5. Moved Agent 3 to Haiku model to spread load across rate limit pools
-6. Removed pretty-printed JSON from context (30-40% token savings)
-7. Summarized prior agent output instead of passing full JSON
-8. Disabled web_search on Agent 3 (works from crawl data only)
-9. Added retry with `Retry-After` header for 429, exponential backoff for 529
-**Commits:** `6bdb817`, `451f8bb`, `b52ba66`
-**Result:** ~75% reduction in per-run token usage (850K → ~200K tokens)
-
-### Problem 4: Truncated JSON from Agent Responses
-**Symptom:** Agents returned invalid JSON, causing pipeline failures. Particularly Agent 3 (page optimizer) and Agent 4 (off-page strategist).
-**Root cause:** Agent output exceeded `max_tokens` limit. Response was cut mid-JSON with `stop_reason: "max_tokens"`.
-**Solution:**
-1. Increased max_tokens: Agent 1 & 3 to 16K, Agent 4 to 32K
-2. Built a JSON repair function (`repairTruncatedJson`) that detects when `stop_reason === "max_tokens"` and auto-closes open brackets/braces/strings
-3. Pipeline logs a warning when output was truncated so users know data may be incomplete
-**Commit:** `fa910af` — "Fix truncated JSON failures"
-**Location:** `lib/claude.ts:183-256`
-
-### Problem 5: Supabase Realtime Not Delivering Updates
-**Symptom:** Audit progress page stuck on "Initializing audit..." even though pipeline was running. Logs not appearing.
-**Root cause:** Supabase Realtime requires specific project configuration that may not be enabled. The subscription was silently failing.
-**Solution:** Replaced Supabase Realtime subscriptions with 5-second polling interval for both job status and audit logs. More reliable, works with any Supabase config.
-**Commit:** `fa910af`
-**Note:** If Supabase Realtime is properly configured in the future, polling can be replaced with subscriptions for lower latency.
-
-### Problem 6: Phantom "Running" Jobs After Server Restart
-**Symptom:** Jobs showed as "running" on the dashboard even though no pipeline was actually executing. Occurred after server restarts/redeployments.
-**Root cause:** Pipeline runs in-process. When the server restarts, running jobs are abandoned but their status remains non-terminal in the database.
-**Solution:** Added `cleanupStaleJobs()` function that runs on first dashboard load. It marks any non-terminal jobs older than 10 minutes as "failed" with a message to re-run.
-**Commit:** `580b3c8` — "Add audit management"
-**Location:** `lib/supabase.ts:74-99`
-
-### Problem 7: High API Costs During Development
-**Symptom:** Each test audit cost $1.50-3.00 using Sonnet, adding up quickly during debugging.
-**Solution:** Added dual model constants (`MODEL_DEEP` and `MODEL_BATCH`) in `pipeline.ts`. Set both to `claude-haiku-4-5-20251001` for testing (~10x cheaper). Switch `MODEL_DEEP` to `claude-sonnet-4-20250514` for production quality.
-**Commit:** `92d0f97` — "Switch all agents to Haiku for cheap testing"
-**Rule:** Always use Haiku during development/debugging. Only switch to Sonnet for production or quality testing.
-
-### Problem 8: No Visibility into API Calls During Debugging
-**Symptom:** When pipeline failed, impossible to tell which agent failed, what it sent, or what it received.
-**Solution:** Added comprehensive logging to `callClaude()`: request body size, model, max_tokens, tools, response timing, token counts (per-call and cumulative), content block types, web search count, first 500 chars preview.
-**Commit:** `0924172` — "Add detailed API request/response logging"
-**Location:** `lib/claude.ts:37-167`
-
-### Problem 9: Unformatted, Unusable Raw Output
-**Symptom:** Report viewer displayed huge unformatted blocks of JSON data. Users had to copy raw output into a separate Claude Opus session to get a polished report.
-**Root cause:** No formatting layer existed between raw JSON agent output and the UI. The `renderJsonSection()` helper was doing `JSON.stringify()` on nested objects.
-**Solution (multi-part):**
-1. Added **Agent 5 (Report Formatter)** — transforms raw JSON from all 4 agents into polished Markdown with narrative prose, tables, and step-by-step implementation guides
-2. Added **markdown-generator.ts** — code-generated fallback if Agent 5 fails, ensuring reports are always formatted
-3. **Rebuilt the entire report viewer** — replaced generic JSON dumper with structured components: per-page implementation checklists (Steps 1-9), character count validation, schema code blocks with copy buttons, proper tables for all data
-4. Added **Schema code with `<script>` wrappers** and CMS-specific installation instructions (WordPress, Shopify, Squarespace, Wix)
-5. Added **Markdown export** as a download format
-**Key files:** `lib/agents/prompts.ts` (Agent 5 prompt), `lib/agents/pipeline.ts` (Agent 5 execution), `lib/reports/markdown-generator.ts`, `lib/reports/schema-packager.ts`, `app/audits/[id]/report/page.tsx`
-
----
-
-## 9. Key Design Decisions & Rationale
-
-### Why sequential agents, not parallel?
-Each agent depends on the prior agent's output. Agent 3 can't optimize pages without knowing competitor gaps. The only parallelism opportunity is within Agent 3 (batched pages), which we exploit.
-
-### Why JSONB storage for agent outputs?
-AI outputs are schema-flexible. Storing as JSONB avoids brittle column mappings that break when prompts evolve. Key fields are duplicated to `page_audits` for queryability.
-
-### Why generate actual content, not just recommendations?
-The gap between "add an answer block" and "here is your answer block, paste it" is the gap between a report that sits in a drawer and one that gets deployed. All Agent 3 output is copy-paste ready.
-
-### Why Haiku for Agent 3 batches?
-Two reasons: (1) spreading API calls across model rate limit pools reduces 429 errors, and (2) page optimization is more formulaic than the analytical work Agents 1/2/4 do — Haiku handles it well at 1/10th the cost.
-
-### Why polling instead of Supabase Realtime?
-Realtime requires specific Supabase project configuration. Polling at 5s intervals is universally reliable and the UX difference is negligible for a progress tracker.
-
-### Why `force-dynamic` on all API routes?
-Next.js App Router aggressively caches by default. For a data-driven app where every response depends on current database state, caching causes stale data bugs that are hard to diagnose. The performance cost of `force-dynamic` is negligible for our use case.
-
----
-
-## 10. Current State & Known Limitations
-
-### Working
-- Full 5-agent pipeline executes end-to-end (Agent 5 = Report Formatter)
-- **User-selectable AI model** (Haiku or Sonnet) on the audit form with cost comparison
-- Dashboard with audit list, stats, delete, re-run
-- Client brief intake form with auto-populate from URL and document upload
-- Real-time progress tracking with polling + live output logs
-- 8-tab interactive report viewer with "Full Report" Markdown tab
-- Per-page implementation checklists (Steps 1-9) with character count validation
-- Client management (list, detail, search, delete)
-- DOCX report generation
-- Markdown report generation (Agent 5 polished or code-generated fallback)
-- CSV exports: roadmap, link opportunities, citation tasks
-- Schema code ZIP with `<script>` wrappers + CMS-specific installation instructions
-- Copy buttons on schema code blocks
-- Stale job cleanup on dashboard load
-- Truncated JSON auto-repair
-- Comprehensive API logging
-- HTML pre-fetcher for ground-truth SEO signal extraction (schema, meta, headings)
-- **Authentication UI** (Google OAuth via Supabase Auth) — optional, app works without login
-- **Billing page** with pricing tiers, credit packages, and transaction history UI
-- **Navigation** with auth state, credits badge, and Billing link
-
-### Not Yet Implemented
-- **Stripe integration:** Checkout route is a placeholder — needs `STRIPE_SECRET_KEY` and webhook for actual payment processing.
-- **Credit enforcement:** Credits are tracked but not deducted/enforced on audit creation. App currently allows unlimited runs.
-- **PDF report generation:** `pdf-generator.ts` exists but may need refinement.
-- **Supabase Realtime:** Replaced with polling. Can be re-enabled when Supabase project is configured.
-- **Agency branding:** No logo customization on reports.
-- **Batch client processing:** No "run all 34 clients" feature yet.
-- **Delta comparison:** No before/after comparison between audit runs.
-- **Google Search Console integration:** No real ranking/traffic data.
-- **AI citation monitoring:** No automated testing across ChatGPT/Perplexity/etc.
-- **Client portal:** No shareable report links for clients.
-
----
-
-## 11. Development Workflow
-
-### Local Development
-```bash
-cd seo-aeo-geo-app
-cp .env.example .env.local    # Fill in real keys
-npm install
-npm run dev                   # http://localhost:3000
-```
-
-### Deployment (Render)
-- **Build command:** `npm run build`
-- **Start command:** `npm run start`
-- **Environment:** Set all 4 env vars in Render dashboard
-- **Branch:** Deploy from `main` or feature branch
-
-### Testing an Audit
-1. Go to `/audits/new`
-2. Fill in client name, website URL, business type, industry, geography, goal
-3. Add at least 1-2 keywords
-4. Click "Run Audit"
-5. Monitor progress at `/audits/[id]`
-6. View results at `/audits/[id]/report`
-
-### Model Selection
-Model is now user-selectable on the New Audit form (Haiku or Sonnet). The choice is stored on the `audit_jobs.model_used` column and the pipeline reads it at runtime.
-
-```typescript
-// In lib/agents/pipeline.ts — models are resolved per-job:
-const MODELS = {
-  haiku: "claude-haiku-4-5-20251001",    // ~$0.15-0.30 per audit, 1 credit
-  sonnet: "claude-sonnet-4-20250514",    // ~$1.50-3.00 per audit, 5 credits
-};
-```
-
----
-
-## 12. Critical Rules for Development
-
-1. **Every API route** must have `export const dynamic = 'force-dynamic'`
-2. **Every client-side fetch()** must include `{ cache: 'no-store' }`
-3. **Use Haiku models** during development — switch to Sonnet only for production
-4. **Never expose** `SUPABASE_SERVICE_ROLE_KEY` to client-side code
-5. **Agent prompts** must instruct Claude to return "valid JSON only, no markdown, no preamble"
-6. **Web search limits** must be set via `max_uses` on the web_search tool to prevent token budget blowout
-7. **Inter-agent delays** (10s) and inter-batch delays (5s) are required to avoid rate limiting
-8. **Truncated JSON** is expected — the repair function in `lib/claude.ts` handles it, but agents with large outputs need sufficient `maxTokens`
-9. **New database tables** need: RLS policy, index on foreign keys, and addition to `supabase_realtime` publication if polling/subscriptions are needed
-10. **Agent 5 (Report Formatter)** must use MODEL_DEEP (Sonnet in production) — it produces the client-facing output. Haiku produces noticeably lower quality reports.
-11. **The pipeline runs in-process** (not in a background worker). Long-running audits tie up a server process. If the server restarts, the job is abandoned and `cleanupStaleJobs()` marks it failed on next dashboard load.
-
----
-
-## 13. Git History Summary
-
-| Date | Commit | Description |
-|------|--------|-------------|
-| Mar 3 | `a36a819` | Initial repo — Google Campaign Report upload |
-| Mar 3 | `af7937d` | Weekly Account Updates analysis from campaign data |
-| Mar 6 | `dbd0c00` | Design document upload |
-| Mar 6 | `ece77b6` | **Full app build** — 45 files, 8,627 lines. Complete frontend, API, pipeline, report gen |
-| Mar 7 | `a81a009` | Remove demo data, add pipeline resilience, real-time streaming, audit_logs |
-| Mar 8 | `589a3ca` | Fix Next.js caching — force-dynamic on all routes |
-| Mar 8 | `6bdb817` | Fix rate limiting — Haiku for batch optimization |
-| Mar 8 | `451f8bb` | Reduce token usage — compact JSON, summarized context, disable unused web search |
-| Mar 8 | `580b3c8` | Audit management — delete, re-run, stale job cleanup |
-| Mar 8 | `b52ba66` | Cap web searches per agent — max_uses on web_search tool |
-| Mar 8 | `0924172` | Add detailed API request/response logging |
-| Mar 8 | `92d0f97` | Switch all agents to Haiku for cheap testing |
-| Mar 8 | `fa910af` | Fix truncated JSON — repair function, increase max_tokens, polling replaces realtime |
-| Mar 8 | — | Agent 5 report formatter, schema packager rewrite, Markdown export, rebuilt report viewer, character count validation |
-
----
-
-## 14. Estimated API Costs
-
-### Per-Audit Token Usage (Haiku — testing mode)
-~200K total tokens → ~$0.15-0.30 per audit
-
-### Per-Audit Token Usage (Sonnet — production mode)
-~200K total tokens → ~$1.70-3.20 per audit
-
-### Cost Factors
-- Number of pages crawled (Agent 1 scope)
-- Number of competitors (Agent 2 web searches)
-- Number of pages optimized (Agent 3 batches × batch size)
-- Agent 4 output size (32K max_tokens for comprehensive strategy)
-
----
-
-## 15. Future Roadmap
-
-### Near-term (Next sessions)
-- [ ] Add authentication UI (login/signup with Supabase Auth)
-- [ ] Wire up file upload mode in brief form
-- [ ] Display token usage and cost estimate on completed audits
-- [ ] Add model selector (Haiku/Sonnet toggle) in the audit form UI
-
-### Medium-term
-- [ ] Batch processing (audit multiple clients in sequence)
-- [ ] Delta comparison between audit runs
-- [ ] Client portal with shareable report links
-- [ ] Google Search Console API integration
-- [ ] Agency branding (logo on reports)
-
-### Long-term
-- [ ] AI citation monitoring (automated ChatGPT/Perplexity/Gemini testing)
-- [ ] GA4 traffic data integration
-- [ ] White-label mode for client-facing reports
-- [ ] Background job queue (Bull + Redis or Supabase Edge Functions) to replace in-process pipeline
+*Last updated: 2026-04-29. Update this file whenever significant features, architecture changes, or new lessons are learned.*
