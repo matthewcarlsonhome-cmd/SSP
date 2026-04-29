@@ -25,9 +25,14 @@ const BATCH_TIMEOUT_MS = 300_000; // 5 minutes per batch
 const INTER_BATCH_DELAY_MS = 5_000; // delay between batches to avoid rate limits
 const INTER_AGENT_DELAY_MS = 10_000; // delay between agents to avoid rate limits
 
-// Model selection — set both to Haiku for cheap testing, swap MODEL_DEEP to Sonnet for production
-const MODEL_DEEP = "claude-haiku-4-5-20251001";  // Switch to "claude-sonnet-4-20250514" for production quality
-const MODEL_BATCH = "claude-haiku-4-5-20251001";
+// Model IDs — resolved per-job based on user's model selection
+const MODELS = {
+  haiku: "claude-haiku-4-5-20251001",
+  sonnet: "claude-sonnet-4-20250514",
+} as const;
+
+// Default model for batch operations (always Haiku for cost savings)
+const MODEL_BATCH = MODELS.haiku;
 
 type AgentConfig = {
   name: string;
@@ -82,6 +87,7 @@ async function runAgentWithRetry(
   config: AgentConfig,
   jobId: string,
   userMessage: string,
+  defaultModel: string,
   timeoutMs: number = AGENT_TIMEOUT_MS,
   retries = 2
 ): Promise<unknown> {
@@ -93,18 +99,19 @@ async function runAgentWithRetry(
         current_step: `Running ${config.name}...`,
       });
 
+      const effectiveModel = config.model || defaultModel;
       await writeLog(
         jobId,
         "info",
-        `Starting ${config.name}${attempt > 0 ? ` (retry ${attempt})` : ""} [model: ${config.model || MODEL_DEEP}, maxTokens: ${config.maxTokens || 16000}, webSearch: ${config.useWebSearch !== false}, maxSearches: ${config.maxWebSearches || "unlimited"}]`,
+        `Starting ${config.name}${attempt > 0 ? ` (retry ${attempt})` : ""} [model: ${effectiveModel}, maxTokens: ${config.maxTokens || 16000}, webSearch: ${config.useWebSearch !== false}, maxSearches: ${config.maxWebSearches || "unlimited"}]`,
         config.name
       );
 
-      console.log(`\n[PIPELINE] Agent: ${config.name} | Model: ${config.model || MODEL_DEEP} | WebSearch: ${config.useWebSearch !== false} | MaxSearches: ${config.maxWebSearches || "unlimited"}`);
+      console.log(`\n[PIPELINE] Agent: ${config.name} | Model: ${effectiveModel} | WebSearch: ${config.useWebSearch !== false} | MaxSearches: ${config.maxWebSearches || "unlimited"}`);
       console.log(`[PIPELINE] User message size: ${userMessage.length} chars`);
 
       const claudeOptions: Parameters<typeof callClaude>[0] = {
-        model: config.model || MODEL_DEEP,
+        model: effectiveModel,
         maxTokens: config.maxTokens || 16000,
         system: config.systemPrompt,
         messages: [{ role: "user", content: userMessage }],
@@ -178,15 +185,20 @@ export async function runPipeline(jobId: string) {
 
   const brief = job.input_brief as Record<string, unknown>;
 
+  // Resolve model based on job's model_used field (set at job creation from user's selection)
+  const modelChoice = (job.model_used === "sonnet" ? "sonnet" : "haiku") as keyof typeof MODELS;
+  const MODEL_DEEP = MODELS[modelChoice];
+  const modelLabel = modelChoice === "sonnet" ? "Sonnet (premium)" : "Haiku (standard)";
+
   await updateJob(jobId, {
     started_at: new Date().toISOString(),
     status: "crawling",
     progress: 1,
-    current_step: "Pipeline started — preparing Agent 1 (Site Crawler)...",
+    current_step: `Pipeline started — using ${modelLabel}...`,
   });
 
-  await writeLog(jobId, "info", "Pipeline started — 5-agent sequence beginning");
-  await writeLog(jobId, "info", `Client: ${(brief.business_name || brief.website_url || "Unknown")} | Model: ${MODEL_DEEP}`);
+  await writeLog(jobId, "info", `Pipeline started — 5-agent sequence using ${modelLabel}`);
+  await writeLog(jobId, "info", `Client: ${(brief.business_name || brief.client_name || brief.website_url || "Unknown")} | Model: ${MODEL_DEEP}`);
 
   try {
     // ─── Pre-fetch: Fetch actual HTML for ground-truth SEO signals ───
@@ -235,6 +247,7 @@ export async function runPipeline(jobId: string) {
       },
       jobId,
       agent1Message,
+      MODEL_DEEP,
       AGENT_TIMEOUT_MS
     );
 
@@ -262,6 +275,7 @@ export async function runPipeline(jobId: string) {
       },
       jobId,
       buildAgent2UserMessage(brief, crawlResults),
+      MODEL_DEEP,
       AGENT_TIMEOUT_MS
     );
 
@@ -330,6 +344,7 @@ export async function runPipeline(jobId: string) {
               competitorAnalysis,
               batch
             ),
+            MODEL_DEEP,
             BATCH_TIMEOUT_MS,
             1 // fewer retries per batch
           ),
@@ -447,6 +462,7 @@ export async function runPipeline(jobId: string) {
         competitorAnalysis,
         allOptimizations
       ),
+      MODEL_DEEP,
       AGENT_TIMEOUT_MS
     );
 

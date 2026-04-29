@@ -29,7 +29,14 @@ export async function GET(
     if (!job)
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
 
-    return NextResponse.json(job);
+    // Fetch audit logs (bypasses RLS since we use service client)
+    const { data: logs } = await supabase
+      .from("audit_logs")
+      .select("*")
+      .eq("job_id", id)
+      .order("timestamp", { ascending: true });
+
+    return NextResponse.json({ ...job, audit_logs: logs || [] });
   } catch (error) {
     console.error("Failed to fetch job:", error);
     return NextResponse.json(

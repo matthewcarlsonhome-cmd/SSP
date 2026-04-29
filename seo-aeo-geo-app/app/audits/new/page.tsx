@@ -107,6 +107,9 @@ function NewAuditPage() {
   const [previousSeo, setPreviousSeo] = useState("");
   const [budget, setBudget] = useState("");
 
+  // Model selection
+  const [selectedModel, setSelectedModel] = useState<"haiku" | "sonnet">("haiku");
+
   // Upload state
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -332,6 +335,7 @@ function NewAuditPage() {
       pain_points: painPoints,
       previous_seo: previousSeo,
       budget,
+      model: selectedModel,
     };
 
     try {
@@ -969,6 +973,71 @@ function NewAuditPage() {
                   value={budget}
                   onChange={(e) => setBudget(e.target.value)}
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Model Selection */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                  <Rocket className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>AI Model</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Choose quality vs. speed
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedModel("haiku")}
+                  className={`flex flex-col rounded-xl border-2 p-4 text-left transition-all ${
+                    selectedModel === "haiku"
+                      ? "border-primary bg-primary/5 shadow-sm"
+                      : "border-border hover:border-primary/30"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-foreground">Haiku</span>
+                    <Badge variant="secondary">1 credit</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    Fast &amp; affordable. Great for initial audits and regular monitoring.
+                  </p>
+                  <div className="flex items-center gap-3 mt-3 text-xs text-muted-foreground">
+                    <span>~3-5 min</span>
+                    <span>&middot;</span>
+                    <span>~$0.15-0.30 API cost</span>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedModel("sonnet")}
+                  className={`flex flex-col rounded-xl border-2 p-4 text-left transition-all ${
+                    selectedModel === "sonnet"
+                      ? "border-primary bg-primary/5 shadow-sm"
+                      : "border-border hover:border-primary/30"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-foreground">Sonnet</span>
+                    <Badge variant="default">5 credits</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    Premium quality. More nuanced analysis — ideal for client deliverables.
+                  </p>
+                  <div className="flex items-center gap-3 mt-3 text-xs text-muted-foreground">
+                    <span>~5-8 min</span>
+                    <span>&middot;</span>
+                    <span>~$1.50-3.00 API cost</span>
+                  </div>
+                </button>
               </div>
             </CardContent>
           </Card>
