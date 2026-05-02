@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Moon, Sun, Briefcase, Users, LogIn, LogOut, Loader2, ChevronDown, LayoutDashboard, Package, Menu, X, Settings, FileSpreadsheet, Trophy, Lock, User, Wand2, Download, Shield, BookOpen, Layers, Import, FolderOpen, CreditCard, GitBranch } from 'lucide-react';
+import { Moon, Sun, Briefcase, Users, LogIn, LogOut, Loader2, ChevronDown, LayoutDashboard, Package, Menu, X, Settings, FileSpreadsheet, Trophy, Lock, User, Wand2, Download, Shield, BookOpen, Layers, Import, FolderOpen, CreditCard, GitBranch, BarChart3 } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme.tsx';
 import { useAuth } from '../hooks/useAuth.tsx';
 import { useToast } from '../hooks/useToast.tsx';
@@ -136,6 +136,16 @@ const Header: React.FC = () => {
               >
                 <Layers className="h-4 w-4" />
                 Workflows
+              </Button>
+            </Link>
+            <Link to="/llm-visibility-audit">
+              <Button
+                variant={isActive('/llm-visibility-audit') ? 'secondary' : 'ghost'}
+                size="sm"
+                className="gap-2"
+              >
+                <BarChart3 className="h-4 w-4" />
+                LLM Audit
               </Button>
             </Link>
 
@@ -478,6 +488,15 @@ const Header: React.FC = () => {
               >
                 <Layers className="h-4 w-4" />
                 Workflows
+              </Button>
+            </Link>
+            <Link to="/llm-visibility-audit">
+              <Button
+                variant={isActive('/llm-visibility-audit') ? 'secondary' : 'ghost'}
+                className="w-full justify-start gap-2"
+              >
+                <BarChart3 className="h-4 w-4" />
+                LLM Audit
               </Button>
             </Link>
             <Link to="/settings">

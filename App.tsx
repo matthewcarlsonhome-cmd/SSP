@@ -144,6 +144,7 @@ import AccountPage from './pages/AccountPage';                       // User acc
 import AdminImprovementsPage from './pages/AdminImprovementsPage'; // Skill improvement review
 import AuthCallbackPage from './pages/AuthCallbackPage';           // OAuth callback handler
 import ClientPortalPage from './pages/ClientPortalPage';           // B2B client marketing portal
+import LLMVisibilityAuditPage from './pages/LLMVisibilityAuditPage'; // Local business LLM visibility audit
 import { AuthGate } from './components/AuthGate';                  // Login gate with onboarding
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -217,6 +218,7 @@ function App() {
                     ═══════════════════════════════════════════════════════ */}
                     <Route path="/" element={<RouteErrorBoundary pageName="Home"><HomePage /></RouteErrorBoundary>} />
                     <Route path="/dashboard" element={<RouteErrorBoundary pageName="Dashboard"><DashboardPage /></RouteErrorBoundary>} />
+                    <Route path="/llm-visibility-audit" element={<RouteErrorBoundary pageName="LLM Visibility Audit"><LLMVisibilityAuditPage /></RouteErrorBoundary>} />
                     <Route path="/welcome" element={<RouteErrorBoundary pageName="Welcome"><WelcomePage /></RouteErrorBoundary>} />
                     <Route path="/profile" element={<RouteErrorBoundary pageName="Profile"><UserProfilePage /></RouteErrorBoundary>} />
 

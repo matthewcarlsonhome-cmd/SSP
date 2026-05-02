@@ -125,6 +125,14 @@ const CommandPalette: React.FC = () => {
       keywords: ['home', 'saved', 'history', 'outputs'],
     },
     {
+      id: 'llm-visibility-audit',
+      name: 'LLM Visibility Audit',
+      description: 'Audit local business visibility across AI answers',
+      icon: BarChart3,
+      action: () => navigate('/llm-visibility-audit'),
+      keywords: ['llm', 'visibility', 'audit', 'local', 'business', 'seo', 'ai answers', 'perplexity'],
+    },
+    {
       id: 'skills',
       name: 'AI Skills',
       description: 'Browse AI-powered job search tools',

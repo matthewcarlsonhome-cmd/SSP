@@ -23,9 +23,12 @@ interface StoredKeys {
   gemini?: string;
   claude?: string;
   chatgpt?: string;
+  perplexity?: string;
   lastUpdated?: string;
   _version?: string; // Encryption version marker
 }
+
+export type StoredApiKeyProvider = 'gemini' | 'claude' | 'chatgpt' | 'perplexity';
 
 // Legacy XOR key for migration from old format
 const LEGACY_OBFUSCATION_KEY = 'sk1ll3ng1n3';
@@ -70,10 +73,11 @@ async function migrateLegacyKeys(): Promise<void> {
 
     logger.info('Migrating API keys to encrypted format...');
 
-    const providers: Array<'gemini' | 'claude' | 'chatgpt'> = [
+    const providers: StoredApiKeyProvider[] = [
       'gemini',
       'claude',
       'chatgpt',
+      'perplexity',
     ];
     const migrated: StoredKeys = {
       lastUpdated: new Date().toISOString(),
@@ -115,7 +119,7 @@ export async function initializeApiKeyStorage(): Promise<void> {
  * Save an API key securely
  */
 export async function saveApiKey(
-  provider: 'gemini' | 'claude' | 'chatgpt',
+  provider: StoredApiKeyProvider,
   key: string
 ): Promise<void> {
   try {
@@ -159,7 +163,7 @@ async function getStoredKeysInternal(): Promise<StoredKeys> {
  * Retrieve a decrypted API key
  */
 export async function getApiKey(
-  provider: 'gemini' | 'claude' | 'chatgpt'
+  provider: StoredApiKeyProvider
 ): Promise<string> {
   try {
     const stored = await getStoredKeysInternal();
@@ -188,7 +192,7 @@ export async function getApiKey(
  * @deprecated Use async getApiKey() instead
  */
 export function getApiKeySync(
-  provider: 'gemini' | 'claude' | 'chatgpt'
+  provider: StoredApiKeyProvider
 ): string {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -225,6 +229,7 @@ export function getStoredKeys(): StoredKeys {
         gemini: parsed.gemini ? '[encrypted]' : undefined,
         claude: parsed.claude ? '[encrypted]' : undefined,
         chatgpt: parsed.chatgpt ? '[encrypted]' : undefined,
+        perplexity: parsed.perplexity ? '[encrypted]' : undefined,
         lastUpdated: parsed.lastUpdated,
         _version: parsed._version,
       };
@@ -238,7 +243,7 @@ export function getStoredKeys(): StoredKeys {
 /**
  * Check if a key exists for a provider
  */
-export function hasStoredKey(provider: 'gemini' | 'claude' | 'chatgpt'): boolean {
+export function hasStoredKey(provider: StoredApiKeyProvider): boolean {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
@@ -255,7 +260,7 @@ export function hasStoredKey(provider: 'gemini' | 'claude' | 'chatgpt'): boolean
  * Clear a specific API key
  */
 export async function clearApiKey(
-  provider: 'gemini' | 'claude' | 'chatgpt'
+  provider: StoredApiKeyProvider
 ): Promise<void> {
   try {
     const existing = await getStoredKeysInternal();
@@ -298,7 +303,7 @@ export function getLastUpdated(): string | null {
  * Validate API key format (basic checks)
  */
 export function isValidApiKeyFormat(
-  provider: 'gemini' | 'claude' | 'chatgpt',
+  provider: StoredApiKeyProvider,
   key: string
 ): { valid: boolean; error?: string } {
   if (!key || key.trim().length === 0) {
@@ -336,6 +341,14 @@ export function isValidApiKeyFormat(
         return {
           valid: false,
           error: 'OpenAI API keys typically start with "sk-"',
+        };
+      }
+      break;
+    case 'perplexity':
+      if (!key.startsWith('pplx-')) {
+        return {
+          valid: false,
+          error: 'Perplexity API keys typically start with "pplx-"',
         };
       }
       break;

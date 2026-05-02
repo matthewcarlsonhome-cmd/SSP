@@ -53,12 +53,15 @@ const SettingsPage: React.FC = () => {
   const [geminiKey, setGeminiKey] = useState('');
   const [claudeKey, setClaudeKey] = useState('');
   const [chatgptKey, setChatgptKey] = useState('');
+  const [perplexityKey, setPerplexityKey] = useState('');
   const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [showClaudeKey, setShowClaudeKey] = useState(false);
   const [showChatgptKey, setShowChatgptKey] = useState(false);
+  const [showPerplexityKey, setShowPerplexityKey] = useState(false);
   const [hasGeminiKey, setHasGeminiKey] = useState(false);
   const [hasClaudeKey, setHasClaudeKey] = useState(false);
   const [hasChatgptKey, setHasChatgptKey] = useState(false);
+  const [hasPerplexityKey, setHasPerplexityKey] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   // Data
@@ -75,12 +78,14 @@ const SettingsPage: React.FC = () => {
 
   const loadSettings = async () => {
     // Load API key status
-    const gemini = getApiKey('gemini');
-    const claude = getApiKey('claude');
-    const chatgpt = getApiKey('chatgpt');
+    const gemini = await getApiKey('gemini');
+    const claude = await getApiKey('claude');
+    const chatgpt = await getApiKey('chatgpt');
+    const perplexity = await getApiKey('perplexity');
     setHasGeminiKey(!!gemini);
     setHasClaudeKey(!!claude);
     setHasChatgptKey(!!chatgpt);
+    setHasPerplexityKey(!!perplexity);
     setLastUpdated(getLastUpdated());
 
     // Load email preferences
@@ -107,49 +112,64 @@ const SettingsPage: React.FC = () => {
     }
   };
 
-  const handleSaveGeminiKey = () => {
+  const handleSaveGeminiKey = async () => {
     if (geminiKey.trim()) {
-      saveApiKey('gemini', geminiKey.trim());
+      await saveApiKey('gemini', geminiKey.trim());
       setHasGeminiKey(true);
       setGeminiKey('');
       addToast('Gemini API key saved', 'success');
     }
   };
 
-  const handleSaveClaudeKey = () => {
+  const handleSaveClaudeKey = async () => {
     if (claudeKey.trim()) {
-      saveApiKey('claude', claudeKey.trim());
+      await saveApiKey('claude', claudeKey.trim());
       setHasClaudeKey(true);
       setClaudeKey('');
       addToast('Claude API key saved', 'success');
     }
   };
 
-  const handleSaveChatgptKey = () => {
+  const handleSaveChatgptKey = async () => {
     if (chatgptKey.trim()) {
-      saveApiKey('chatgpt', chatgptKey.trim());
+      await saveApiKey('chatgpt', chatgptKey.trim());
       setHasChatgptKey(true);
       setChatgptKey('');
       addToast('ChatGPT API key saved', 'success');
     }
   };
 
-  const handleClearGeminiKey = () => {
-    clearApiKey('gemini');
+  const handleSavePerplexityKey = async () => {
+    if (perplexityKey.trim()) {
+      await saveApiKey('perplexity', perplexityKey.trim());
+      setHasPerplexityKey(true);
+      setPerplexityKey('');
+      addToast('Perplexity API key saved', 'success');
+    }
+  };
+
+  const handleClearGeminiKey = async () => {
+    await clearApiKey('gemini');
     setHasGeminiKey(false);
     addToast('Gemini API key removed', 'success');
   };
 
-  const handleClearClaudeKey = () => {
-    clearApiKey('claude');
+  const handleClearClaudeKey = async () => {
+    await clearApiKey('claude');
     setHasClaudeKey(false);
     addToast('Claude API key removed', 'success');
   };
 
-  const handleClearChatgptKey = () => {
-    clearApiKey('chatgpt');
+  const handleClearChatgptKey = async () => {
+    await clearApiKey('chatgpt');
     setHasChatgptKey(false);
     addToast('ChatGPT API key removed', 'success');
+  };
+
+  const handleClearPerplexityKey = async () => {
+    await clearApiKey('perplexity');
+    setHasPerplexityKey(false);
+    addToast('Perplexity API key removed', 'success');
   };
 
   const handleClearAllKeys = () => {
@@ -158,6 +178,7 @@ const SettingsPage: React.FC = () => {
       setHasGeminiKey(false);
       setHasClaudeKey(false);
       setHasChatgptKey(false);
+      setHasPerplexityKey(false);
       addToast('All API keys removed', 'success');
     }
   };
@@ -401,6 +422,61 @@ const SettingsPage: React.FC = () => {
                 className="text-sm text-primary hover:underline flex items-center gap-1"
               >
                 Get a ChatGPT API key
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+
+            {/* Perplexity Key */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-medium">Perplexity Sonar</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {hasPerplexityKey ? 'Key configured' : 'Not configured'}
+                  </p>
+                </div>
+                {hasPerplexityKey && (
+                  <span className="flex items-center gap-1 text-green-500 text-sm">
+                    <Check className="h-4 w-4" />
+                    Active
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    type={showPerplexityKey ? 'text' : 'password'}
+                    placeholder={hasPerplexityKey ? '****************' : 'Enter Perplexity API key'}
+                    value={perplexityKey}
+                    onChange={(e) => setPerplexityKey(e.target.value)}
+                  />
+                  <button
+                    onClick={() => setShowPerplexityKey(!showPerplexityKey)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label={showPerplexityKey ? 'Hide Perplexity API key' : 'Show Perplexity API key'}
+                  >
+                    {showPerplexityKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {perplexityKey ? (
+                  <Button onClick={handleSavePerplexityKey}>
+                    <Save className="h-4 w-4 mr-1" />
+                    Save
+                  </Button>
+                ) : hasPerplexityKey ? (
+                  <Button variant="destructive" onClick={handleClearPerplexityKey}>
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Remove
+                  </Button>
+                ) : null}
+              </div>
+              <a
+                href="https://docs.perplexity.ai/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary hover:underline flex items-center gap-1"
+              >
+                Get a Perplexity API key
                 <ExternalLink className="h-3 w-3" />
               </a>
             </div>
