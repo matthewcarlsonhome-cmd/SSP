@@ -15,12 +15,14 @@ import {
   LogIn,
   LogOut,
   Zap,
+  BarChart3,
 } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/audits/new", label: "New Audit", icon: PlusCircle },
+  { href: "/llm-visibility-audit", label: "LLM Audit", icon: BarChart3 },
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/billing", label: "Billing", icon: CreditCard },
 ];
