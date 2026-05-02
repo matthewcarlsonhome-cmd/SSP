@@ -88,6 +88,15 @@ const DEFAULT_PROFILE: AuditBusinessProfile = {
 
 const DEFAULT_PROVIDERS: VisibilityProviderId[] = ['chatgpt', 'claude', 'gemini', 'perplexity'];
 const PROVIDER_KEY_STORAGE = 'ssp_llm_visibility_provider_keys';
+type AuditStepId = 'intake' | 'setup' | 'capture' | 'review' | 'report';
+
+const AUDIT_STEPS: Array<{ id: AuditStepId; label: string; description: string }> = [
+  { id: 'intake', label: 'Start', description: 'Business profile and competitors' },
+  { id: 'setup', label: 'Questions', description: 'Profile, platforms, and query set' },
+  { id: 'capture', label: 'Capture', description: 'Run APIs or paste browser evidence' },
+  { id: 'review', label: 'Review', description: 'QA misses, errors, and scorecard' },
+  { id: 'report', label: 'Send Report', description: 'Narrative, fixes, share link' },
+];
 
 const PROVIDER_ACCENTS: Record<VisibilityProviderId, string> = {
   chatgpt: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
@@ -162,6 +171,7 @@ const LLMVisibilityAuditPage: React.FC = () => {
   const [shareUrl, setShareUrl] = useState('');
   const [sharedScorecard, setSharedScorecard] = useState<ShareableLeadScorecard | null>(null);
   const [leadForm, setLeadForm] = useState({ name: '', email: '', phone: '', business: '' });
+  const [activeStep, setActiveStep] = useState<AuditStepId>('intake');
   const [providerApiKeys, setProviderApiKeys] = useState<Record<VisibilityProviderId, string>>({
     chatgpt: '',
     claude: '',
@@ -187,6 +197,7 @@ const LLMVisibilityAuditPage: React.FC = () => {
     setSelectedProviders(stored.providers);
     setRuns(stored.runs || []);
     setPriorMetrics(stored.priorMetrics);
+    if (stored.runs?.length) setActiveStep('review');
   }, []);
 
   useEffect(() => {
@@ -239,6 +250,8 @@ const LLMVisibilityAuditPage: React.FC = () => {
   const losingQueries = [...queryPerformance].reverse().slice(0, 3);
 
   const runCount = selectedQuestions.length * selectedProviders.length;
+  const errorCount = runs.filter(run => run.status === 'error').length;
+  const reviewAttentionCount = metrics.needsReviewCount + metrics.highImpactMissCount + errorCount;
   const keyStatus = useMemo(
     () => ({
       chatgpt: Boolean(providerApiKeys.chatgpt.trim()),
@@ -248,6 +261,48 @@ const LLMVisibilityAuditPage: React.FC = () => {
     }),
     [providerApiKeys]
   );
+  const nextAction = useMemo(() => {
+    if (!profile.brand.trim() || !profile.website?.trim()) {
+      return {
+        step: 'intake' as const,
+        title: 'Finish intake first',
+        detail: 'Add the website and business basics so prompts render correctly.',
+        cta: 'Go to Start',
+      };
+    }
+    if (!selectedQuestions.length || !selectedProviders.length) {
+      return {
+        step: 'setup' as const,
+        title: 'Choose questions and platforms',
+        detail: 'Confirm the audit profile, selected platforms, and query list.',
+        cta: 'Go to Questions',
+      };
+    }
+    if (!metrics.capturedCount) {
+      return {
+        step: 'capture' as const,
+        title: 'Run the first capture',
+        detail: `${runCount} runs are queued from the current profile. Run APIs or paste manual browser evidence.`,
+        cta: 'Go to Capture',
+      };
+    }
+    if (reviewAttentionCount > 0) {
+      return {
+        step: 'review' as const,
+        title: 'Review exceptions',
+        detail: `${reviewAttentionCount} run${reviewAttentionCount === 1 ? '' : 's'} need attention before this is client-ready.`,
+        cta: 'Go to Review',
+      };
+    }
+    return {
+      step: 'report' as const,
+      title: 'Draft the client handoff',
+      detail: 'The scorecard is ready for a narrative, fix plan, and share link.',
+      cta: 'Go to Send Report',
+    };
+  }, [metrics.capturedCount, profile.brand, profile.website, reviewAttentionCount, runCount, selectedProviders.length, selectedQuestions.length]);
+
+  const activeStepMeta = AUDIT_STEPS.find(step => step.id === activeStep) || AUDIT_STEPS[0];
 
   const updateProfile = (updates: Partial<AuditBusinessProfile>) => {
     setProfile(current => ({ ...current, ...updates }));
@@ -602,6 +657,40 @@ const LLMVisibilityAuditPage: React.FC = () => {
 
       <div className="container mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-6 xl:grid-cols-[380px_1fr]">
         <aside className="space-y-6 xl:sticky xl:top-24 xl:self-start">
+          <StepNavigation
+            steps={AUDIT_STEPS}
+            activeStep={activeStep}
+            onStepChange={setActiveStep}
+            completed={{
+              intake: Boolean(profile.website && profile.brand),
+              setup: selectedQuestions.length > 0 && selectedProviders.length > 0,
+              capture: metrics.capturedCount > 0,
+              review: metrics.capturedCount > 0 && reviewAttentionCount === 0,
+              report: Boolean(metrics.capturedCount && reportDraft.executiveSummary),
+            }}
+          />
+
+          <section className="rounded-xl border bg-card p-5">
+            <p className="text-xs font-semibold uppercase text-muted-foreground">Current Audit</p>
+            <h2 className="mt-2 text-lg font-semibold">{profile.brand || 'Unnamed business'}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{profile.niche} in {[profile.city, profile.state].filter(Boolean).join(', ')}</p>
+            <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
+              <div className="rounded-lg bg-muted/40 p-2">
+                <p className="font-semibold">{selectedQuestions.length}</p>
+                <p className="text-muted-foreground">Questions</p>
+              </div>
+              <div className="rounded-lg bg-muted/40 p-2">
+                <p className="font-semibold">{selectedProviders.length}</p>
+                <p className="text-muted-foreground">Platforms</p>
+              </div>
+              <div className="rounded-lg bg-muted/40 p-2">
+                <p className="font-semibold">{metrics.capturedCount}</p>
+                <p className="text-muted-foreground">Captured</p>
+              </div>
+            </div>
+          </section>
+
+          {activeStep === 'intake' && (
           <section className="rounded-xl border bg-card p-5">
             <div className="mb-4 flex items-center gap-2">
               <Wand2 className="h-5 w-5 text-primary" />
@@ -635,7 +724,9 @@ const LLMVisibilityAuditPage: React.FC = () => {
               ) : null}
             </div>
           </section>
+          )}
 
+          {activeStep === 'intake' && (
           <section className="rounded-xl border bg-card p-5">
             <div className="mb-4 flex items-center gap-2">
               <Building2 className="h-5 w-5 text-primary" />
@@ -744,7 +835,9 @@ const LLMVisibilityAuditPage: React.FC = () => {
               </div>
             </div>
           </section>
+          )}
 
+          {activeStep === 'setup' && (
           <section className="rounded-xl border bg-card p-5">
             <div className="mb-4 flex items-center gap-2">
               <Target className="h-5 w-5 text-primary" />
@@ -805,7 +898,9 @@ const LLMVisibilityAuditPage: React.FC = () => {
               </div>
             </div>
           </section>
+          )}
 
+          {activeStep === 'setup' && (
           <section className="rounded-xl border bg-card p-5">
             <div className="mb-4 flex items-center gap-2">
               <Globe className="h-5 w-5 text-primary" />
@@ -859,33 +954,65 @@ const LLMVisibilityAuditPage: React.FC = () => {
               </p>
             </div>
           </section>
+          )}
         </aside>
 
         <main className="space-y-6">
-          <section className="grid grid-cols-2 gap-4 lg:grid-cols-6">
-            <MetricCard label="Visibility" value={`${metrics.visibilityScore}`} helper={`Grade ${metrics.grade}`} icon={<BarChart3 className="h-4 w-4" />} />
-            <MetricCard label="Workbook" value={`${metrics.workbookAverage}/5`} helper={`${metrics.dominantCount} dominant answers`} icon={<FileText className="h-4 w-4" />} />
-            <MetricCard label="Mentions" value={formatPercent(metrics.mentionRate)} helper={`${metrics.brandMentionCount}/${metrics.capturedCount} captured`} icon={<Target className="h-4 w-4" />} />
-            <MetricCard label="Citations" value={formatPercent(metrics.citationRate)} helper={`${metrics.citationCount} brand citations`} icon={<FileText className="h-4 w-4" />} />
-            <MetricCard label="Competitors" value={formatPercent(metrics.competitorDominanceRatio)} helper="Dominance ratio" icon={<Zap className="h-4 w-4" />} />
-            <MetricCard label="QA" value={`${metrics.approvedCount}/${metrics.capturedCount}`} helper={`${metrics.needsReviewCount + metrics.highImpactMissCount} need review`} icon={<ShieldCheck className="h-4 w-4" />} />
-          </section>
-
           <section className="rounded-xl border bg-card p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-lg font-semibold">30-Minute Operator Workflow</h2>
-                <p className="text-sm text-muted-foreground">
-                  Intake, approve competitors, run the selected profile, paste manual AIO/Gemini evidence, approve QA, then send the report draft.
-                </p>
+                <p className="text-xs font-semibold uppercase text-primary">Current Step</p>
+                <h2 className="mt-1 text-xl font-semibold">{activeStepMeta.label}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">{activeStepMeta.description}</p>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
-                <WorkflowPill label="0-3 min" value="Intake" done={Boolean(profile.website && profile.brand)} />
-                <WorkflowPill label="3-6 min" value="Competitors" done={profile.competitors.length > 0} />
-                <WorkflowPill label="6-22 min" value="Capture" done={metrics.capturedCount > 0} />
-                <WorkflowPill label="22-30 min" value="Report" done={Boolean(reportDraft.executiveSummary && metrics.capturedCount)} />
+              <div className="grid grid-cols-3 gap-2 text-center text-xs md:min-w-[360px]">
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="font-semibold">{selectedQuestions.length}</p>
+                  <p className="text-muted-foreground">Questions</p>
+                </div>
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="font-semibold">{selectedProviders.length}</p>
+                  <p className="text-muted-foreground">Platforms</p>
+                </div>
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="font-semibold">{runCount}</p>
+                  <p className="text-muted-foreground">Runs</p>
+                </div>
               </div>
             </div>
+          </section>
+
+          {metrics.capturedCount > 0 && (
+            <section className="grid grid-cols-2 gap-4 lg:grid-cols-6">
+              <MetricCard label="Visibility" value={`${metrics.visibilityScore}`} helper={`Grade ${metrics.grade}`} icon={<BarChart3 className="h-4 w-4" />} />
+              <MetricCard label="Workbook" value={`${metrics.workbookAverage}/5`} helper={`${metrics.dominantCount} dominant answers`} icon={<FileText className="h-4 w-4" />} />
+              <MetricCard label="Mentions" value={formatPercent(metrics.mentionRate)} helper={`${metrics.brandMentionCount}/${metrics.capturedCount} captured`} icon={<Target className="h-4 w-4" />} />
+              <MetricCard label="Citations" value={formatPercent(metrics.citationRate)} helper={`${metrics.citationCount} brand citations`} icon={<FileText className="h-4 w-4" />} />
+              <MetricCard label="Competitors" value={formatPercent(metrics.competitorDominanceRatio)} helper="Dominance ratio" icon={<Zap className="h-4 w-4" />} />
+              <MetricCard label="QA" value={`${metrics.approvedCount}/${metrics.capturedCount}`} helper={`${metrics.needsReviewCount + metrics.highImpactMissCount} need review`} icon={<ShieldCheck className="h-4 w-4" />} />
+            </section>
+          )}
+
+          <NextActionBanner action={nextAction} onGo={() => setActiveStep(nextAction.step)} />
+
+          <section className="rounded-xl border bg-card p-5">
+            <details>
+              <summary className="flex cursor-pointer list-none flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold">30-Minute Operator Workflow</h2>
+                  <p className="text-sm text-muted-foreground">Open this only when you need the timing checklist.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
+                  <WorkflowPill label="0-3 min" value="Intake" done={Boolean(profile.website && profile.brand)} />
+                  <WorkflowPill label="3-6 min" value="Competitors" done={profile.competitors.length > 0} />
+                  <WorkflowPill label="6-22 min" value="Capture" done={metrics.capturedCount > 0} />
+                  <WorkflowPill label="22-30 min" value="Report" done={Boolean(reportDraft.executiveSummary && metrics.capturedCount)} />
+                </div>
+              </summary>
+              <p className="mt-4 rounded-lg bg-muted/30 p-3 text-sm text-muted-foreground">
+                Intake and approve competitors, confirm the query batch, run API captures, paste manual AIO/Gemini evidence, QA the misses, then copy the report draft.
+              </p>
+            </details>
             {reAuditDelta && (
               <div className="mt-4 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-sm text-blue-700 dark:text-blue-300">
                 {reAuditDelta.summary} Mention rate delta: {formatSignedPercent(reAuditDelta.mentionRateDelta)}. Citation delta: {formatSignedPercent(reAuditDelta.citationRateDelta)}.
@@ -893,6 +1020,8 @@ const LLMVisibilityAuditPage: React.FC = () => {
             )}
           </section>
 
+          {activeStep === 'report' && (
+          <>
           <section className="rounded-xl border bg-card">
             <div className="flex flex-col gap-3 border-b p-5 md:flex-row md:items-center md:justify-between">
               <div>
@@ -941,7 +1070,10 @@ const LLMVisibilityAuditPage: React.FC = () => {
               )}
             </div>
           </section>
+          </>
+          )}
 
+          {activeStep === 'setup' && (
           <section className="rounded-xl border bg-card">
             <div className="flex flex-col gap-3 border-b p-5 md:flex-row md:items-center md:justify-between">
               <div>
@@ -959,7 +1091,12 @@ const LLMVisibilityAuditPage: React.FC = () => {
                 </Button>
               </div>
             </div>
-            <div className="max-h-[420px] divide-y overflow-y-auto">
+            <details className="border-t">
+              <summary className="flex cursor-pointer list-none items-center justify-between p-5 text-sm font-semibold">
+                <span>Review selected questions</span>
+                <span className="rounded bg-muted px-2 py-1 text-xs text-muted-foreground">{selectedQuestions.length}/{renderedQuestions.length}</span>
+              </summary>
+            <div className="max-h-[420px] divide-y overflow-y-auto border-t">
               {renderedQuestions.map(question => (
                 <label key={question.id} className="flex gap-3 p-4 hover:bg-muted/40">
                   <input
@@ -983,8 +1120,12 @@ const LLMVisibilityAuditPage: React.FC = () => {
                 </label>
               ))}
             </div>
+            </details>
           </section>
+          )}
 
+          {activeStep === 'capture' && (
+          <>
           <section className="rounded-xl border bg-card p-5">
             <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
@@ -1059,7 +1200,11 @@ const LLMVisibilityAuditPage: React.FC = () => {
               placeholder="Paste the raw LLM answer here..."
             />
           </section>
+          <CaptureStatusPanel runs={runs} />
+          </>
+          )}
 
+          {(activeStep === 'review' || activeStep === 'report') && (
           <section className="rounded-xl border bg-card">
             <div className="flex flex-col gap-3 border-b p-5 md:flex-row md:items-center md:justify-between">
               <div>
@@ -1177,7 +1322,9 @@ const LLMVisibilityAuditPage: React.FC = () => {
               )}
             </div>
           </section>
+          )}
 
+          {activeStep === 'review' && (
           <section className="rounded-xl border bg-card">
             <div className="border-b p-5">
               <h2 className="text-lg font-semibold">Run Evidence</h2>
@@ -1195,9 +1342,106 @@ const LLMVisibilityAuditPage: React.FC = () => {
               )}
             </div>
           </section>
+          )}
         </main>
       </div>
     </div>
+  );
+};
+
+const StepNavigation: React.FC<{
+  steps: typeof AUDIT_STEPS;
+  activeStep: AuditStepId;
+  onStepChange: (step: AuditStepId) => void;
+  completed: Record<AuditStepId, boolean>;
+}> = ({ steps, activeStep, onStepChange, completed }) => (
+  <section className="rounded-xl border bg-card p-4">
+    <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Audit Flow</p>
+    <div className="space-y-2">
+      {steps.map((step, index) => {
+        const active = activeStep === step.id;
+        const done = completed[step.id];
+        return (
+          <button
+            key={step.id}
+            onClick={() => onStepChange(step.id)}
+            className={`flex w-full items-start gap-3 rounded-lg border px-3 py-3 text-left transition ${
+              active ? 'border-primary bg-primary/10' : 'bg-background hover:bg-muted/50'
+            }`}
+          >
+            <span
+              className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                done ? 'bg-emerald-500 text-white' : active ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : index + 1}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold">{step.label}</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">{step.description}</span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  </section>
+);
+
+const NextActionBanner: React.FC<{
+  action: { step: AuditStepId; title: string; detail: string; cta: string };
+  onGo: () => void;
+}> = ({ action, onGo }) => (
+  <section className="rounded-xl border border-primary/25 bg-primary/5 p-5">
+    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div>
+        <p className="text-xs font-semibold uppercase text-primary">Next Best Action</p>
+        <h2 className="mt-1 text-lg font-semibold">{action.title}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{action.detail}</p>
+      </div>
+      <Button onClick={onGo} className="shrink-0">
+        {action.cta}
+      </Button>
+    </div>
+  </section>
+);
+
+const CaptureStatusPanel: React.FC<{ runs: VisibilityAuditRun[] }> = ({ runs }) => {
+  const byProvider = DEFAULT_PROVIDERS.map(provider => ({
+    provider,
+    total: runs.filter(run => run.provider === provider).length,
+    captured: runs.filter(run => run.provider === provider && (run.status === 'captured' || run.status === 'manual')).length,
+    errors: runs.filter(run => run.provider === provider && run.status === 'error').length,
+  })).filter(item => item.total > 0);
+
+  return (
+    <section className="rounded-xl border bg-card">
+      <div className="border-b p-5">
+        <h2 className="text-lg font-semibold">Capture Status</h2>
+        <p className="text-sm text-muted-foreground">A compact rollup of the current batch. Detailed evidence lives in Review.</p>
+      </div>
+      <div className="grid gap-3 p-5 md:grid-cols-2">
+        {byProvider.length ? (
+          byProvider.map(item => (
+            <div key={item.provider} className="rounded-lg border bg-muted/20 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <span className={`rounded border px-2 py-1 text-xs font-semibold ${PROVIDER_ACCENTS[item.provider]}`}>
+                  {PROVIDER_LABELS[item.provider]}
+                </span>
+                <span className="text-sm font-semibold">{item.captured}/{item.total}</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full bg-primary" style={{ width: `${item.total ? (item.captured / item.total) * 100 : 0}%` }} />
+              </div>
+              {item.errors ? <p className="mt-2 text-xs text-red-600">{item.errors} error{item.errors === 1 ? '' : 's'}</p> : null}
+            </div>
+          ))
+        ) : (
+          <p className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground md:col-span-2">
+            No capture runs yet. Run the API batch or save a manual capture.
+          </p>
+        )}
+      </div>
+    </section>
   );
 };
 
