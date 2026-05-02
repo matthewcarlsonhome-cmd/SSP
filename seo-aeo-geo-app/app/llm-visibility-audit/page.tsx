@@ -146,6 +146,9 @@ const LLMVisibilityAuditPage: React.FC = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [activeRunLabel, setActiveRunLabel] = useState('');
   const [intakeUrl, setIntakeUrl] = useState(DEFAULT_PROFILE.website || '');
+  const [aliasText, setAliasText] = useState(DEFAULT_PROFILE.aliases.join('\n'));
+  const [competitorText, setCompetitorText] = useState(DEFAULT_PROFILE.competitors.join('\n'));
+  const [servicesText, setServicesText] = useState((DEFAULT_PROFILE.services || []).join('\n'));
   const [competitorSuggestions, setCompetitorSuggestions] = useState<string[]>([]);
   const [manualQueryId, setManualQueryId] = useState('');
   const [manualProvider, setManualProvider] = useState<VisibilityProviderId>('chatgpt');
@@ -176,6 +179,9 @@ const LLMVisibilityAuditPage: React.FC = () => {
     if (!stored) return;
     setProfile(stored.profile);
     setIntakeUrl(stored.profile.website || '');
+    setAliasText(stored.profile.aliases.join('\n'));
+    setCompetitorText(stored.profile.competitors.join('\n'));
+    setServicesText((stored.profile.services || []).join('\n'));
     setPackId(stored.packId);
     setAuditProfileId(stored.auditProfileId || 'madison-mvp');
     setSelectedProviders(stored.providers);
@@ -280,6 +286,9 @@ const LLMVisibilityAuditPage: React.FC = () => {
       currentProfile: profile,
     });
     setProfile(intake.profile);
+    setAliasText(intake.profile.aliases.join('\n'));
+    setCompetitorText(intake.profile.competitors.join('\n'));
+    setServicesText((intake.profile.services || []).join('\n'));
     setPackId(findBestIndustryPack(intake.profile.niche).id);
     setCompetitorSuggestions(intake.suggestedCompetitors);
     addToast(`Instant intake drafted ${intake.profile.brand} with ${intake.suggestedCompetitors.length} competitor suggestions`, 'success');
@@ -287,7 +296,9 @@ const LLMVisibilityAuditPage: React.FC = () => {
 
   const addCompetitor = (name: string) => {
     if (!name.trim()) return;
-    updateProfile({ competitors: Array.from(new Set([...profile.competitors, name.trim()])) });
+    const nextCompetitors = Array.from(new Set([...profile.competitors, name.trim()]));
+    updateProfile({ competitors: nextCompetitors });
+    setCompetitorText(nextCompetitors.join('\n'));
     setCompetitorSuggestions(current => current.filter(item => item !== name));
   };
 
@@ -657,24 +668,48 @@ const LLMVisibilityAuditPage: React.FC = () => {
                 Brand aliases
                 <Textarea
                   className="mt-1 min-h-[70px]"
-                  value={profile.aliases.join('\n')}
-                  onChange={event => updateProfile({ aliases: parseList(event.target.value) })}
+                  value={aliasText}
+                  onChange={event => {
+                    setAliasText(event.target.value);
+                    updateProfile({ aliases: parseList(event.target.value) });
+                  }}
+                  onBlur={() => {
+                    const nextAliases = parseList(aliasText);
+                    setAliasText(nextAliases.join('\n'));
+                    updateProfile({ aliases: nextAliases });
+                  }}
                 />
               </label>
               <label className="block text-sm font-medium">
                 Competitors
                 <Textarea
                   className="mt-1 min-h-[92px]"
-                  value={profile.competitors.join('\n')}
-                  onChange={event => updateProfile({ competitors: parseList(event.target.value) })}
+                  value={competitorText}
+                  onChange={event => {
+                    setCompetitorText(event.target.value);
+                    updateProfile({ competitors: parseList(event.target.value) });
+                  }}
+                  onBlur={() => {
+                    const nextCompetitors = parseList(competitorText);
+                    setCompetitorText(nextCompetitors.join('\n'));
+                    updateProfile({ competitors: nextCompetitors });
+                  }}
                 />
               </label>
               <label className="block text-sm font-medium">
                 Services
                 <Textarea
                   className="mt-1 min-h-[74px]"
-                  value={(profile.services || []).join('\n')}
-                  onChange={event => updateProfile({ services: parseList(event.target.value) })}
+                  value={servicesText}
+                  onChange={event => {
+                    setServicesText(event.target.value);
+                    updateProfile({ services: parseList(event.target.value) });
+                  }}
+                  onBlur={() => {
+                    const nextServices = parseList(servicesText);
+                    setServicesText(nextServices.join('\n'));
+                    updateProfile({ services: nextServices });
+                  }}
                 />
               </label>
               <div className="grid grid-cols-3 gap-2">
