@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   BarChart3,
@@ -50,6 +50,8 @@ import {
   loadVisibilityAudit,
   mapFindings,
   PROVIDER_LABELS,
+  QUESTION_CATEGORY_META,
+  QUESTION_CATEGORY_ORDER,
   renderVisibilityQuestions,
   runVisibilityPrompt,
   saveVisibilityAudit,
@@ -67,6 +69,7 @@ import {
   type VisibilityAuditRun,
   type VisibilityMetrics,
   type VisibilityProviderId,
+  type VisibilityQueryCategory,
 } from '@/lib/llm-visibility-audit';
 
 const DEFAULT_PROFILE: AuditBusinessProfile = {
@@ -89,6 +92,13 @@ const DEFAULT_PROFILE: AuditBusinessProfile = {
 const DEFAULT_PROVIDERS: VisibilityProviderId[] = ['chatgpt', 'claude', 'gemini', 'perplexity'];
 const PROVIDER_KEY_STORAGE = 'ssp_llm_visibility_provider_keys';
 type AuditStepId = 'intake' | 'setup' | 'capture' | 'review' | 'report';
+
+const PROVIDER_API_KEY_LABELS: Record<VisibilityProviderId, string> = {
+  chatgpt: 'OpenAI API key for ChatGPT',
+  claude: 'Anthropic API key for Claude',
+  gemini: 'Google AI Studio key for Gemini',
+  perplexity: 'Perplexity API key',
+};
 
 const AUDIT_STEPS: Array<{ id: AuditStepId; label: string; description: string }> = [
   { id: 'intake', label: 'Start', description: 'Business profile and competitors' },
@@ -125,6 +135,15 @@ function formatSignedNumber(value: number): string {
   return `${value >= 0 ? '+' : ''}${value}`;
 }
 
+function getQuestionCategoryMeta(category: VisibilityQueryCategory | string) {
+  return QUESTION_CATEGORY_META[category as VisibilityQueryCategory] || {
+    label: category.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase()),
+    workbookBucket: category,
+    description: 'Legacy or custom question category.',
+    order: 99,
+  };
+}
+
 function downloadTextFile(filename: string, content: string, type: string): void {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
@@ -138,6 +157,7 @@ function downloadTextFile(filename: string, content: string, type: string): void
 }
 
 const LLMVisibilityAuditPage: React.FC = () => {
+  const mainContentRef = useRef<HTMLElement | null>(null);
   const [toastMessage, setToastMessage] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const addToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToastMessage({ message, type });
@@ -193,8 +213,15 @@ const LLMVisibilityAuditPage: React.FC = () => {
     setCompetitorText(stored.profile.competitors.join('\n'));
     setServicesText((stored.profile.services || []).join('\n'));
     setPackId(stored.packId);
-    setAuditProfileId(stored.auditProfileId || 'madison-mvp');
-    setSelectedProviders(stored.providers);
+    const restoredAuditProfileId = stored.auditProfileId || 'madison-mvp';
+    setAuditProfileId(restoredAuditProfileId);
+    setSelectedProviders(
+      restoredAuditProfileId === 'madison-mvp'
+        ? [...DEFAULT_PROVIDERS]
+        : stored.providers?.length
+          ? stored.providers
+          : getAuditProfileConfig(restoredAuditProfileId).providerDefaults
+    );
     setRuns(stored.runs || []);
     setPriorMetrics(stored.priorMetrics);
     if (stored.runs?.length) setActiveStep('review');
@@ -238,6 +265,18 @@ const LLMVisibilityAuditPage: React.FC = () => {
     () => renderedQuestions.filter(question => selectedQuestionIds.includes(question.id)),
     [renderedQuestions, selectedQuestionIds]
   );
+  const questionsByCategory = useMemo(() => {
+    const categories = Array.from(new Set([...QUESTION_CATEGORY_ORDER, ...renderedQuestions.map(question => question.category)]));
+    return categories
+      .map(category => ({
+        category,
+        meta: getQuestionCategoryMeta(category),
+        questions: renderedQuestions.filter(question => question.category === category),
+        selectedCount: renderedQuestions.filter(question => question.category === category && selectedQuestionIds.includes(question.id)).length,
+      }))
+      .filter(group => group.questions.length > 0)
+      .sort((left, right) => left.meta.order - right.meta.order);
+  }, [renderedQuestions, selectedQuestionIds]);
 
   const metrics = useMemo(() => computeVisibilityMetrics(runs), [runs]);
   const findings = useMemo(() => mapFindings(runs, metrics), [metrics, runs]);
@@ -303,6 +342,13 @@ const LLMVisibilityAuditPage: React.FC = () => {
   }, [metrics.capturedCount, profile.brand, profile.website, reviewAttentionCount, runCount, selectedProviders.length, selectedQuestions.length]);
 
   const activeStepMeta = AUDIT_STEPS.find(step => step.id === activeStep) || AUDIT_STEPS[0];
+
+  const goToStep = (step: AuditStepId) => {
+    setActiveStep(step);
+    window.setTimeout(() => {
+      mainContentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
+  };
 
   const updateProfile = (updates: Partial<AuditBusinessProfile>) => {
     setProfile(current => ({ ...current, ...updates }));
@@ -438,6 +484,7 @@ const LLMVisibilityAuditPage: React.FC = () => {
     }
 
     setIsRunning(true);
+    goToStep('capture');
     const keys = await getProviderKeys();
     let nextRuns = selectedQuestions.flatMap(question =>
       selectedProviders.map(provider => createAuditRun(question, provider))
@@ -496,6 +543,7 @@ const LLMVisibilityAuditPage: React.FC = () => {
       }
 
       addToast('LLM visibility audit batch complete', 'success');
+      setActiveStep('review');
     } finally {
       setIsRunning(false);
       setActiveRunLabel('');
@@ -539,6 +587,7 @@ const LLMVisibilityAuditPage: React.FC = () => {
     setManualText('');
     setManualCitationText('');
     setManualScreenshotText('');
+    setActiveStep('review');
     addToast('Manual capture scored and saved', 'success');
   };
 
@@ -660,7 +709,7 @@ const LLMVisibilityAuditPage: React.FC = () => {
           <StepNavigation
             steps={AUDIT_STEPS}
             activeStep={activeStep}
-            onStepChange={setActiveStep}
+            onStepChange={goToStep}
             completed={{
               intake: Boolean(profile.website && profile.brand),
               setup: selectedQuestions.length > 0 && selectedProviders.length > 0,
@@ -901,63 +950,18 @@ const LLMVisibilityAuditPage: React.FC = () => {
           )}
 
           {activeStep === 'setup' && (
-          <section className="rounded-xl border bg-card p-5">
-            <div className="mb-4 flex items-center gap-2">
-              <Globe className="h-5 w-5 text-primary" />
-              <h2 className="font-semibold">Platforms</h2>
-            </div>
-            <div className="grid grid-cols-1 gap-2">
-              {DEFAULT_PROVIDERS.map(provider => {
-                const selected = selectedProviders.includes(provider);
-                return (
-                  <button
-                    key={provider}
-                    onClick={() => toggleProvider(provider)}
-                    className={`flex items-center justify-between rounded-lg border px-3 py-2 text-left transition ${
-                      selected ? PROVIDER_ACCENTS[provider] : 'bg-background hover:bg-muted'
-                    }`}
-                  >
-                    <span className="font-medium">{PROVIDER_LABELS[provider]}</span>
-                    <span className="flex items-center gap-2 text-xs">
-                      {keyStatus[provider] ? (
-                        <span className="flex items-center gap-1 text-green-600">
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          Key
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-amber-600">
-                          <AlertCircle className="h-3.5 w-3.5" />
-                          Missing
-                        </span>
-                      )}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mt-4 space-y-3 rounded-lg border bg-muted/30 p-3">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">API keys for this browser</p>
-              {DEFAULT_PROVIDERS.map(provider => (
-                <label key={provider} className="block text-xs font-medium">
-                  {PROVIDER_LABELS[provider]}
-                  <Input
-                    className="mt-1"
-                    type="password"
-                    placeholder={`Paste ${PROVIDER_LABELS[provider]} key`}
-                    value={providerApiKeys[provider]}
-                    onChange={event => setProviderApiKeys(current => ({ ...current, [provider]: event.target.value }))}
-                  />
-                </label>
-              ))}
-              <p className="text-xs text-muted-foreground">
-                Stored locally in this browser for fast operator use. For production teams, move keys server-side.
-              </p>
-            </div>
-          </section>
+          <ProviderSetupPanel
+            selectedProviders={selectedProviders}
+            keyStatus={keyStatus}
+            providerApiKeys={providerApiKeys}
+            onToggleProvider={toggleProvider}
+            onSelectProviders={setSelectedProviders}
+            onApiKeyChange={(provider, value) => setProviderApiKeys(current => ({ ...current, [provider]: value }))}
+          />
           )}
         </aside>
 
-        <main className="space-y-6">
+        <main ref={mainContentRef} className="space-y-6">
           <section className="rounded-xl border bg-card p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
@@ -993,7 +997,7 @@ const LLMVisibilityAuditPage: React.FC = () => {
             </section>
           )}
 
-          <NextActionBanner action={nextAction} onGo={() => setActiveStep(nextAction.step)} />
+          <NextActionBanner action={nextAction} onGo={() => goToStep(nextAction.step)} />
 
           <section className="rounded-xl border bg-card p-5">
             <details>
@@ -1079,7 +1083,7 @@ const LLMVisibilityAuditPage: React.FC = () => {
               <div>
                 <h2 className="text-lg font-semibold">Question Batch</h2>
                 <p className="text-sm text-muted-foreground">
-                  All visible questions are rendered with the current profile and selected by default.
+                  Workbook-style buckets keep the audit readable: Brand Health, Competitors, Category + Geo, Service, Problem / Solutions, and Cost.
                 </p>
               </div>
               <div className="flex gap-2">
@@ -1093,39 +1097,97 @@ const LLMVisibilityAuditPage: React.FC = () => {
             </div>
             <details className="border-t">
               <summary className="flex cursor-pointer list-none items-center justify-between p-5 text-sm font-semibold">
-                <span>Review selected questions</span>
+                <span>Review selected questions by category</span>
                 <span className="rounded bg-muted px-2 py-1 text-xs text-muted-foreground">{selectedQuestions.length}/{renderedQuestions.length}</span>
               </summary>
-            <div className="max-h-[420px] divide-y overflow-y-auto border-t">
-              {renderedQuestions.map(question => (
-                <label key={question.id} className="flex gap-3 p-4 hover:bg-muted/40">
-                  <input
-                    type="checkbox"
-                    checked={selectedQuestionIds.includes(question.id)}
-                    onChange={() => toggleQuestion(question)}
-                    className="mt-1 h-4 w-4 rounded border-input"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-1 flex flex-wrap items-center gap-2">
-                      <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">{question.code}</span>
-                      <span className="rounded bg-muted px-2 py-0.5 text-xs capitalize text-muted-foreground">{question.category}</span>
-                      {question.competitor && (
-                        <span className="rounded bg-amber-500/10 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-300">
-                          {question.competitor}
-                        </span>
-                      )}
+              <div className="max-h-[560px] overflow-y-auto border-t">
+                {questionsByCategory.map(group => (
+                  <details key={group.category} className="border-b" open={group.selectedCount > 0}>
+                    <summary className="flex cursor-pointer list-none items-start justify-between gap-4 bg-muted/20 p-4">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold">{group.meta.label}</span>
+                          <span className="rounded bg-background px-2 py-0.5 text-xs text-muted-foreground">
+                            Workbook: {group.meta.workbookBucket}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">{group.meta.description}</p>
+                      </div>
+                      <span className="shrink-0 rounded bg-background px-2 py-1 text-xs font-semibold text-muted-foreground">
+                        {group.selectedCount}/{group.questions.length}
+                      </span>
+                    </summary>
+                    <div className="divide-y">
+                      {group.questions.map(question => (
+                        <label key={question.id} className="flex gap-3 p-4 hover:bg-muted/40">
+                          <input
+                            type="checkbox"
+                            checked={selectedQuestionIds.includes(question.id)}
+                            onChange={() => toggleQuestion(question)}
+                            className="mt-1 h-4 w-4 rounded border-input"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="mb-1 flex flex-wrap items-center gap-2">
+                              <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">{question.code}</span>
+                              <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">{group.meta.label}</span>
+                              {question.competitor && (
+                                <span className="rounded bg-amber-500/10 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-300">
+                                  {question.competitor}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm">{question.prompt}</p>
+                          </div>
+                        </label>
+                      ))}
                     </div>
-                    <p className="text-sm">{question.prompt}</p>
-                  </div>
-                </label>
-              ))}
-            </div>
+                  </details>
+                ))}
+              </div>
             </details>
           </section>
           )}
 
           {activeStep === 'capture' && (
           <>
+          <section className="rounded-xl border bg-card p-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">API Capture</h2>
+                <p className="text-sm text-muted-foreground">
+                  Runs the selected questions across the selected LLMs. Missing keys create evidence rows with errors so nothing silently disappears.
+                </p>
+              </div>
+              <Button onClick={runBatch} disabled={isRunning || runCount === 0} className="gap-2">
+                {isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                Run {runCount || 'Selected'} API Runs
+              </Button>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-4">
+              {DEFAULT_PROVIDERS.map(provider => {
+                const selected = selectedProviders.includes(provider);
+                return (
+                  <div key={provider} className={`rounded-lg border p-3 text-sm ${selected ? PROVIDER_ACCENTS[provider] : 'bg-muted/30 text-muted-foreground'}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold">{PROVIDER_LABELS[provider]}</span>
+                      {selected ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                    </div>
+                    <p className="mt-1 text-xs">{selected ? (keyStatus[provider] ? 'Selected, key ready' : 'Selected, key missing') : 'Not selected'}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <ProviderSetupPanel
+            selectedProviders={selectedProviders}
+            keyStatus={keyStatus}
+            providerApiKeys={providerApiKeys}
+            onToggleProvider={toggleProvider}
+            onSelectProviders={setSelectedProviders}
+            onApiKeyChange={(provider, value) => setProviderApiKeys(current => ({ ...current, [provider]: value }))}
+          />
+
           <section className="rounded-xl border bg-card p-5">
             <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
@@ -1145,7 +1207,7 @@ const LLMVisibilityAuditPage: React.FC = () => {
                 <Select className="mt-1" value={manualQueryId} onChange={event => setManualQueryId(event.target.value)}>
                   {renderedQuestions.map(question => (
                     <option key={question.id} value={question.id}>
-                      {question.code} - {question.prompt.slice(0, 80)}
+                      {question.code} - {getQuestionCategoryMeta(question.category).label} - {question.prompt.slice(0, 70)}
                     </option>
                   ))}
                 </Select>
@@ -1445,6 +1507,80 @@ const CaptureStatusPanel: React.FC<{ runs: VisibilityAuditRun[] }> = ({ runs }) 
   );
 };
 
+const ProviderSetupPanel: React.FC<{
+  selectedProviders: VisibilityProviderId[];
+  keyStatus: Record<VisibilityProviderId, boolean>;
+  providerApiKeys: Record<VisibilityProviderId, string>;
+  onToggleProvider: (provider: VisibilityProviderId) => void;
+  onSelectProviders: (providers: VisibilityProviderId[]) => void;
+  onApiKeyChange: (provider: VisibilityProviderId, value: string) => void;
+}> = ({ selectedProviders, keyStatus, providerApiKeys, onToggleProvider, onSelectProviders, onApiKeyChange }) => (
+  <section className="rounded-xl border bg-card p-5">
+    <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="flex items-center gap-2">
+        <Globe className="h-5 w-5 text-primary" />
+        <div>
+          <h2 className="font-semibold">Platforms And API Keys</h2>
+          <p className="text-sm text-muted-foreground">Select which LLMs to run and paste the matching provider keys.</p>
+        </div>
+      </div>
+      <Button variant="outline" size="sm" onClick={() => onSelectProviders([...DEFAULT_PROVIDERS])}>
+        Use All Four
+      </Button>
+    </div>
+    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+      {DEFAULT_PROVIDERS.map(provider => {
+        const selected = selectedProviders.includes(provider);
+        return (
+          <button
+            key={provider}
+            type="button"
+            onClick={() => onToggleProvider(provider)}
+            className={`flex items-center justify-between rounded-lg border px-3 py-2 text-left transition ${
+              selected ? PROVIDER_ACCENTS[provider] : 'bg-background hover:bg-muted'
+            }`}
+          >
+            <span>
+              <span className="block font-medium">{PROVIDER_LABELS[provider]}</span>
+              <span className="text-xs text-muted-foreground">{PROVIDER_API_KEY_LABELS[provider]}</span>
+            </span>
+            <span className="flex items-center gap-2 text-xs">
+              {keyStatus[provider] ? (
+                <span className="flex items-center gap-1 text-green-600">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Key
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-amber-600">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  Missing
+                </span>
+              )}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+    <div className="mt-4 grid gap-3 md:grid-cols-2">
+      {DEFAULT_PROVIDERS.map(provider => (
+        <label key={provider} className="block text-xs font-medium">
+          {PROVIDER_API_KEY_LABELS[provider]}
+          <Input
+            className="mt-1"
+            type="password"
+            placeholder={`Paste ${PROVIDER_LABELS[provider]} key`}
+            value={providerApiKeys[provider]}
+            onChange={event => onApiKeyChange(provider, event.target.value)}
+          />
+        </label>
+      ))}
+    </div>
+    <p className="mt-3 text-xs text-muted-foreground">
+      Keys are stored locally in this browser for quick audits. Production team keys should move server-side later.
+    </p>
+  </section>
+);
+
 const MetricCard: React.FC<{ label: string; value: string; helper: string; icon: React.ReactNode }> = ({ label, value, helper, icon }) => (
   <div className="rounded-xl border bg-card p-4">
     <div className="mb-3 flex items-center justify-between text-muted-foreground">
@@ -1565,6 +1701,7 @@ const RunEvidenceDetails: React.FC<{
           {PROVIDER_LABELS[run.provider]}
         </span>
         <span className="rounded bg-muted px-2 py-1 text-xs font-semibold">{run.query.code}</span>
+        <span className="rounded bg-muted px-2 py-1 text-xs">{getQuestionCategoryMeta(run.query.category).label}</span>
         <span className="min-w-0 flex-1 truncate text-sm">{run.query.prompt}</span>
         <span className="rounded bg-muted px-2 py-1 text-xs capitalize">{run.qaStatus || 'unreviewed'}</span>
         <RunStatusBadge run={run} />

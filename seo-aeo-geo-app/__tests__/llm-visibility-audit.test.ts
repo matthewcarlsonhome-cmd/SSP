@@ -12,6 +12,7 @@ import {
   getAuditProfileConfig,
   getTemplatesForAuditProfile,
   mapFindings,
+  QUESTION_CATEGORY_META,
   renderVisibilityQuestions,
   scoreAuditResponse,
   type AuditBusinessProfile,
@@ -30,12 +31,12 @@ const profile: AuditBusinessProfile = {
 
 describe('LLM Visibility Audit', () => {
   it('renders competitor variants and local placeholders', () => {
-    const rendered = renderVisibilityQuestions(profile, CORE_QUERY_TEMPLATES.slice(0, 6), {
+    const rendered = renderVisibilityQuestions(profile, CORE_QUERY_TEMPLATES.filter(template => template.template.includes('{competitor}')).slice(0, 1), {
       jobToBeDone: 'emergency dental care',
     });
 
-    expect(rendered.some(query => query.prompt.includes('Denver, CO'))).toBe(true);
-    expect(rendered.filter(query => query.code === 'C01')).toHaveLength(2);
+    expect(rendered).toHaveLength(2);
+    expect(rendered.filter(query => query.code === 'CP01')).toHaveLength(2);
     expect(rendered.find(query => query.competitor === 'Peak Dental')?.prompt).toContain('Peak Dental');
   });
 
@@ -98,8 +99,11 @@ describe('LLM Visibility Audit', () => {
     );
 
     expect(auditProfile.queryLimit).toBe(15);
-    expect(auditProfile.providerDefaults).toEqual(['chatgpt', 'perplexity', 'gemini']);
+    expect(auditProfile.providerDefaults).toEqual(['chatgpt', 'claude', 'gemini', 'perplexity']);
     expect(rendered).toHaveLength(15);
+    expect(new Set(rendered.map(query => QUESTION_CATEGORY_META[query.category].label))).toEqual(
+      new Set(['Brand Health', 'Competitors', 'Category + Geo', 'Service', 'Problem / Solutions', 'Cost'])
+    );
     expect(rendered.some(query => query.prompt.includes('Madison, WI'))).toBe(true);
   });
 
