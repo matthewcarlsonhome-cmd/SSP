@@ -32,6 +32,7 @@ import {
   AUDIT_PROFILES,
   DEFAULT_AUDIT_CAVEAT,
   buildActionPlan,
+  buildCompetitorDiscoveryPrompt,
   buildCsvExport,
   buildInstantAuditIntake,
   buildReportDraft,
@@ -54,6 +55,8 @@ import {
   QUESTION_CATEGORY_ORDER,
   renderVisibilityQuestions,
   runVisibilityPrompt,
+  parseCompetitorDiscoveryResponse,
+  sanitizeCompetitorSuggestions,
   saveVisibilityAudit,
   scoreAuditResponse,
   summarizeQueryPerformance,
@@ -67,6 +70,7 @@ import {
   type Citation,
   type RenderedVisibilityQuery,
   type ShareableLeadScorecard,
+  type SeoAuditSignals,
   type VisibilityAuditRun,
   type VisibilityMetrics,
   type VisibilityProviderId,
@@ -81,18 +85,43 @@ const DEFAULT_PROFILE: AuditBusinessProfile = {
   state: 'WI',
   country: 'US',
   aliases: ['Madison HVAC'],
-  competitors: ['Madison HVAC leaders', 'Top-rated HVAC contractor near Madison'],
+  competitors: [],
   services: ['AC repair', 'furnace replacement', 'heat pumps', 'maintenance plans'],
   serviceRadiusMiles: 25,
   schemaStatus: 'unknown',
   gbpSignal: 'unknown',
   reviewSignal: 'unknown',
+  seoAuditSignals: {
+    technicalHealthScore: undefined,
+    pagesAnalyzed: undefined,
+    pagesWithSchema: undefined,
+    thinContentPages: undefined,
+    missingMetaCount: undefined,
+    aiBotsBlocked: false,
+    localLandingPages: undefined,
+  },
   intakeNotes: [],
 };
 
 const DEFAULT_PROVIDERS: VisibilityProviderId[] = ['chatgpt', 'claude', 'gemini', 'perplexity'];
 const PROVIDER_KEY_STORAGE = 'ssp_llm_visibility_provider_keys';
 type AuditStepId = 'intake' | 'setup' | 'capture' | 'review' | 'report';
+type ProviderProgress = {
+  provider: VisibilityProviderId;
+  label: string;
+  completed: number;
+  total: number;
+  running: number;
+  errors: number;
+};
+type BatchProgress = {
+  completed: number;
+  total: number;
+  percent: number;
+  running: number;
+  errors: number;
+  providers: ProviderProgress[];
+};
 
 const PROVIDER_API_KEY_LABELS: Record<VisibilityProviderId, string> = {
   chatgpt: 'OpenAI API key for ChatGPT',
@@ -134,6 +163,16 @@ function formatSignedPercent(value: number): string {
 
 function formatSignedNumber(value: number): string {
   return `${value >= 0 ? '+' : ''}${value}`;
+}
+
+function isRunFinished(run: VisibilityAuditRun): boolean {
+  return run.status === 'captured' || run.status === 'manual' || run.status === 'error';
+}
+
+function optionalNumber(value: string): number | undefined {
+  if (!value.trim()) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function getQuestionCategoryMeta(category: VisibilityQueryCategory | string) {
@@ -188,6 +227,7 @@ const LLMVisibilityAuditPage: React.FC = () => {
   const [competitorText, setCompetitorText] = useState(DEFAULT_PROFILE.competitors.join('\n'));
   const [servicesText, setServicesText] = useState((DEFAULT_PROFILE.services || []).join('\n'));
   const [competitorSuggestions, setCompetitorSuggestions] = useState<string[]>([]);
+  const [isDiscoveringCompetitors, setIsDiscoveringCompetitors] = useState(false);
   const [manualQueryId, setManualQueryId] = useState('');
   const [manualProvider, setManualProvider] = useState<VisibilityProviderId>('chatgpt');
   const [manualText, setManualText] = useState('');
@@ -216,11 +256,16 @@ const LLMVisibilityAuditPage: React.FC = () => {
 
     const stored = loadVisibilityAudit();
     if (!stored) return;
-    setProfile(stored.profile);
-    setIntakeUrl(stored.profile.website || '');
-    setAliasText(stored.profile.aliases.join('\n'));
-    setCompetitorText(stored.profile.competitors.join('\n'));
-    setServicesText((stored.profile.services || []).join('\n'));
+    const cleanedProfile = {
+      ...stored.profile,
+      aliases: stored.profile.aliases || [],
+      competitors: sanitizeCompetitorSuggestions(stored.profile.competitors || [], stored.profile),
+    };
+    setProfile(cleanedProfile);
+    setIntakeUrl(cleanedProfile.website || '');
+    setAliasText(cleanedProfile.aliases.join('\n'));
+    setCompetitorText(cleanedProfile.competitors.join('\n'));
+    setServicesText((cleanedProfile.services || []).join('\n'));
     setPackId(stored.packId);
     const restoredAuditProfileId = stored.auditProfileId || 'madison-mvp';
     setAuditProfileId(restoredAuditProfileId);
@@ -250,6 +295,7 @@ const LLMVisibilityAuditPage: React.FC = () => {
   }, [providerApiKeys]);
 
   const auditProfile = useMemo(() => getAuditProfileConfig(auditProfileId), [auditProfileId]);
+  const industryPack = useMemo(() => INDUSTRY_QUESTION_PACKS.find(pack => pack.id === packId) || INDUSTRY_QUESTION_PACKS[0], [packId]);
   const templates = useMemo(() => getTemplatesForAuditProfile(packId, auditProfileId), [auditProfileId, packId]);
 
   const renderedQuestions = useMemo(() => {
@@ -288,16 +334,54 @@ const LLMVisibilityAuditPage: React.FC = () => {
   }, [renderedQuestions, selectedQuestionIds]);
 
   const metrics = useMemo(() => computeVisibilityMetrics(runs), [runs]);
-  const findings = useMemo(() => mapFindings(runs, metrics), [metrics, runs]);
+  const findings = useMemo(() => mapFindings(runs, metrics, profile), [metrics, profile, runs]);
   const actionPlan = useMemo(() => buildActionPlan(findings), [findings]);
   const reportDraft = useMemo(() => buildReportDraft(profile, metrics, findings, runs, actionPlan), [actionPlan, findings, metrics, profile, runs]);
   const competitorMentionCounts = useMemo(() => topCompetitorMentions(runs), [runs]);
+  const shareOfVoiceRows = useMemo(() => {
+    const competitorTotal = competitorMentionCounts.reduce((sum, item) => sum + item.count, 0);
+    const totalSignals = metrics.brandMentionCount + competitorTotal;
+    if (!totalSignals) return [];
+    return [
+      { name: profile.brand || 'Audited brand', count: metrics.brandMentionCount, share: metrics.brandMentionCount / totalSignals, isBrand: true },
+      ...competitorMentionCounts.map(item => ({ ...item, share: item.count / totalSignals, isBrand: false })),
+    ].sort((left, right) => right.count - left.count);
+  }, [competitorMentionCounts, metrics.brandMentionCount, profile.brand]);
   const reAuditDelta = useMemo(() => computeVisibilityDelta(metrics, priorMetrics), [metrics, priorMetrics]);
   const queryPerformance = useMemo(() => summarizeQueryPerformance(runs), [runs]);
   const winningQueries = queryPerformance.slice(0, 3);
   const losingQueries = [...queryPerformance].reverse().slice(0, 3);
 
   const runCount = selectedQuestions.length * selectedProviders.length;
+  const batchProgress = useMemo<BatchProgress>(() => {
+    const total = runs.length || runCount;
+    const completed = runs.filter(isRunFinished).length;
+    const running = runs.filter(run => run.status === 'running').length;
+    const errors = runs.filter(run => run.status === 'error').length;
+    const providerIds = Array.from(new Set([...selectedProviders, ...runs.map(run => run.provider)]));
+    const providers = providerIds.map(provider => {
+      const providerRuns = runs.filter(run => run.provider === provider);
+      const providerTotal = providerRuns.length || selectedQuestions.length;
+      const providerCompleted = providerRuns.filter(isRunFinished).length;
+      return {
+        provider,
+        label: PROVIDER_LABELS[provider],
+        completed: providerCompleted,
+        total: providerTotal,
+        running: providerRuns.filter(run => run.status === 'running').length,
+        errors: providerRuns.filter(run => run.status === 'error').length,
+      };
+    });
+
+    return {
+      completed,
+      total,
+      percent: total ? Math.round((completed / total) * 100) : 0,
+      running,
+      errors,
+      providers,
+    };
+  }, [runCount, runs, selectedProviders, selectedQuestions.length]);
   const errorCount = runs.filter(run => run.status === 'error').length;
   const reviewAttentionCount = metrics.needsReviewCount + metrics.highImpactMissCount + errorCount;
   const keyStatus = useMemo(
@@ -363,6 +447,36 @@ const LLMVisibilityAuditPage: React.FC = () => {
     setProfile(current => ({ ...current, ...updates }));
   };
 
+  const rescoreRunsForProfile = (nextProfile: AuditBusinessProfile, sourceRuns: VisibilityAuditRun[] = runs): VisibilityAuditRun[] =>
+    sourceRuns.map(run => {
+      if (!run.response?.rawText || (run.status !== 'captured' && run.status !== 'manual')) return run;
+      const score = scoreAuditResponse(run.response.rawText, nextProfile, run.response.citations);
+      const preservedQa: AuditQaStatus | undefined =
+        run.qaStatus === 'approved' || run.qaStatus === 'excluded' ? run.qaStatus : undefined;
+      const qaStatus: AuditQaStatus = preservedQa
+        ? preservedQa
+        : score.workbookScore <= 1
+          ? 'high_impact_miss'
+          : score.confidence < 0.75
+            ? 'needs_review'
+            : run.qaStatus || 'unreviewed';
+      return {
+        ...run,
+        qaStatus,
+        score,
+      };
+    });
+
+  const updateSeoSignals = (updates: Partial<SeoAuditSignals>) => {
+    setProfile(current => ({
+      ...current,
+      seoAuditSignals: {
+        ...(current.seoAuditSignals || {}),
+        ...updates,
+      },
+    }));
+  };
+
   const toggleProvider = (provider: VisibilityProviderId) => {
     setSelectedProviders(current =>
       current.includes(provider)
@@ -401,23 +515,84 @@ const LLMVisibilityAuditPage: React.FC = () => {
     setServicesText((intake.profile.services || []).join('\n'));
     setPackId(findBestIndustryPack(intake.profile.niche).id);
     setCompetitorSuggestions(intake.suggestedCompetitors);
-    addToast(`Instant intake drafted ${intake.profile.brand} with ${intake.suggestedCompetitors.length} competitor suggestions`, 'success');
+    addToast(
+      intake.suggestedCompetitors.length
+        ? `Instant intake drafted ${intake.profile.brand} with ${intake.suggestedCompetitors.length} named competitor suggestions`
+        : `Instant intake drafted ${intake.profile.brand}. Use Find Real Competitors to search for named local businesses.`,
+      'success'
+    );
+  };
+
+  const runCompetitorDiscovery = async () => {
+    const providerPriority: VisibilityProviderId[] = ['perplexity', 'chatgpt', 'claude', 'gemini'];
+    const provider =
+      providerPriority.find(item => selectedProviders.includes(item) && providerApiKeys[item]?.trim()) ||
+      providerPriority.find(item => providerApiKeys[item]?.trim());
+
+    if (!provider) {
+      addToast('Add a Perplexity, ChatGPT, Claude, or Gemini key before searching competitors', 'error');
+      return;
+    }
+
+    setIsDiscoveringCompetitors(true);
+    try {
+      const response = await runVisibilityPrompt({
+        provider,
+        prompt: buildCompetitorDiscoveryPrompt(profile),
+        apiKey: providerApiKeys[provider],
+        business: profile,
+        maxTokens: 1200,
+      });
+      const candidates = parseCompetitorDiscoveryResponse(response.rawText, profile).filter(
+        candidate => !profile.competitors.some(existing => existing.toLowerCase() === candidate.toLowerCase())
+      );
+      setCompetitorSuggestions(candidates);
+      addToast(
+        candidates.length
+          ? `${PROVIDER_LABELS[provider]} found ${candidates.length} named competitor candidates`
+          : `${PROVIDER_LABELS[provider]} did not return usable named competitors`,
+        candidates.length ? 'success' : 'info'
+      );
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Competitor discovery failed', 'error');
+    } finally {
+      setIsDiscoveringCompetitors(false);
+    }
+  };
+
+  const copyCompetitorDiscoveryPrompt = async () => {
+    await navigator.clipboard.writeText(buildCompetitorDiscoveryPrompt(profile));
+    addToast('Competitor discovery prompt copied', 'success');
   };
 
   const addCompetitor = (name: string) => {
     if (!name.trim()) return;
-    const nextCompetitors = Array.from(new Set([...profile.competitors, name.trim()]));
-    updateProfile({ competitors: nextCompetitors });
+    const nextCompetitors = sanitizeCompetitorSuggestions([...profile.competitors, name.trim()], profile);
+    const nextProfile = { ...profile, competitors: nextCompetitors };
+    const nextRuns = rescoreRunsForProfile(nextProfile);
+    setProfile(nextProfile);
+    setRuns(nextRuns);
     setCompetitorText(nextCompetitors.join('\n'));
     setCompetitorSuggestions(current => current.filter(item => item !== name));
+    persistAudit(nextRuns, priorMetrics, nextProfile);
+    addToast(`${name.trim()} added and existing evidence was rescored`, 'success');
   };
 
   const addCandidatesFromRuns = () => {
+    if (!runs.some(run => run.response?.rawText)) {
+      addToast('Run API captures or paste manual evidence before extracting competitor names', 'info');
+      return;
+    }
     const candidates = extractCompetitorCandidatesFromRuns(runs, profile).filter(
       candidate => !profile.competitors.some(existing => existing.toLowerCase() === candidate.toLowerCase())
     );
     setCompetitorSuggestions(candidates);
-    addToast(candidates.length ? 'Competitor candidates extracted from captured answers' : 'No new competitor candidates found', candidates.length ? 'success' : 'info');
+    addToast(
+      candidates.length
+        ? `${candidates.length} competitor candidate${candidates.length === 1 ? '' : 's'} extracted below. Approve names to update Share of Voice.`
+        : 'No new named business candidates found in captured answers',
+      candidates.length ? 'success' : 'info'
+    );
   };
 
   const updateRunEvidence = (runId: string, updates: Partial<VisibilityAuditRun>) => {
@@ -457,9 +632,13 @@ const LLMVisibilityAuditPage: React.FC = () => {
 
   const getProviderKeys = async (): Promise<Record<VisibilityProviderId, string>> => providerApiKeys;
 
-  const persistAudit = (nextRuns: VisibilityAuditRun[] = runs, nextPriorMetrics = priorMetrics) => {
+  const persistAudit = (
+    nextRuns: VisibilityAuditRun[] = runs,
+    nextPriorMetrics = priorMetrics,
+    nextProfile: AuditBusinessProfile = profile
+  ) => {
     saveVisibilityAudit({
-      profile,
+      profile: nextProfile,
       packId,
       auditProfileId,
       providers: selectedProviders,
@@ -748,10 +927,8 @@ const LLMVisibilityAuditPage: React.FC = () => {
               </Button>
             </div>
           </div>
-          {isRunning && (
-            <div className="mt-5 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-700 dark:text-blue-300">
-              Running {activeRunLabel || 'audit batch'}...
-            </div>
+          {(batchProgress.total > 0 || isRunning) && (
+            <BatchProgressPanel progress={batchProgress} activeRunLabel={activeRunLabel} isRunning={isRunning} />
           )}
           {shareUrl && (
             <div className="mt-5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
@@ -824,8 +1001,24 @@ const LLMVisibilityAuditPage: React.FC = () => {
                 <Wand2 className="h-4 w-4" />
                 Auto-fill Audit
               </Button>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={runCompetitorDiscovery}
+                  disabled={isDiscoveringCompetitors}
+                  className="gap-2"
+                >
+                  {isDiscoveringCompetitors ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  Find Real Competitors
+                </Button>
+                <Button type="button" variant="outline" onClick={copyCompetitorDiscoveryPrompt} className="gap-2">
+                  <Copy className="h-4 w-4" />
+                  Copy Prompt
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground">
-                Drafts the profile, service list, schema/GBP/review placeholders, and competitor suggestions for a fast operator review.
+                Drafts the profile and service list, then uses a stricter competitor prompt that accepts named businesses only. Channels and generic services like Google Ads, Facebook Ads, Website Design, Pool Builders, or Spa Builders are filtered out.
               </p>
               {competitorSuggestions.length ? (
                 <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
@@ -900,9 +1093,13 @@ const LLMVisibilityAuditPage: React.FC = () => {
                     updateProfile({ competitors: parseList(event.target.value) });
                   }}
                   onBlur={() => {
-                    const nextCompetitors = parseList(competitorText);
+                    const nextCompetitors = sanitizeCompetitorSuggestions(parseList(competitorText), profile);
+                    const nextProfile = { ...profile, competitors: nextCompetitors };
+                    const nextRuns = rescoreRunsForProfile(nextProfile);
                     setCompetitorText(nextCompetitors.join('\n'));
-                    updateProfile({ competitors: nextCompetitors });
+                    setProfile(nextProfile);
+                    setRuns(nextRuns);
+                    persistAudit(nextRuns, priorMetrics, nextProfile);
                   }}
                 />
               </label>
@@ -952,6 +1149,121 @@ const LLMVisibilityAuditPage: React.FC = () => {
                   </Select>
                 </label>
               </div>
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold">SEO/AEO/GEO Audit Context</h3>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Paste the key outputs from the full SEO audit so the LLM report can explain whether visibility problems are caused by schema, crawlability, thin pages, reviews, or GBP issues.
+                    </p>
+                  </div>
+                  <a href="/audits/new" className="shrink-0 rounded-md border px-2 py-1 text-xs font-medium hover:bg-muted">
+                    Run SEO Audit
+                  </a>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block text-xs font-medium">
+                    Technical health
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      min="0"
+                      max="100"
+                      placeholder="0-100"
+                      value={profile.seoAuditSignals?.technicalHealthScore ?? ''}
+                      onChange={event => updateSeoSignals({ technicalHealthScore: optionalNumber(event.target.value) })}
+                    />
+                  </label>
+                  <label className="block text-xs font-medium">
+                    Pages analyzed
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      min="0"
+                      value={profile.seoAuditSignals?.pagesAnalyzed ?? ''}
+                      onChange={event => updateSeoSignals({ pagesAnalyzed: optionalNumber(event.target.value) })}
+                    />
+                  </label>
+                  <label className="block text-xs font-medium">
+                    Pages with schema
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      min="0"
+                      value={profile.seoAuditSignals?.pagesWithSchema ?? ''}
+                      onChange={event => updateSeoSignals({ pagesWithSchema: optionalNumber(event.target.value) })}
+                    />
+                  </label>
+                  <label className="block text-xs font-medium">
+                    Thin pages
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      min="0"
+                      value={profile.seoAuditSignals?.thinContentPages ?? ''}
+                      onChange={event => updateSeoSignals({ thinContentPages: optionalNumber(event.target.value) })}
+                    />
+                  </label>
+                  <label className="block text-xs font-medium">
+                    Missing metadata
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      min="0"
+                      value={profile.seoAuditSignals?.missingMetaCount ?? ''}
+                      onChange={event => updateSeoSignals({ missingMetaCount: optionalNumber(event.target.value) })}
+                    />
+                  </label>
+                  <label className="block text-xs font-medium">
+                    Local pages
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      min="0"
+                      value={profile.seoAuditSignals?.localLandingPages ?? ''}
+                      onChange={event => updateSeoSignals({ localLandingPages: optionalNumber(event.target.value) })}
+                    />
+                  </label>
+                  <label className="block text-xs font-medium">
+                    Reviews
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      min="0"
+                      value={profile.seoAuditSignals?.reviewCount ?? ''}
+                      onChange={event => updateSeoSignals({ reviewCount: optionalNumber(event.target.value) })}
+                    />
+                  </label>
+                  <label className="block text-xs font-medium">
+                    Review gap
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      min="0"
+                      value={profile.seoAuditSignals?.competitorReviewGap ?? ''}
+                      onChange={event => updateSeoSignals({ competitorReviewGap: optionalNumber(event.target.value) })}
+                    />
+                  </label>
+                </div>
+                <label className="mt-3 flex items-center gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(profile.seoAuditSignals?.aiBotsBlocked)}
+                    onChange={event => updateSeoSignals({ aiBotsBlocked: event.target.checked })}
+                    className="h-4 w-4 rounded border-input"
+                  />
+                  SEO audit flagged AI/search crawler blocking
+                </label>
+                <label className="mt-3 block text-xs font-medium">
+                  Full SEO audit link or notes
+                  <Input
+                    className="mt-1"
+                    value={profile.seoAuditSignals?.lastAuditUrl || ''}
+                    onChange={event => updateSeoSignals({ lastAuditUrl: event.target.value })}
+                    placeholder="/audits/{id}/report or client audit note"
+                  />
+                </label>
+              </div>
             </div>
           </section>
           )}
@@ -987,6 +1299,14 @@ const LLMVisibilityAuditPage: React.FC = () => {
                 <p className="font-medium text-foreground">{auditProfile.description}</p>
                 <p className="mt-1">{auditProfile.delivery}</p>
                 <p className="mt-1">{auditProfile.manualCaptureGuidance}</p>
+                {industryPack.targetNotes ? (
+                  <p className="mt-2 rounded-md bg-background px-3 py-2 text-foreground">
+                    <span className="font-semibold">{industryPack.label} target note:</span> {industryPack.targetNotes}
+                  </p>
+                ) : null}
+                {industryPack.keywords?.length ? (
+                  <p className="mt-2">Common local targets: {industryPack.keywords.join(', ')}.</p>
+                ) : null}
               </div>
               <label className="block text-sm font-medium">
                 Common job-to-be-done
@@ -1398,24 +1718,59 @@ const LLMVisibilityAuditPage: React.FC = () => {
             <div className="grid gap-5 border-t p-5 lg:grid-cols-2">
               <div className="rounded-lg border bg-muted/20 p-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
-                  <h3 className="font-semibold">Competitor Share of Voice</h3>
+                  <div>
+                    <h3 className="font-semibold">Competitor Share of Voice</h3>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Based on scored mentions of the brand and approved competitors. Extract finds new names in captured answers; approving them rescores existing evidence.
+                    </p>
+                  </div>
                   <Button variant="outline" size="sm" onClick={addCandidatesFromRuns} className="gap-2">
                     <Users className="h-4 w-4" />
                     Extract
                   </Button>
                 </div>
-                {competitorMentionCounts.length ? (
-                  <div className="space-y-2">
-                    {competitorMentionCounts.slice(0, 6).map(item => (
-                      <div key={item.name} className="flex items-center justify-between rounded-md bg-background p-3 text-sm">
-                        <span>{item.name}</span>
-                        <span className="font-semibold">{item.count}</span>
+                {shareOfVoiceRows.length ? (
+                  <div className="space-y-3">
+                    {shareOfVoiceRows.slice(0, 7).map(item => (
+                      <div key={item.name} className="rounded-md bg-background p-3 text-sm">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className={item.isBrand ? 'font-semibold text-primary' : ''}>{item.name}</span>
+                          <span className="font-semibold">{Math.round(item.share * 100)}%</span>
+                        </div>
+                        <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className={item.isBrand ? 'h-full rounded-full bg-primary' : 'h-full rounded-full bg-amber-500'}
+                            style={{ width: `${Math.max(4, Math.round(item.share * 100))}%` }}
+                          />
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {item.count} mention signal{item.count === 1 ? '' : 's'}
+                        </p>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Competitor mentions appear after scoring.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Share of Voice appears after answers are captured and scored. Add or extract competitors, then approve them so existing evidence can be rescored.
+                  </p>
                 )}
+                {competitorSuggestions.length ? (
+                  <div className="mt-4 rounded-lg border bg-background p-3">
+                    <p className="text-xs font-semibold uppercase text-muted-foreground">Extracted candidates to approve</p>
+                    <div className="mt-2 space-y-2">
+                      {competitorSuggestions.slice(0, 8).map(name => (
+                        <button
+                          key={name}
+                          type="button"
+                          onClick={() => addCompetitor(name)}
+                          className="block w-full rounded-md bg-muted/40 px-3 py-2 text-left text-xs hover:bg-muted"
+                        >
+                          + {name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
               <div className="rounded-lg border bg-muted/20 p-4">
                 <h3 className="mb-3 font-semibold">Re-Audit Delta</h3>
@@ -1589,6 +1944,81 @@ const CaptureStatusPanel: React.FC<{ runs: VisibilityAuditRun[] }> = ({ runs }) 
         )}
       </div>
     </section>
+  );
+};
+
+const BatchProgressPanel: React.FC<{ progress: BatchProgress; activeRunLabel: string; isRunning: boolean }> = ({
+  progress,
+  activeRunLabel,
+  isRunning,
+}) => {
+  const statusLabel = isRunning
+    ? activeRunLabel
+      ? `Running ${activeRunLabel}`
+      : 'Running batch'
+    : progress.total && progress.completed >= progress.total
+      ? 'Batch complete'
+      : progress.total
+        ? 'Batch ready'
+        : 'No batch queued';
+
+  return (
+    <div className="mt-5 rounded-xl border border-blue-500/30 bg-blue-500/10 p-4 text-blue-800 dark:text-blue-200">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide">Batch Progress</p>
+          <p className="mt-1 text-sm">{statusLabel}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="rounded-md bg-background/70 px-3 py-1 font-semibold text-foreground">
+            {progress.completed}/{progress.total || 0} complete
+          </span>
+          <span className="rounded-md bg-background/70 px-3 py-1 font-semibold text-foreground">
+            {progress.percent}%
+          </span>
+          {progress.running > 0 && (
+            <span className="rounded-md bg-blue-500/10 px-3 py-1 font-semibold">
+              {progress.running} running
+            </span>
+          )}
+          {progress.errors > 0 && (
+            <span className="rounded-md bg-red-500/10 px-3 py-1 font-semibold text-red-700 dark:text-red-300">
+              {progress.errors} error{progress.errors === 1 ? '' : 's'}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-background/70">
+        <div
+          className="h-full rounded-full bg-blue-600 transition-all duration-300"
+          style={{ width: `${Math.max(progress.percent ? 4 : 0, progress.percent)}%` }}
+        />
+      </div>
+      {progress.providers.length ? (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {progress.providers.map(provider => {
+            const percent = provider.total ? Math.round((provider.completed / provider.total) * 100) : 0;
+            return (
+              <div key={provider.provider} className="rounded-lg bg-background/70 p-3 text-xs text-foreground">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold">{provider.label}</span>
+                  <span>{provider.completed}/{provider.total}</span>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={`h-full rounded-full transition-all duration-300 ${provider.errors ? 'bg-red-500' : 'bg-blue-600'}`}
+                    style={{ width: `${Math.max(percent ? 4 : 0, percent)}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-muted-foreground">
+                  {percent}%{provider.running ? `, ${provider.running} running` : ''}{provider.errors ? `, ${provider.errors} error${provider.errors === 1 ? '' : 's'}` : ''}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
   );
 };
 

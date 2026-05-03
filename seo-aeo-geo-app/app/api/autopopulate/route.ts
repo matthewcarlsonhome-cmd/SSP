@@ -38,12 +38,14 @@ Return a JSON object with EXACTLY this structure (use empty strings or empty arr
 CRITICAL RULES:
 1. Search the web to find the actual website and analyze it
 2. Search for the business name + city to find their Google Business Profile
-3. Search for competitors in their industry and geography
+3. Search for real direct competitors in their industry and geography
 4. Suggest 5 realistic SEO keywords based on their business type and location
 5. Return ONLY valid JSON — no markdown, no preamble, no explanation
 6. For CMS detection, look at page source indicators (wp-content = WordPress, myshopify = Shopify, etc.)
-7. For competitors, search for businesses offering the same services in the same area
-8. All fields MUST be present in the response`;
+7. For competitors, include ONLY named businesses offering the same services in the same area. Do NOT include advertising channels, tactics, directories, marketplaces, or generic categories.
+8. Reject entries like "Google Ads", "Facebook Ads", "Website Design", "SEO", "Pool Builders", "Spa Builders", "top-rated contractors", or "near me" because those are channels/categories/search terms, not competitors.
+9. Prefer competitors with their own website or Google Business Profile.
+10. All fields MUST be present in the response`;
 
 export async function POST(request: NextRequest) {
   try {
