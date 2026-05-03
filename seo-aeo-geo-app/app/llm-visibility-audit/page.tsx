@@ -318,6 +318,15 @@ const LLMVisibilityAuditPage: React.FC = () => {
   const actionPlan = useMemo(() => buildActionPlan(findings), [findings]);
   const reportDraft = useMemo(() => buildReportDraft(profile, metrics, findings, runs, actionPlan), [actionPlan, findings, metrics, profile, runs]);
   const competitorMentionCounts = useMemo(() => topCompetitorMentions(runs), [runs]);
+  const shareOfVoiceRows = useMemo(() => {
+    const competitorTotal = competitorMentionCounts.reduce((sum, item) => sum + item.count, 0);
+    const totalSignals = metrics.brandMentionCount + competitorTotal;
+    if (!totalSignals) return [];
+    return [
+      { name: profile.brand || 'Audited brand', count: metrics.brandMentionCount, share: metrics.brandMentionCount / totalSignals, isBrand: true },
+      ...competitorMentionCounts.map(item => ({ ...item, share: item.count / totalSignals, isBrand: false })),
+    ].sort((left, right) => right.count - left.count);
+  }, [competitorMentionCounts, metrics.brandMentionCount, profile.brand]);
   const reAuditDelta = useMemo(() => computeVisibilityDelta(metrics, priorMetrics), [metrics, priorMetrics]);
   const queryPerformance = useMemo(() => summarizeQueryPerformance(runs), [runs]);
   const winningQueries = queryPerformance.slice(0, 3);
@@ -388,6 +397,26 @@ const LLMVisibilityAuditPage: React.FC = () => {
   const updateProfile = (updates: Partial<AuditBusinessProfile>) => {
     setProfile(current => ({ ...current, ...updates }));
   };
+
+  const rescoreRunsForProfile = (nextProfile: AuditBusinessProfile, sourceRuns: VisibilityAuditRun[] = runs): VisibilityAuditRun[] =>
+    sourceRuns.map(run => {
+      if (!run.response?.rawText || (run.status !== 'captured' && run.status !== 'manual')) return run;
+      const score = scoreAuditResponse(run.response.rawText, nextProfile, run.response.citations);
+      const preservedQa: AuditQaStatus | undefined =
+        run.qaStatus === 'approved' || run.qaStatus === 'excluded' ? run.qaStatus : undefined;
+      const qaStatus: AuditQaStatus = preservedQa
+        ? preservedQa
+        : score.workbookScore <= 1
+          ? 'high_impact_miss'
+          : score.confidence < 0.75
+            ? 'needs_review'
+            : run.qaStatus || 'unreviewed';
+      return {
+        ...run,
+        qaStatus,
+        score,
+      };
+    });
 
   const updateSeoSignals = (updates: Partial<SeoAuditSignals>) => {
     setProfile(current => ({
@@ -490,17 +519,31 @@ const LLMVisibilityAuditPage: React.FC = () => {
   const addCompetitor = (name: string) => {
     if (!name.trim()) return;
     const nextCompetitors = sanitizeCompetitorSuggestions([...profile.competitors, name.trim()], profile);
-    updateProfile({ competitors: nextCompetitors });
+    const nextProfile = { ...profile, competitors: nextCompetitors };
+    const nextRuns = rescoreRunsForProfile(nextProfile);
+    setProfile(nextProfile);
+    setRuns(nextRuns);
     setCompetitorText(nextCompetitors.join('\n'));
     setCompetitorSuggestions(current => current.filter(item => item !== name));
+    persistAudit(nextRuns, priorMetrics, nextProfile);
+    addToast(`${name.trim()} added and existing evidence was rescored`, 'success');
   };
 
   const addCandidatesFromRuns = () => {
+    if (!runs.some(run => run.response?.rawText)) {
+      addToast('Run API captures or paste manual evidence before extracting competitor names', 'info');
+      return;
+    }
     const candidates = extractCompetitorCandidatesFromRuns(runs, profile).filter(
       candidate => !profile.competitors.some(existing => existing.toLowerCase() === candidate.toLowerCase())
     );
     setCompetitorSuggestions(candidates);
-    addToast(candidates.length ? 'Competitor candidates extracted from captured answers' : 'No new competitor candidates found', candidates.length ? 'success' : 'info');
+    addToast(
+      candidates.length
+        ? `${candidates.length} competitor candidate${candidates.length === 1 ? '' : 's'} extracted below. Approve names to update Share of Voice.`
+        : 'No new named business candidates found in captured answers',
+      candidates.length ? 'success' : 'info'
+    );
   };
 
   const updateRunEvidence = (runId: string, updates: Partial<VisibilityAuditRun>) => {
@@ -540,9 +583,13 @@ const LLMVisibilityAuditPage: React.FC = () => {
 
   const getProviderKeys = async (): Promise<Record<VisibilityProviderId, string>> => providerApiKeys;
 
-  const persistAudit = (nextRuns: VisibilityAuditRun[] = runs, nextPriorMetrics = priorMetrics) => {
+  const persistAudit = (
+    nextRuns: VisibilityAuditRun[] = runs,
+    nextPriorMetrics = priorMetrics,
+    nextProfile: AuditBusinessProfile = profile
+  ) => {
     saveVisibilityAudit({
-      profile,
+      profile: nextProfile,
       packId,
       auditProfileId,
       providers: selectedProviders,
@@ -1000,8 +1047,12 @@ const LLMVisibilityAuditPage: React.FC = () => {
                   }}
                   onBlur={() => {
                     const nextCompetitors = sanitizeCompetitorSuggestions(parseList(competitorText), profile);
+                    const nextProfile = { ...profile, competitors: nextCompetitors };
+                    const nextRuns = rescoreRunsForProfile(nextProfile);
                     setCompetitorText(nextCompetitors.join('\n'));
-                    updateProfile({ competitors: nextCompetitors });
+                    setProfile(nextProfile);
+                    setRuns(nextRuns);
+                    persistAudit(nextRuns, priorMetrics, nextProfile);
                   }}
                 />
               </label>
@@ -1620,24 +1671,59 @@ const LLMVisibilityAuditPage: React.FC = () => {
             <div className="grid gap-5 border-t p-5 lg:grid-cols-2">
               <div className="rounded-lg border bg-muted/20 p-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
-                  <h3 className="font-semibold">Competitor Share of Voice</h3>
+                  <div>
+                    <h3 className="font-semibold">Competitor Share of Voice</h3>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Based on scored mentions of the brand and approved competitors. Extract finds new names in captured answers; approving them rescores existing evidence.
+                    </p>
+                  </div>
                   <Button variant="outline" size="sm" onClick={addCandidatesFromRuns} className="gap-2">
                     <Users className="h-4 w-4" />
                     Extract
                   </Button>
                 </div>
-                {competitorMentionCounts.length ? (
-                  <div className="space-y-2">
-                    {competitorMentionCounts.slice(0, 6).map(item => (
-                      <div key={item.name} className="flex items-center justify-between rounded-md bg-background p-3 text-sm">
-                        <span>{item.name}</span>
-                        <span className="font-semibold">{item.count}</span>
+                {shareOfVoiceRows.length ? (
+                  <div className="space-y-3">
+                    {shareOfVoiceRows.slice(0, 7).map(item => (
+                      <div key={item.name} className="rounded-md bg-background p-3 text-sm">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className={item.isBrand ? 'font-semibold text-primary' : ''}>{item.name}</span>
+                          <span className="font-semibold">{Math.round(item.share * 100)}%</span>
+                        </div>
+                        <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className={item.isBrand ? 'h-full rounded-full bg-primary' : 'h-full rounded-full bg-amber-500'}
+                            style={{ width: `${Math.max(4, Math.round(item.share * 100))}%` }}
+                          />
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {item.count} mention signal{item.count === 1 ? '' : 's'}
+                        </p>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Competitor mentions appear after scoring.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Share of Voice appears after answers are captured and scored. Add or extract competitors, then approve them so existing evidence can be rescored.
+                  </p>
                 )}
+                {competitorSuggestions.length ? (
+                  <div className="mt-4 rounded-lg border bg-background p-3">
+                    <p className="text-xs font-semibold uppercase text-muted-foreground">Extracted candidates to approve</p>
+                    <div className="mt-2 space-y-2">
+                      {competitorSuggestions.slice(0, 8).map(name => (
+                        <button
+                          key={name}
+                          type="button"
+                          onClick={() => addCompetitor(name)}
+                          className="block w-full rounded-md bg-muted/40 px-3 py-2 text-left text-xs hover:bg-muted"
+                        >
+                          + {name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
               <div className="rounded-lg border bg-muted/20 p-4">
                 <h3 className="mb-3 font-semibold">Re-Audit Delta</h3>

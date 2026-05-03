@@ -167,11 +167,17 @@ describe('LLM Visibility Audit', () => {
       score: scoreAuditResponse('Northstar Dental is recommended with strong reviews.', profile, []),
     };
     const candidates = extractCompetitorCandidatesFromRuns([run], profile);
+    const rescoredWithExtractedCompetitor = scoreAuditResponse(
+      run.response.rawText,
+      { ...profile, competitors: [...profile.competitors, candidates[0]] },
+      []
+    );
     const current = computeVisibilityMetrics([run]);
     const prior = { ...current, visibilityScore: current.visibilityScore - 10, mentionRate: 0, citationRate: 0, workbookAverage: 1 };
     const delta = computeVisibilityDelta(current, prior);
 
     expect(candidates).toContain('Prairie Smile Studio');
+    expect(rescoredWithExtractedCompetitor.competitorsMentioned).toContain('Prairie Smile Studio');
     expect(delta?.visibilityScoreDelta).toBe(10);
     expect(delta?.summary).toContain('up');
   });
