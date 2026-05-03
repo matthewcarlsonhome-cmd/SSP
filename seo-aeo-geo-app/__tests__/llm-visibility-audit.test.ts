@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildActionPlan,
+  buildCompetitorDiscoveryPrompt,
   buildInstantAuditIntake,
   buildReportDraft,
   CORE_QUERY_TEMPLATES,
@@ -11,9 +12,12 @@ import {
   extractCompetitorCandidatesFromRuns,
   getAuditProfileConfig,
   getTemplatesForAuditProfile,
+  INDUSTRY_QUESTION_PACKS,
   mapFindings,
+  parseCompetitorDiscoveryResponse,
   QUESTION_CATEGORY_META,
   renderVisibilityQuestions,
+  sanitizeCompetitorSuggestions,
   scoreAuditResponse,
   type AuditBusinessProfile,
 } from '../lib/llm-visibility-audit';
@@ -117,7 +121,7 @@ describe('LLM Visibility Audit', () => {
     });
     expect(intake.profile.brand).toContain('Northstar');
     expect(intake.profile.services?.length).toBeGreaterThan(1);
-    expect(intake.suggestedCompetitors.length).toBeGreaterThan(0);
+    expect(intake.suggestedCompetitors).not.toContain('Google Ads');
 
     const [query] = renderVisibilityQuestions(intake.profile, CORE_QUERY_TEMPLATES.slice(0, 1));
     const runs = [
@@ -143,7 +147,8 @@ describe('LLM Visibility Audit', () => {
     expect(actions[0]?.estimatedPrice).toBeGreaterThan(0);
     expect(report.clientEmail).toContain('Subject:');
     expect(report.sections.map(section => section.title)).toContain('3. Clean Query Methodology');
-    expect(report.sections.map(section => section.title)).toContain('10. Precise Next Steps');
+    expect(report.sections.map(section => section.title)).toContain('4. SEO/AEO/GEO Audit Context');
+    expect(report.sections.map(section => section.title)).toContain('11. Precise Next Steps');
     expect(share.callToAction).toContain('15-minute');
   });
 
@@ -169,5 +174,28 @@ describe('LLM Visibility Audit', () => {
     expect(candidates).toContain('Prairie Smile Studio');
     expect(delta?.visibilityScoreDelta).toBe(10);
     expect(delta?.summary).toContain('up');
+  });
+
+  it('filters generic channels from competitor discovery and adds target industry packs', () => {
+    const candidates = sanitizeCompetitorSuggestions(
+      ['Google Ads', 'Website Design', 'EWR Digital', 'Spa Builders', 'Pool Builder Lead Rocket', 'Facebook Ads'],
+      { ...profile, niche: 'marketing agency', city: 'Madison', state: 'WI', competitors: [] }
+    );
+    const parsed = parseCompetitorDiscoveryResponse(
+      JSON.stringify([
+        { name: 'Google Ads', reason: 'ad channel' },
+        { name: 'EWR Digital', reason: 'agency competitor' },
+        { name: 'Website Design', reason: 'service category' },
+      ]),
+      { ...profile, niche: 'marketing agency', city: 'Madison', state: 'WI', competitors: [] }
+    );
+    const prompt = buildCompetitorDiscoveryPrompt({ ...profile, niche: 'pool builder', city: 'Madison', state: 'WI' });
+
+    expect(candidates).toEqual(['EWR Digital', 'Pool Builder Lead Rocket']);
+    expect(parsed).toEqual(['EWR Digital']);
+    expect(prompt).toContain('Do not include advertising channels');
+    expect(INDUSTRY_QUESTION_PACKS.some(pack => pack.id === 'electrician')).toBe(true);
+    expect(INDUSTRY_QUESTION_PACKS.some(pack => pack.id === 'restoration')).toBe(true);
+    expect(INDUSTRY_QUESTION_PACKS.some(pack => pack.id === 'marketing-agency')).toBe(true);
   });
 });

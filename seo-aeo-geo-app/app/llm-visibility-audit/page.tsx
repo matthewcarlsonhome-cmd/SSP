@@ -32,6 +32,7 @@ import {
   AUDIT_PROFILES,
   DEFAULT_AUDIT_CAVEAT,
   buildActionPlan,
+  buildCompetitorDiscoveryPrompt,
   buildCsvExport,
   buildInstantAuditIntake,
   buildReportDraft,
@@ -54,6 +55,8 @@ import {
   QUESTION_CATEGORY_ORDER,
   renderVisibilityQuestions,
   runVisibilityPrompt,
+  parseCompetitorDiscoveryResponse,
+  sanitizeCompetitorSuggestions,
   saveVisibilityAudit,
   scoreAuditResponse,
   summarizeQueryPerformance,
@@ -67,6 +70,7 @@ import {
   type Citation,
   type RenderedVisibilityQuery,
   type ShareableLeadScorecard,
+  type SeoAuditSignals,
   type VisibilityAuditRun,
   type VisibilityMetrics,
   type VisibilityProviderId,
@@ -81,12 +85,21 @@ const DEFAULT_PROFILE: AuditBusinessProfile = {
   state: 'WI',
   country: 'US',
   aliases: ['Madison HVAC'],
-  competitors: ['Madison HVAC leaders', 'Top-rated HVAC contractor near Madison'],
+  competitors: [],
   services: ['AC repair', 'furnace replacement', 'heat pumps', 'maintenance plans'],
   serviceRadiusMiles: 25,
   schemaStatus: 'unknown',
   gbpSignal: 'unknown',
   reviewSignal: 'unknown',
+  seoAuditSignals: {
+    technicalHealthScore: undefined,
+    pagesAnalyzed: undefined,
+    pagesWithSchema: undefined,
+    thinContentPages: undefined,
+    missingMetaCount: undefined,
+    aiBotsBlocked: false,
+    localLandingPages: undefined,
+  },
   intakeNotes: [],
 };
 
@@ -134,6 +147,12 @@ function formatSignedPercent(value: number): string {
 
 function formatSignedNumber(value: number): string {
   return `${value >= 0 ? '+' : ''}${value}`;
+}
+
+function optionalNumber(value: string): number | undefined {
+  if (!value.trim()) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function getQuestionCategoryMeta(category: VisibilityQueryCategory | string) {
@@ -188,6 +207,7 @@ const LLMVisibilityAuditPage: React.FC = () => {
   const [competitorText, setCompetitorText] = useState(DEFAULT_PROFILE.competitors.join('\n'));
   const [servicesText, setServicesText] = useState((DEFAULT_PROFILE.services || []).join('\n'));
   const [competitorSuggestions, setCompetitorSuggestions] = useState<string[]>([]);
+  const [isDiscoveringCompetitors, setIsDiscoveringCompetitors] = useState(false);
   const [manualQueryId, setManualQueryId] = useState('');
   const [manualProvider, setManualProvider] = useState<VisibilityProviderId>('chatgpt');
   const [manualText, setManualText] = useState('');
@@ -216,11 +236,16 @@ const LLMVisibilityAuditPage: React.FC = () => {
 
     const stored = loadVisibilityAudit();
     if (!stored) return;
-    setProfile(stored.profile);
-    setIntakeUrl(stored.profile.website || '');
-    setAliasText(stored.profile.aliases.join('\n'));
-    setCompetitorText(stored.profile.competitors.join('\n'));
-    setServicesText((stored.profile.services || []).join('\n'));
+    const cleanedProfile = {
+      ...stored.profile,
+      aliases: stored.profile.aliases || [],
+      competitors: sanitizeCompetitorSuggestions(stored.profile.competitors || [], stored.profile),
+    };
+    setProfile(cleanedProfile);
+    setIntakeUrl(cleanedProfile.website || '');
+    setAliasText(cleanedProfile.aliases.join('\n'));
+    setCompetitorText(cleanedProfile.competitors.join('\n'));
+    setServicesText((cleanedProfile.services || []).join('\n'));
     setPackId(stored.packId);
     const restoredAuditProfileId = stored.auditProfileId || 'madison-mvp';
     setAuditProfileId(restoredAuditProfileId);
@@ -250,6 +275,7 @@ const LLMVisibilityAuditPage: React.FC = () => {
   }, [providerApiKeys]);
 
   const auditProfile = useMemo(() => getAuditProfileConfig(auditProfileId), [auditProfileId]);
+  const industryPack = useMemo(() => INDUSTRY_QUESTION_PACKS.find(pack => pack.id === packId) || INDUSTRY_QUESTION_PACKS[0], [packId]);
   const templates = useMemo(() => getTemplatesForAuditProfile(packId, auditProfileId), [auditProfileId, packId]);
 
   const renderedQuestions = useMemo(() => {
@@ -288,7 +314,7 @@ const LLMVisibilityAuditPage: React.FC = () => {
   }, [renderedQuestions, selectedQuestionIds]);
 
   const metrics = useMemo(() => computeVisibilityMetrics(runs), [runs]);
-  const findings = useMemo(() => mapFindings(runs, metrics), [metrics, runs]);
+  const findings = useMemo(() => mapFindings(runs, metrics, profile), [metrics, profile, runs]);
   const actionPlan = useMemo(() => buildActionPlan(findings), [findings]);
   const reportDraft = useMemo(() => buildReportDraft(profile, metrics, findings, runs, actionPlan), [actionPlan, findings, metrics, profile, runs]);
   const competitorMentionCounts = useMemo(() => topCompetitorMentions(runs), [runs]);
@@ -363,6 +389,16 @@ const LLMVisibilityAuditPage: React.FC = () => {
     setProfile(current => ({ ...current, ...updates }));
   };
 
+  const updateSeoSignals = (updates: Partial<SeoAuditSignals>) => {
+    setProfile(current => ({
+      ...current,
+      seoAuditSignals: {
+        ...(current.seoAuditSignals || {}),
+        ...updates,
+      },
+    }));
+  };
+
   const toggleProvider = (provider: VisibilityProviderId) => {
     setSelectedProviders(current =>
       current.includes(provider)
@@ -401,12 +437,59 @@ const LLMVisibilityAuditPage: React.FC = () => {
     setServicesText((intake.profile.services || []).join('\n'));
     setPackId(findBestIndustryPack(intake.profile.niche).id);
     setCompetitorSuggestions(intake.suggestedCompetitors);
-    addToast(`Instant intake drafted ${intake.profile.brand} with ${intake.suggestedCompetitors.length} competitor suggestions`, 'success');
+    addToast(
+      intake.suggestedCompetitors.length
+        ? `Instant intake drafted ${intake.profile.brand} with ${intake.suggestedCompetitors.length} named competitor suggestions`
+        : `Instant intake drafted ${intake.profile.brand}. Use Find Real Competitors to search for named local businesses.`,
+      'success'
+    );
+  };
+
+  const runCompetitorDiscovery = async () => {
+    const providerPriority: VisibilityProviderId[] = ['perplexity', 'chatgpt', 'claude', 'gemini'];
+    const provider =
+      providerPriority.find(item => selectedProviders.includes(item) && providerApiKeys[item]?.trim()) ||
+      providerPriority.find(item => providerApiKeys[item]?.trim());
+
+    if (!provider) {
+      addToast('Add a Perplexity, ChatGPT, Claude, or Gemini key before searching competitors', 'error');
+      return;
+    }
+
+    setIsDiscoveringCompetitors(true);
+    try {
+      const response = await runVisibilityPrompt({
+        provider,
+        prompt: buildCompetitorDiscoveryPrompt(profile),
+        apiKey: providerApiKeys[provider],
+        business: profile,
+        maxTokens: 1200,
+      });
+      const candidates = parseCompetitorDiscoveryResponse(response.rawText, profile).filter(
+        candidate => !profile.competitors.some(existing => existing.toLowerCase() === candidate.toLowerCase())
+      );
+      setCompetitorSuggestions(candidates);
+      addToast(
+        candidates.length
+          ? `${PROVIDER_LABELS[provider]} found ${candidates.length} named competitor candidates`
+          : `${PROVIDER_LABELS[provider]} did not return usable named competitors`,
+        candidates.length ? 'success' : 'info'
+      );
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Competitor discovery failed', 'error');
+    } finally {
+      setIsDiscoveringCompetitors(false);
+    }
+  };
+
+  const copyCompetitorDiscoveryPrompt = async () => {
+    await navigator.clipboard.writeText(buildCompetitorDiscoveryPrompt(profile));
+    addToast('Competitor discovery prompt copied', 'success');
   };
 
   const addCompetitor = (name: string) => {
     if (!name.trim()) return;
-    const nextCompetitors = Array.from(new Set([...profile.competitors, name.trim()]));
+    const nextCompetitors = sanitizeCompetitorSuggestions([...profile.competitors, name.trim()], profile);
     updateProfile({ competitors: nextCompetitors });
     setCompetitorText(nextCompetitors.join('\n'));
     setCompetitorSuggestions(current => current.filter(item => item !== name));
@@ -824,8 +907,24 @@ const LLMVisibilityAuditPage: React.FC = () => {
                 <Wand2 className="h-4 w-4" />
                 Auto-fill Audit
               </Button>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={runCompetitorDiscovery}
+                  disabled={isDiscoveringCompetitors}
+                  className="gap-2"
+                >
+                  {isDiscoveringCompetitors ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  Find Real Competitors
+                </Button>
+                <Button type="button" variant="outline" onClick={copyCompetitorDiscoveryPrompt} className="gap-2">
+                  <Copy className="h-4 w-4" />
+                  Copy Prompt
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground">
-                Drafts the profile, service list, schema/GBP/review placeholders, and competitor suggestions for a fast operator review.
+                Drafts the profile and service list, then uses a stricter competitor prompt that accepts named businesses only. Channels and generic services like Google Ads, Facebook Ads, Website Design, Pool Builders, or Spa Builders are filtered out.
               </p>
               {competitorSuggestions.length ? (
                 <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
@@ -900,7 +999,7 @@ const LLMVisibilityAuditPage: React.FC = () => {
                     updateProfile({ competitors: parseList(event.target.value) });
                   }}
                   onBlur={() => {
-                    const nextCompetitors = parseList(competitorText);
+                    const nextCompetitors = sanitizeCompetitorSuggestions(parseList(competitorText), profile);
                     setCompetitorText(nextCompetitors.join('\n'));
                     updateProfile({ competitors: nextCompetitors });
                   }}
@@ -952,6 +1051,121 @@ const LLMVisibilityAuditPage: React.FC = () => {
                   </Select>
                 </label>
               </div>
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold">SEO/AEO/GEO Audit Context</h3>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Paste the key outputs from the full SEO audit so the LLM report can explain whether visibility problems are caused by schema, crawlability, thin pages, reviews, or GBP issues.
+                    </p>
+                  </div>
+                  <a href="/audits/new" className="shrink-0 rounded-md border px-2 py-1 text-xs font-medium hover:bg-muted">
+                    Run SEO Audit
+                  </a>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block text-xs font-medium">
+                    Technical health
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      min="0"
+                      max="100"
+                      placeholder="0-100"
+                      value={profile.seoAuditSignals?.technicalHealthScore ?? ''}
+                      onChange={event => updateSeoSignals({ technicalHealthScore: optionalNumber(event.target.value) })}
+                    />
+                  </label>
+                  <label className="block text-xs font-medium">
+                    Pages analyzed
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      min="0"
+                      value={profile.seoAuditSignals?.pagesAnalyzed ?? ''}
+                      onChange={event => updateSeoSignals({ pagesAnalyzed: optionalNumber(event.target.value) })}
+                    />
+                  </label>
+                  <label className="block text-xs font-medium">
+                    Pages with schema
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      min="0"
+                      value={profile.seoAuditSignals?.pagesWithSchema ?? ''}
+                      onChange={event => updateSeoSignals({ pagesWithSchema: optionalNumber(event.target.value) })}
+                    />
+                  </label>
+                  <label className="block text-xs font-medium">
+                    Thin pages
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      min="0"
+                      value={profile.seoAuditSignals?.thinContentPages ?? ''}
+                      onChange={event => updateSeoSignals({ thinContentPages: optionalNumber(event.target.value) })}
+                    />
+                  </label>
+                  <label className="block text-xs font-medium">
+                    Missing metadata
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      min="0"
+                      value={profile.seoAuditSignals?.missingMetaCount ?? ''}
+                      onChange={event => updateSeoSignals({ missingMetaCount: optionalNumber(event.target.value) })}
+                    />
+                  </label>
+                  <label className="block text-xs font-medium">
+                    Local pages
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      min="0"
+                      value={profile.seoAuditSignals?.localLandingPages ?? ''}
+                      onChange={event => updateSeoSignals({ localLandingPages: optionalNumber(event.target.value) })}
+                    />
+                  </label>
+                  <label className="block text-xs font-medium">
+                    Reviews
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      min="0"
+                      value={profile.seoAuditSignals?.reviewCount ?? ''}
+                      onChange={event => updateSeoSignals({ reviewCount: optionalNumber(event.target.value) })}
+                    />
+                  </label>
+                  <label className="block text-xs font-medium">
+                    Review gap
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      min="0"
+                      value={profile.seoAuditSignals?.competitorReviewGap ?? ''}
+                      onChange={event => updateSeoSignals({ competitorReviewGap: optionalNumber(event.target.value) })}
+                    />
+                  </label>
+                </div>
+                <label className="mt-3 flex items-center gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(profile.seoAuditSignals?.aiBotsBlocked)}
+                    onChange={event => updateSeoSignals({ aiBotsBlocked: event.target.checked })}
+                    className="h-4 w-4 rounded border-input"
+                  />
+                  SEO audit flagged AI/search crawler blocking
+                </label>
+                <label className="mt-3 block text-xs font-medium">
+                  Full SEO audit link or notes
+                  <Input
+                    className="mt-1"
+                    value={profile.seoAuditSignals?.lastAuditUrl || ''}
+                    onChange={event => updateSeoSignals({ lastAuditUrl: event.target.value })}
+                    placeholder="/audits/{id}/report or client audit note"
+                  />
+                </label>
+              </div>
             </div>
           </section>
           )}
@@ -987,6 +1201,14 @@ const LLMVisibilityAuditPage: React.FC = () => {
                 <p className="font-medium text-foreground">{auditProfile.description}</p>
                 <p className="mt-1">{auditProfile.delivery}</p>
                 <p className="mt-1">{auditProfile.manualCaptureGuidance}</p>
+                {industryPack.targetNotes ? (
+                  <p className="mt-2 rounded-md bg-background px-3 py-2 text-foreground">
+                    <span className="font-semibold">{industryPack.label} target note:</span> {industryPack.targetNotes}
+                  </p>
+                ) : null}
+                {industryPack.keywords?.length ? (
+                  <p className="mt-2">Common local targets: {industryPack.keywords.join(', ')}.</p>
+                ) : null}
               </div>
               <label className="block text-sm font-medium">
                 Common job-to-be-done

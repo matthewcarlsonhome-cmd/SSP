@@ -91,7 +91,23 @@ export interface AuditBusinessProfile {
   schemaStatus?: 'unknown' | 'found' | 'thin' | 'missing' | 'blocked';
   gbpSignal?: 'unknown' | 'strong' | 'average' | 'weak';
   reviewSignal?: 'unknown' | 'strong' | 'average' | 'weak';
+  seoAuditSignals?: SeoAuditSignals;
   intakeNotes?: string[];
+}
+
+export interface SeoAuditSignals {
+  lastAuditUrl?: string;
+  technicalHealthScore?: number;
+  pagesAnalyzed?: number;
+  pagesWithSchema?: number;
+  thinContentPages?: number;
+  missingMetaCount?: number;
+  aiBotsBlocked?: boolean;
+  localLandingPages?: number;
+  reviewCount?: number;
+  averageRating?: number;
+  competitorReviewGap?: number;
+  notes?: string[];
 }
 
 export interface VisibilityQueryTemplate {
@@ -287,6 +303,8 @@ export interface IndustryQuestionPack {
   id: string;
   label: string;
   niche: string;
+  targetNotes?: string;
+  keywords?: string[];
   questions: VisibilityQueryTemplate[];
 }
 
@@ -591,11 +609,195 @@ export const INDUSTRY_QUESTION_PACKS: IndustryQuestionPack[] = [
     id: 'pool-spa',
     label: 'Pool and Spa',
     niche: 'pool and spa company',
+    targetNotes: 'High-ticket installations plus recurring maintenance make this a strong paid audit target.',
+    keywords: ['pool builder', 'hot tub repair', 'pool maintenance', 'spa service'],
     questions: [
       packQuestion('pool-spa', 'POOL01', 'category_geo', 'Best pool builder in {geo}.', 'Builder discovery'),
       packQuestion('pool-spa', 'POOL02', 'service', 'Who should I hire for hot tub repair near {geo}?', 'Spa repair query'),
       packQuestion('pool-spa', 'POOL03', 'decision', 'Is {brand} reliable for pool installation and service?', 'Brand decision'),
       packQuestion('pool-spa', 'POOL04', 'service', 'Pool maintenance company near me in {geo}.', 'Recurring service local query'),
+    ],
+  },
+  {
+    id: 'electrician',
+    label: 'Electrical',
+    niche: 'electrician',
+    targetNotes: 'Emergency calls, panel upgrades, EV chargers, and remodel work create urgent local buyer intent.',
+    keywords: ['electrician', 'panel upgrade', 'EV charger installer', 'emergency electrical repair'],
+    questions: [
+      packQuestion('electrician', 'ELEC01', 'service', 'Best electrician for emergency repairs in {geo}.', 'Emergency electrical intent'),
+      packQuestion('electrician', 'ELEC02', 'service', 'Who should I hire for an EV charger installation near {geo}?', 'EV charger opportunity'),
+      packQuestion('electrician', 'ELEC03', 'cost', 'How much does an electrical panel upgrade cost in {geo}?', 'Panel upgrade cost query'),
+      packQuestion('electrician', 'ELEC04', 'decision', 'Is {brand} a reliable electrician for homeowners?', 'Residential trust check'),
+    ],
+  },
+  {
+    id: 'remodeling',
+    label: 'Remodeling',
+    niche: 'home remodeling contractor',
+    targetNotes: 'Kitchen, bath, basement, and whole-home projects have large ticket sizes and heavy comparison behavior.',
+    keywords: ['home remodeler', 'kitchen remodel', 'bathroom remodel', 'basement finishing'],
+    questions: [
+      packQuestion('remodeling', 'REM01', 'category_geo', 'Best home remodeling contractors in {geo}.', 'Core remodeling shortlist'),
+      packQuestion('remodeling', 'REM02', 'service', 'Who should I hire for a kitchen remodel near {geo}?', 'Kitchen project intent'),
+      packQuestion('remodeling', 'REM03', 'cost', 'What should I budget for a bathroom remodel in {geo}?', 'Bathroom budget query'),
+      packQuestion('remodeling', 'REM04', 'competitors', 'Compare {brand} and {competitor} for remodeling quality, communication, and value.', 'Remodeler comparison'),
+    ],
+  },
+  {
+    id: 'garage-door',
+    label: 'Garage Door',
+    niche: 'garage door company',
+    targetNotes: 'Broken springs and replacement doors are urgent, local, and review-sensitive.',
+    keywords: ['garage door repair', 'garage door spring repair', 'garage door replacement'],
+    questions: [
+      packQuestion('garage-door', 'GAR01', 'service', 'Best garage door repair company near {geo}.', 'Repair shortlist'),
+      packQuestion('garage-door', 'GAR02', 'service', 'Who offers same-day garage door spring repair in {geo}?', 'Same-day service intent'),
+      packQuestion('garage-door', 'GAR03', 'cost', 'How much does garage door replacement cost in {geo}?', 'Replacement cost query'),
+      packQuestion('garage-door', 'GAR04', 'local_proof', 'Top-rated garage door company near me in {geo}.', 'Review-led local query'),
+    ],
+  },
+  {
+    id: 'tree-service',
+    label: 'Tree Service',
+    niche: 'tree service company',
+    targetNotes: 'Storm cleanup, removal, trimming, and emergency work are strong Madison-area seasonal plays.',
+    keywords: ['tree removal', 'tree trimming', 'emergency tree service', 'arborist'],
+    questions: [
+      packQuestion('tree-service', 'TREE01', 'service', 'Best tree removal company in {geo}.', 'Removal discovery'),
+      packQuestion('tree-service', 'TREE02', 'problem_solution', 'Who should I call for storm-damaged tree cleanup near {geo}?', 'Storm cleanup intent'),
+      packQuestion('tree-service', 'TREE03', 'cost', 'How much does tree removal cost in {geo}?', 'Removal cost query'),
+      packQuestion('tree-service', 'TREE04', 'decision', 'Is {brand} a safe and reputable tree service?', 'Safety trust check'),
+    ],
+  },
+  {
+    id: 'restoration',
+    label: 'Restoration',
+    niche: 'water damage restoration company',
+    targetNotes: 'Emergency restoration is high-value, fast-decision, and dominated by local trust/citation signals.',
+    keywords: ['water damage restoration', 'mold remediation', 'fire damage restoration', 'emergency restoration'],
+    questions: [
+      packQuestion('restoration', 'RESTO01', 'service', 'Who should I call for emergency water damage restoration in {geo}?', 'Emergency restoration intent'),
+      packQuestion('restoration', 'RESTO02', 'service', 'Best mold remediation company near {geo}.', 'Mold service query'),
+      packQuestion('restoration', 'RESTO03', 'local_proof', 'Top-rated restoration company near me with 24/7 service in {geo}.', '24/7 proof query'),
+      packQuestion('restoration', 'RESTO04', 'competitors', 'Compare {brand} and {competitor} for water damage response time and reputation.', 'Restoration comparison'),
+    ],
+  },
+  {
+    id: 'moving',
+    label: 'Moving',
+    niche: 'moving company',
+    targetNotes: 'Residential moves, apartment moves, and storage create frequent local searches with review risk.',
+    keywords: ['movers', 'moving company', 'local movers', 'storage movers'],
+    questions: [
+      packQuestion('moving', 'MOVE01', 'category_geo', 'Best moving company in {geo}.', 'Moving shortlist'),
+      packQuestion('moving', 'MOVE02', 'service', 'Who should I hire for a local apartment move near {geo}?', 'Apartment moving intent'),
+      packQuestion('moving', 'MOVE03', 'cost', 'How much do local movers cost in {geo}?', 'Moving cost query'),
+      packQuestion('moving', 'MOVE04', 'local_proof', 'Trustworthy movers near me in {geo} with strong reviews.', 'Trust-led moving query'),
+    ],
+  },
+  {
+    id: 'senior-care',
+    label: 'Senior Care',
+    niche: 'home care agency',
+    targetNotes: 'Families ask AI for trusted care options; proof, reviews, and local reputation matter heavily.',
+    keywords: ['home care agency', 'senior care', 'in-home care', 'caregiver services'],
+    questions: [
+      packQuestion('senior-care', 'CARE01', 'category_geo', 'Best home care agencies for seniors in {geo}.', 'Senior care shortlist'),
+      packQuestion('senior-care', 'CARE02', 'service', 'Who provides reliable in-home caregiver services near {geo}?', 'Caregiver service intent'),
+      packQuestion('senior-care', 'CARE03', 'decision', 'Is {brand} a trustworthy home care agency?', 'Care trust check'),
+      packQuestion('senior-care', 'CARE04', 'cost', 'How much does senior home care cost in {geo}?', 'Care cost query'),
+    ],
+  },
+  {
+    id: 'child-care',
+    label: 'Child Care',
+    niche: 'child care center',
+    targetNotes: 'Parents compare trust, licensing, reviews, and availability before calling.',
+    keywords: ['daycare', 'child care center', 'preschool', 'early learning'],
+    questions: [
+      packQuestion('child-care', 'CHILD01', 'category_geo', 'Best daycare or child care centers in {geo}.', 'Child care shortlist'),
+      packQuestion('child-care', 'CHILD02', 'local_proof', 'Child care near me in {geo} with strong parent reviews.', 'Parent review query'),
+      packQuestion('child-care', 'CHILD03', 'decision', 'Is {brand} a good child care option for families?', 'Family decision query'),
+      packQuestion('child-care', 'CHILD04', 'problem_solution', 'What should I look for in a daycare in {geo}? Recommend specific centers.', 'Buyer education query'),
+    ],
+  },
+  {
+    id: 'chiropractic',
+    label: 'Chiropractic',
+    niche: 'chiropractor',
+    targetNotes: 'Patients search by pain problem, proximity, reviews, insurance, and trust.',
+    keywords: ['chiropractor', 'back pain chiropractor', 'sports injury chiropractor'],
+    questions: [
+      packQuestion('chiropractic', 'CHIRO01', 'category_geo', 'Best chiropractor in {geo}.', 'Chiropractor shortlist'),
+      packQuestion('chiropractic', 'CHIRO02', 'problem_solution', 'Who should I see for back pain near {geo}?', 'Pain/problem query'),
+      packQuestion('chiropractic', 'CHIRO03', 'decision', 'Is {brand} a reputable chiropractor?', 'Provider trust query'),
+      packQuestion('chiropractic', 'CHIRO04', 'local_proof', 'Chiropractor near me with great reviews in {geo}.', 'Review-led near-me query'),
+    ],
+  },
+  {
+    id: 'veterinary',
+    label: 'Veterinary',
+    niche: 'veterinary clinic',
+    targetNotes: 'Pet owners ask for trusted local recommendations, emergency care, and review-backed clinics.',
+    keywords: ['veterinarian', 'animal hospital', 'emergency vet', 'pet clinic'],
+    questions: [
+      packQuestion('veterinary', 'VET01', 'category_geo', 'Best veterinary clinic in {geo}.', 'Vet shortlist'),
+      packQuestion('veterinary', 'VET02', 'service', 'Who offers emergency vet care near {geo}?', 'Emergency vet intent'),
+      packQuestion('veterinary', 'VET03', 'decision', 'Is {brand} a good animal hospital for pets?', 'Animal hospital trust query'),
+      packQuestion('veterinary', 'VET04', 'local_proof', 'Vet near me in {geo} with strong reviews.', 'Near-me review query'),
+    ],
+  },
+  {
+    id: 'insurance',
+    label: 'Insurance Agency',
+    niche: 'insurance agency',
+    targetNotes: 'Independent agencies compete on local trust, bundled products, and comparison searches.',
+    keywords: ['insurance agency', 'auto insurance', 'home insurance', 'business insurance'],
+    questions: [
+      packQuestion('insurance', 'INS01', 'category_geo', 'Best independent insurance agencies in {geo}.', 'Agency shortlist'),
+      packQuestion('insurance', 'INS02', 'service', 'Who can help compare home and auto insurance near {geo}?', 'Bundle comparison intent'),
+      packQuestion('insurance', 'INS03', 'decision', 'Is {brand} a good insurance agency?', 'Agency trust query'),
+      packQuestion('insurance', 'INS04', 'competitors', 'Compare {brand} and {competitor} for local insurance advice and value.', 'Agency comparison'),
+    ],
+  },
+  {
+    id: 'financial-advisor',
+    label: 'Financial Advisor',
+    niche: 'financial advisor',
+    targetNotes: 'Advisory firms sell trust; AI visibility depends on authority, credentials, and third-party proof.',
+    keywords: ['financial advisor', 'retirement planning', 'wealth management', 'fiduciary advisor'],
+    questions: [
+      packQuestion('financial-advisor', 'FIN01', 'category_geo', 'Best financial advisors in {geo}.', 'Advisor shortlist'),
+      packQuestion('financial-advisor', 'FIN02', 'service', 'Who should I hire for retirement planning near {geo}?', 'Retirement planning query'),
+      packQuestion('financial-advisor', 'FIN03', 'decision', 'Is {brand} a reputable financial advisor?', 'Advisor trust query'),
+      packQuestion('financial-advisor', 'FIN04', 'problem_solution', 'What should I look for in a fiduciary financial advisor?', 'Education plus advisor recommendation'),
+    ],
+  },
+  {
+    id: 'wedding',
+    label: 'Wedding Services',
+    niche: 'wedding venue or vendor',
+    targetNotes: 'Venues, planners, photographers, florists, and caterers win from comparison-heavy local AI answers.',
+    keywords: ['wedding venue', 'wedding planner', 'wedding photographer', 'wedding florist'],
+    questions: [
+      packQuestion('wedding', 'WED01', 'category_geo', 'Best wedding venues and vendors in {geo}.', 'Wedding vendor shortlist'),
+      packQuestion('wedding', 'WED02', 'service', 'Who should I hire for a wedding near {geo}?', 'Wedding planning intent'),
+      packQuestion('wedding', 'WED03', 'cost', 'How much should I budget for a wedding vendor in {geo}?', 'Wedding budget query'),
+      packQuestion('wedding', 'WED04', 'competitors', 'Compare {brand} and {competitor} for wedding experience, reviews, and value.', 'Wedding vendor comparison'),
+    ],
+  },
+  {
+    id: 'marketing-agency',
+    label: 'Marketing Agency',
+    niche: 'marketing agency',
+    targetNotes: 'Useful when selling the service to local agencies, web designers, PPC firms, and SEO providers.',
+    keywords: ['marketing agency', 'SEO agency', 'web design agency', 'PPC agency'],
+    questions: [
+      packQuestion('marketing-agency', 'MKT01', 'category_geo', 'Best marketing agencies in {geo}.', 'Agency shortlist'),
+      packQuestion('marketing-agency', 'MKT02', 'service', 'Who should I hire for SEO and AI search visibility near {geo}?', 'SEO and AI search intent'),
+      packQuestion('marketing-agency', 'MKT03', 'decision', 'Is {brand} a good marketing agency for local businesses?', 'Agency trust query'),
+      packQuestion('marketing-agency', 'MKT04', 'competitors', 'Compare {brand} and {competitor} for SEO, paid ads, and website strategy.', 'Agency comparison'),
     ],
   },
 ];
@@ -631,7 +833,7 @@ export function renderVisibilityQuestions(
 
   for (const template of templates) {
     const needsCompetitor = template.template.includes('{competitor}');
-    const competitors = needsCompetitor ? profile.competitors.filter(Boolean) : [undefined];
+    const competitors = needsCompetitor ? sanitizeCompetitorSuggestions(profile.competitors.filter(Boolean), profile) : [undefined];
     if (needsCompetitor && competitors.length === 0) continue;
     if (template.template.includes('{geo}') && !geo) continue;
     if (template.template.includes('{niche}') && !profile.niche.trim()) continue;
@@ -752,7 +954,13 @@ export function findBestIndustryPack(niche: string): IndustryQuestionPack {
     INDUSTRY_QUESTION_PACKS.find(pack => {
       const label = pack.label.toLowerCase();
       const packNiche = pack.niche.toLowerCase();
-      return normalized.includes(label) || normalized.includes(packNiche) || label.includes(normalized);
+      const keywords = (pack.keywords || []).map(keyword => keyword.toLowerCase());
+      return (
+        normalized.includes(label) ||
+        normalized.includes(packNiche) ||
+        label.includes(normalized) ||
+        keywords.some(keyword => normalized.includes(keyword) || keyword.includes(normalized))
+      );
     }) || INDUSTRY_QUESTION_PACKS[0]
   );
 }
@@ -783,12 +991,10 @@ export function scoreAuditResponse(
 ): VisibilityScore {
   const text = responseText || '';
   const normalizedText = text.toLowerCase();
-  const brandTerms = [profile.brand, ...profile.aliases].map(term => term.trim()).filter(Boolean);
+  const brandTerms = [profile.brand, ...(profile.aliases || [])].map(term => term.trim()).filter(Boolean);
   const brandTerm = brandTerms.find(term => normalizedText.includes(term.toLowerCase()));
   const brandMentioned = Boolean(brandTerm);
-  const competitorsMentioned = profile.competitors
-    .map(name => name.trim())
-    .filter(Boolean)
+  const competitorsMentioned = sanitizeCompetitorSuggestions(profile.competitors, profile)
     .filter(name => normalizedText.includes(name.toLowerCase()));
 
   const brandPosition = getBrandPosition(normalizedText, brandTerm, competitorsMentioned);
@@ -1118,18 +1324,51 @@ const FIX_PLAYBOOKS: Record<string, FixPlaybook> = {
       { step: 'Add third-party proof', detail: 'Support claims with reviews, awards, certifications, and case studies.', owner: 'client' },
     ],
   },
+  THIN_CONTENT: {
+    title: 'Expand thin service and proof pages',
+    effort: 'medium',
+    expectedLift: 'Gives AI systems more answer-ready facts, services, FAQs, and local proof to quote',
+    steps: [
+      { step: 'Identify thin pages', detail: 'Use the SEO audit page list to find services below 600 useful words or missing proof.', owner: 'agency' },
+      { step: 'Add answer-ready sections', detail: 'Add FAQs, pricing factors, process, before/after proof, reviews, and city/service examples.', owner: 'agency' },
+      { step: 'Link from core pages', detail: 'Use internal links from homepage, service hub, and location pages.', owner: 'agency' },
+    ],
+  },
+  WEBSITE_PERFORMANCE: {
+    title: 'Fix crawlability and technical health issues',
+    effort: 'medium',
+    expectedLift: 'Improves search accessibility and reduces the chance that answer engines miss important site evidence',
+    steps: [
+      { step: 'Review technical audit', detail: 'Check failing pages, missing metadata, canonical issues, speed warnings, and crawl blockers.', owner: 'agency' },
+      { step: 'Fix high-impact templates', detail: 'Prioritize homepage, service pages, location pages, and conversion pages.', owner: 'agency' },
+      { step: 'Re-crawl and re-audit', detail: 'Confirm the SEO audit health score improves before the LLM re-audit.', owner: 'agency' },
+    ],
+  },
+  AI_BOT_BLOCKED: {
+    title: 'Review robots.txt and AI/search bot access',
+    effort: 'low',
+    expectedLift: 'Reduces avoidable source-access problems for search-grounded AI answers',
+    steps: [
+      { step: 'Inspect robots.txt', detail: 'Check GPTBot, ClaudeBot, PerplexityBot, Googlebot, and Bingbot directives.', owner: 'agency' },
+      { step: 'Unblock where appropriate', detail: 'Coordinate with the client on policy, then remove accidental blocks for desired crawlers.', owner: 'agency' },
+      { step: 'Resubmit sitemap', detail: 'Make the most important pages easy to discover after policy changes.', owner: 'agency' },
+    ],
+  },
 };
 
-export function mapFindings(runs: VisibilityAuditRun[], metrics: VisibilityMetrics): RootCauseFinding[] {
+export function mapFindings(runs: VisibilityAuditRun[], metrics: VisibilityMetrics, profile?: AuditBusinessProfile): RootCauseFinding[] {
   const scoredRuns = runs.filter(
     run => run.score && run.qaStatus !== 'excluded' && (run.status === 'captured' || run.status === 'manual')
   );
   const findings: RootCauseFinding[] = [];
   const evidence = (predicate: (run: VisibilityAuditRun) => boolean) =>
     scoredRuns.filter(predicate).slice(0, 3).map(run => `${PROVIDER_LABELS[run.provider]}: ${run.query.prompt}`);
+  const pushFinding = (finding: RootCauseFinding) => {
+    if (!findings.some(existing => existing.code === finding.code)) findings.push(finding);
+  };
 
   if (metrics.mentionRate < 0.3 && metrics.competitorDominanceRatio > 0.6) {
-    findings.push({
+    pushFinding({
       code: 'COMPETITOR_DOMINANCE',
       category: 'competitive',
       title: 'Competitors crowd out the brand',
@@ -1141,7 +1380,7 @@ export function mapFindings(runs: VisibilityAuditRun[], metrics: VisibilityMetri
   }
 
   if (metrics.citationRate === 0 && scoredRuns.length > 0) {
-    findings.push({
+    pushFinding({
       code: 'NO_AUTHORITY_LINKS',
       category: 'authority',
       title: 'No citations support the brand',
@@ -1150,7 +1389,7 @@ export function mapFindings(runs: VisibilityAuditRun[], metrics: VisibilityMetri
       evidence: evidence(run => Boolean(run.score && !run.score.brandWithCitation)),
       recommendedFix: FIX_PLAYBOOKS.NO_AUTHORITY_LINKS,
     });
-    findings.push({
+    pushFinding({
       code: 'NO_SCHEMA',
       category: 'technical',
       title: 'Likely missing structured entity signals',
@@ -1160,7 +1399,7 @@ export function mapFindings(runs: VisibilityAuditRun[], metrics: VisibilityMetri
       recommendedFix: FIX_PLAYBOOKS.NO_SCHEMA,
     });
   } else if (metrics.citationRate < 0.25 && metrics.mentionRate >= 0.3) {
-    findings.push({
+    pushFinding({
       code: 'WEAK_ENTITIES',
       category: 'technical',
       title: 'Brand appears without strong source backing',
@@ -1176,7 +1415,7 @@ export function mapFindings(runs: VisibilityAuditRun[], metrics: VisibilityMetri
     ? localRuns.filter(run => run.score?.brandMentioned).length / localRuns.length
     : 1;
   if (localRuns.length > 0 && localMentionRate < 0.5) {
-    findings.push({
+    pushFinding({
       code: 'WEAK_GBP',
       category: 'local',
       title: 'Weak near-me visibility',
@@ -1185,7 +1424,7 @@ export function mapFindings(runs: VisibilityAuditRun[], metrics: VisibilityMetri
       evidence: localRuns.slice(0, 3).map(run => `${PROVIDER_LABELS[run.provider]}: ${run.query.prompt}`),
       recommendedFix: FIX_PLAYBOOKS.WEAK_GBP,
     });
-    findings.push({
+    pushFinding({
       code: 'NO_LOCAL_CONTENT',
       category: 'local',
       title: 'Insufficient location-specific content',
@@ -1197,7 +1436,7 @@ export function mapFindings(runs: VisibilityAuditRun[], metrics: VisibilityMetri
   }
 
   if (scoredRuns.some(run => run.score?.brandSentiment === 'negative')) {
-    findings.push({
+    pushFinding({
       code: 'LOW_REVIEW_VELOCITY',
       category: 'reputation',
       title: 'Reputation language needs reinforcement',
@@ -1209,7 +1448,7 @@ export function mapFindings(runs: VisibilityAuditRun[], metrics: VisibilityMetri
   }
 
   if (scoredRuns.some(run => run.score?.hallucinationFlag)) {
-    findings.push({
+    pushFinding({
       code: 'OUTDATED_INFO',
       category: 'technical',
       title: 'Possible outdated or incorrect business facts',
@@ -1220,7 +1459,80 @@ export function mapFindings(runs: VisibilityAuditRun[], metrics: VisibilityMetri
     });
   }
 
-  return findings.slice(0, 6);
+  const seo = profile?.seoAuditSignals;
+  if (profile?.schemaStatus === 'missing' || profile?.schemaStatus === 'thin' || (seo?.pagesAnalyzed && (seo.pagesWithSchema || 0) === 0)) {
+    pushFinding({
+      code: 'NO_SCHEMA',
+      category: 'technical',
+      title: 'SEO audit shows weak structured data',
+      severity: profile?.schemaStatus === 'missing' ? 3 : 2,
+      description: 'The SEO audit context indicates missing or thin schema on pages that should help AI systems understand the business entity.',
+      evidence: [`SEO signal: schema status is ${profile?.schemaStatus || 'unknown'}; pages with schema ${seo?.pagesWithSchema ?? 'unknown'} of ${seo?.pagesAnalyzed ?? 'unknown'}.`],
+      recommendedFix: FIX_PLAYBOOKS.NO_SCHEMA,
+    });
+  }
+
+  if (profile?.gbpSignal === 'weak') {
+    pushFinding({
+      code: 'WEAK_GBP',
+      category: 'local',
+      title: 'SEO audit shows weak Google Business Profile signals',
+      severity: 2,
+      description: 'The local SEO context marks GBP strength as weak, which can suppress near-me recommendation confidence.',
+      evidence: ['SEO signal: Google Business Profile is marked weak.'],
+      recommendedFix: FIX_PLAYBOOKS.WEAK_GBP,
+    });
+  }
+
+  if (profile?.reviewSignal === 'weak' || (seo?.competitorReviewGap || 0) > 0) {
+    pushFinding({
+      code: 'LOW_REVIEW_VELOCITY',
+      category: 'reputation',
+      title: 'SEO audit shows review proof gap',
+      severity: 2,
+      description: 'The SEO audit context indicates weak review proof or a review-count gap versus competitors.',
+      evidence: [`SEO signal: ${seo?.reviewCount ?? 'unknown'} reviews, ${seo?.averageRating ?? 'unknown'} average rating, competitor review gap ${seo?.competitorReviewGap ?? 'unknown'}.`],
+      recommendedFix: FIX_PLAYBOOKS.LOW_REVIEW_VELOCITY,
+    });
+  }
+
+  if ((seo?.thinContentPages || 0) > 0) {
+    pushFinding({
+      code: 'THIN_CONTENT',
+      category: 'content',
+      title: 'SEO audit shows thin content pages',
+      severity: 2,
+      description: 'Thin service or location pages leave models with too little evidence to answer buyer questions confidently.',
+      evidence: [`SEO signal: ${seo?.thinContentPages} thin content page${seo?.thinContentPages === 1 ? '' : 's'} flagged.`],
+      recommendedFix: FIX_PLAYBOOKS.THIN_CONTENT,
+    });
+  }
+
+  if ((seo?.technicalHealthScore || 100) < 70 || (seo?.missingMetaCount || 0) > 0) {
+    pushFinding({
+      code: 'WEBSITE_PERFORMANCE',
+      category: 'technical',
+      title: 'SEO audit shows technical health gaps',
+      severity: (seo?.technicalHealthScore || 100) < 50 ? 3 : 2,
+      description: 'Technical SEO problems can make the site less crawlable and less usable as source evidence.',
+      evidence: [`SEO signal: technical health ${seo?.technicalHealthScore ?? 'unknown'}/100, missing metadata count ${seo?.missingMetaCount ?? 'unknown'}.`],
+      recommendedFix: FIX_PLAYBOOKS.WEBSITE_PERFORMANCE,
+    });
+  }
+
+  if (seo?.aiBotsBlocked) {
+    pushFinding({
+      code: 'AI_BOT_BLOCKED',
+      category: 'technical',
+      title: 'SEO audit shows possible AI/search bot blocking',
+      severity: 3,
+      description: 'If key crawlers are blocked, answer engines may have less access to current site evidence.',
+      evidence: ['SEO signal: AI/search crawler blocking is marked in the audit context.'],
+      recommendedFix: FIX_PLAYBOOKS.AI_BOT_BLOCKED,
+    });
+  }
+
+  return findings.slice(0, 8);
 }
 
 export async function runVisibilityPrompt(options: ProviderRunOptions): Promise<NormalizedVisibilityResponse> {
@@ -1744,15 +2056,27 @@ export function buildInstantAuditIntake(input: {
   const city = input.city?.trim() || current?.city || 'Madison';
   const state = input.state?.trim() || current?.state || 'WI';
   const services = inferServicesForNiche(niche);
-  const suggestedCompetitors = suggestLocalCompetitors({
+  const cleanedExistingCompetitors = sanitizeCompetitorSuggestions(current?.competitors || [], {
     brand: inferredBrand,
     niche,
     city,
     state,
-    existingCompetitors: current?.competitors || [],
+    country: current?.country || 'US',
+    aliases: current?.aliases || [],
+    competitors: [],
   });
+  const suggestedCompetitors = cleanedExistingCompetitors.length
+    ? []
+    : suggestLocalCompetitors({
+        brand: inferredBrand,
+        niche,
+        city,
+        state,
+        existingCompetitors: [],
+      });
   const warnings = [
     'Website inspection is a fast intake heuristic. Verify GBP, reviews, schema, and competitors before selling the report.',
+    'Competitor suggestions are intentionally restricted to named local businesses. Generic services like Google Ads, Facebook Ads, pool builders, or website design are filtered out.',
     'Live Google AI Overview and logged-out browser results should be manually pasted when they matter for evidence.',
   ];
 
@@ -1765,12 +2089,13 @@ export function buildInstantAuditIntake(input: {
       state,
       country: current?.country || 'US',
       aliases: Array.from(new Set([...(current?.aliases || []), inferredBrand.replace(/\b(llc|inc|co|company)\b/gi, '').trim()].filter(Boolean))),
-      competitors: current?.competitors?.length ? current.competitors : suggestedCompetitors.slice(0, 4),
+      competitors: cleanedExistingCompetitors.length ? cleanedExistingCompetitors : suggestedCompetitors.slice(0, 4),
       services,
       serviceRadiusMiles: current?.serviceRadiusMiles || 25,
       schemaStatus: current?.schemaStatus || 'unknown',
       gbpSignal: current?.gbpSignal || 'unknown',
       reviewSignal: current?.reviewSignal || 'unknown',
+      seoAuditSignals: current?.seoAuditSignals,
       intakeNotes: warnings,
     },
     suggestedCompetitors,
@@ -1825,28 +2150,218 @@ export function suggestLocalCompetitors(input: {
   state: string;
   existingCompetitors?: string[];
 }): string[] {
-  const normalizedBrand = input.brand.toLowerCase();
-  const normalizedExisting = new Set((input.existingCompetitors || []).map(item => item.toLowerCase()));
-  const city = input.city || 'Madison';
-  const niche = input.niche || 'local business';
-  const generic = [
-    `${city} ${niche} leaders`,
-    `Top-rated ${niche} near ${city}`,
-    `${city} ${niche} pros`,
-    `Best reviewed ${niche} in ${input.state || 'WI'}`,
-  ];
+  return sanitizeCompetitorSuggestions(input.existingCompetitors || [], {
+    brand: input.brand,
+    niche: input.niche,
+    city: input.city,
+    state: input.state,
+    country: 'US',
+    aliases: [],
+    competitors: [],
+  });
+}
 
-  return generic
-    .filter(name => !name.toLowerCase().includes(normalizedBrand))
-    .filter(name => !normalizedExisting.has(name.toLowerCase()))
-    .slice(0, 6);
+const GENERIC_COMPETITOR_PHRASES = [
+  'google ads',
+  'facebook ads',
+  'meta ads',
+  'instagram ads',
+  'paid search',
+  'ppc',
+  'seo',
+  'local seo',
+  'website design',
+  'web design',
+  'digital marketing',
+  'social media',
+  'pool builders',
+  'spa builders',
+  'pool builder',
+  'hot tub repair',
+  'hvac contractor',
+  'plumber',
+  'dentist',
+  'law firm',
+  'near me',
+  'best reviewed',
+  'top-rated',
+  'leaders',
+  'pros',
+  'companies',
+  'contractors',
+  'services',
+  'category',
+  'industry',
+];
+
+const BUSINESS_NAME_HINTS = [
+  'llc',
+  'inc',
+  'co',
+  'company',
+  'group',
+  'studio',
+  'agency',
+  'partners',
+  'associates',
+  'family',
+  'clinic',
+  'center',
+  'care',
+  'dental',
+  'smiles',
+  'heating',
+  'cooling',
+  'plumbing',
+  'electric',
+  'roofing',
+  'builders',
+  'construction',
+  'landscaping',
+  'restoration',
+  'automotive',
+  'repair',
+  'financial',
+  'insurance',
+  'veterinary',
+  'digital',
+  'media',
+  'marketing',
+  'design',
+];
+
+export function buildCompetitorDiscoveryPrompt(profile: AuditBusinessProfile): string {
+  const geo = getGeo(profile);
+  const services = profile.services?.length ? profile.services.join(', ') : profile.niche;
+  return [
+    `Find real direct competitors for ${profile.brand} (${profile.website || 'website unknown'}).`,
+    `Business category: ${profile.niche}.`,
+    `Primary market: ${geo}.`,
+    `Services to match: ${services}.`,
+    '',
+    'Return ONLY a JSON array. Each item must use this shape:',
+    '[{"name":"Actual Business Name","website":"https://example.com","city":"Madison","reason":"Why this is a direct competitor"}]',
+    '',
+    'Rules:',
+    '- Include only named businesses that appear to sell the same or very similar service in the same local market.',
+    '- Do not include advertising channels, service categories, search terms, directories, marketplaces, or tactics.',
+    '- Reject generic entries such as Google Ads, Facebook Ads, Website Design, SEO, Pool Builders, Spa Builders, or Top-Rated Contractors.',
+    '- Prefer businesses with their own website or Google Business Profile.',
+    '- Do not include the audited brand or its aliases.',
+    '- Return 6 to 10 candidates when possible.',
+  ].join('\n');
+}
+
+export function parseCompetitorDiscoveryResponse(responseText: string, profile: AuditBusinessProfile): string[] {
+  const names: string[] = [];
+  const jsonText = extractJsonArrayText(responseText);
+
+  if (jsonText) {
+    try {
+      const parsed = JSON.parse(jsonText);
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          if (typeof item === 'string') names.push(item);
+          if (item && typeof item === 'object') {
+            const candidate = item as Record<string, unknown>;
+            const name = candidate.name || candidate.business || candidate.company || candidate.title;
+            if (typeof name === 'string') names.push(name);
+          }
+        }
+      }
+    } catch {
+      // Fall back to line parsing below.
+    }
+  }
+
+  if (!names.length) {
+    for (const line of responseText.split('\n')) {
+      const cleaned = line
+        .replace(/^[\s*+\-\d.)]+/, '')
+        .replace(/\s+-\s+.*$/, '')
+        .replace(/\s+\|\s+.*$/, '')
+        .trim();
+      if (cleaned) names.push(cleaned);
+    }
+  }
+
+  return sanitizeCompetitorSuggestions(names, profile);
+}
+
+function extractJsonArrayText(value: string): string {
+  const fenced = value.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]?.trim();
+  const source = fenced || value;
+  const start = source.indexOf('[');
+  const end = source.lastIndexOf(']');
+  return start >= 0 && end > start ? source.slice(start, end + 1) : '';
+}
+
+export function sanitizeCompetitorSuggestions(candidates: string[], profile: AuditBusinessProfile): string[] {
+  const seen = new Set<string>();
+  const rejected = new Set(
+    [
+      profile.brand,
+      ...(profile.aliases || []),
+      profile.city,
+      profile.state,
+      'Google',
+      'Facebook',
+      'Meta',
+      'Yelp',
+      'Angi',
+      'HomeAdvisor',
+      'Thumbtack',
+    ]
+      .filter(Boolean)
+      .map(value => value.toLowerCase())
+  );
+
+  return candidates
+    .map(cleanCompetitorName)
+    .filter(name => {
+      const key = name.toLowerCase();
+      if (!name || seen.has(key) || rejected.has(key)) return false;
+      if (profile.brand && key.includes(profile.brand.toLowerCase())) return false;
+      if (!isLikelyActualCompetitorName(name, profile)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 10);
+}
+
+function cleanCompetitorName(value: string): string {
+  return value
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .replace(/\([^)]*(?:ad|keyword|category|service|search term|not a business)[^)]*\)/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isLikelyActualCompetitorName(name: string, profile: AuditBusinessProfile): boolean {
+  const lower = name.toLowerCase().trim();
+  if (name.length < 4 || name.length > 80) return false;
+  if (/https?:\/\//i.test(name) || /[@{}[\]]/.test(name)) return false;
+  if (/^(best|top|recommended|trusted|local|nearby)\b/i.test(name)) return false;
+  if (GENERIC_COMPETITOR_PHRASES.some(phrase => lower === phrase || lower === `${profile.city.toLowerCase()} ${phrase}`)) return false;
+  if (/\b(near me|search term|keyword|category|channel|campaign|ads?|services? only)\b/i.test(name)) return false;
+  if (/\b(leaders|pros|companies|contractors|providers|options)\b/i.test(name)) return false;
+
+  const words = lower.split(/\s+/).filter(Boolean);
+  const genericWordCount = words.filter(word => GENERIC_COMPETITOR_PHRASES.includes(word)).length;
+  const hasBusinessHint = BUSINESS_NAME_HINTS.some(hint => lower.includes(hint));
+  const hasBrandShape = /\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,4}\b/.test(name) || /\b[A-Z]{2,}\b/.test(name);
+
+  if (words.length <= 2 && genericWordCount === words.length && !hasBusinessHint) return false;
+  if (!hasBrandShape && !hasBusinessHint) return false;
+
+  return true;
 }
 
 export function extractCompetitorCandidatesFromRuns(runs: VisibilityAuditRun[], profile: AuditBusinessProfile): string[] {
   const excluded = new Set(
     [
       profile.brand,
-      ...profile.aliases,
+      ...(profile.aliases || []),
       profile.city,
       profile.state,
       'ChatGPT',
@@ -1874,10 +2389,13 @@ export function extractCompetitorCandidatesFromRuns(runs: VisibilityAuditRun[], 
     }
   }
 
-  return Array.from(counts.entries())
+  return sanitizeCompetitorSuggestions(
+    Array.from(counts.entries())
     .sort((a, b) => b[1] - a[1])
     .map(([name]) => name)
-    .slice(0, 8);
+      .slice(0, 12),
+    profile
+  ).slice(0, 8);
 }
 
 export function buildRunEvidence(run: VisibilityAuditRun): VisibilityRunEvidence {
@@ -1904,6 +2422,9 @@ const ACTION_PACKAGE_BY_ROOT_CAUSE: Record<string, Omit<AuditActionPlanItem, 'id
   LOW_REVIEW_VELOCITY: { priority: 'medium', serviceLine: 'Review growth system', estimatedHours: 3, estimatedPrice: 450, owner: 'client', dueInDays: 21 },
   OUTDATED_INFO: { priority: 'urgent', serviceLine: 'Business data cleanup', estimatedHours: 3, estimatedPrice: 400, owner: 'agency', dueInDays: 7 },
   COMPETITOR_DOMINANCE: { priority: 'urgent', serviceLine: 'Competitor displacement content', estimatedHours: 12, estimatedPrice: 2200, owner: 'agency', dueInDays: 30 },
+  THIN_CONTENT: { priority: 'high', serviceLine: 'Service-page content expansion', estimatedHours: 8, estimatedPrice: 1400, owner: 'agency', dueInDays: 30 },
+  WEBSITE_PERFORMANCE: { priority: 'high', serviceLine: 'Technical SEO cleanup', estimatedHours: 6, estimatedPrice: 950, owner: 'agency', dueInDays: 21 },
+  AI_BOT_BLOCKED: { priority: 'urgent', serviceLine: 'Crawl access and robots.txt review', estimatedHours: 2, estimatedPrice: 350, owner: 'agency', dueInDays: 7 },
 };
 
 export function buildActionPlan(findings: RootCauseFinding[]): AuditActionPlanItem[] {
@@ -1945,6 +2466,7 @@ export function buildReportDraft(
   const platformLines = summarizeRunsByPlatform(scoredRuns);
   const citationDomains = summarizeCitationDomains(scoredRuns);
   const evidenceHighlights = summarizeEvidenceHighlights(scoredRuns);
+  const seoAuditLines = summarizeSeoAuditSignals(profile);
   const qaFlags = [
     metrics.highImpactMissCount ? `${metrics.highImpactMissCount} high-impact miss${metrics.highImpactMissCount === 1 ? '' : 'es'}` : '',
     metrics.needsReviewCount ? `${metrics.needsReviewCount} run${metrics.needsReviewCount === 1 ? '' : 's'} need review` : '',
@@ -1991,21 +2513,33 @@ export function buildReportDraft(
       bullets: cleanCaptureProtocol,
     },
     {
-      title: '4. Platform Findings',
+      title: '4. SEO/AEO/GEO Audit Context',
+      body: seoAuditLines.length
+        ? 'The LLM Visibility Audit is interpreted alongside the site-level SEO/AEO/GEO audit context. These signals explain why answer engines may or may not trust the business as a source.'
+        : 'No SEO audit context has been attached yet. Add the SEO audit health score, schema count, thin-page count, review gap, crawl blockers, and local page coverage to make this report more diagnostic.',
+      bullets: seoAuditLines.length
+        ? seoAuditLines
+        : [
+            'Run the full SEO/AEO/GEO audit in this application, then paste the key metrics into the LLM audit intake.',
+            'At minimum, capture technical health score, pages analyzed, schema coverage, missing metadata, thin content, GBP strength, review count, competitor review gap, and crawler blocking.',
+          ],
+    },
+    {
+      title: '5. Platform Findings',
       body: platformLines.length
         ? 'Platform-level performance shows whether the business is visible consistently or only in one answer engine.'
         : 'No captured platform data is available yet.',
       bullets: platformLines,
     },
     {
-      title: '5. Question Category Findings',
+      title: '6. Question Category Findings',
       body: categoryLines.length
         ? 'The workbook categories reveal where the brand wins or disappears across the buyer journey.'
         : 'Run the category-balanced question set to populate category findings.',
       bullets: categoryLines,
     },
     {
-      title: '6. Winning And Missing Buyer Questions',
+      title: '7. Winning And Missing Buyer Questions',
       body: 'These prompts are the easiest way to show a client where AI is helping them and where it is sending demand elsewhere.',
       bullets: [
         ...winningQueries.map(item => `Win: ${item.query.code} (${QUESTION_CATEGORY_META[item.query.category].label}) - ${formatPercent(item.mentionRate)} mention rate - ${item.query.prompt}`),
@@ -2013,14 +2547,14 @@ export function buildReportDraft(
       ].slice(0, 12),
     },
     {
-      title: '7. Competitor Story',
+      title: '8. Competitor Story',
       body: strongestCompetitor
         ? `${strongestCompetitor} is the strongest competitor signal in this evidence set. Competitors were mentioned in ${formatPercent(metrics.competitorDominanceRatio)} of total brand/competitor mention signals.`
         : 'No single configured competitor dominated the returned answers, but unconfigured competitors may still appear in raw responses.',
       bullets: competitorCounts.slice(0, 8).map(item => `${item.name}: ${item.count} mention${item.count === 1 ? '' : 's'}`),
     },
     {
-      title: '8. Citations And Evidence',
+      title: '9. Citations And Evidence',
       body: citationDomains.length
         ? 'Citation domains show which sources AI tools leaned on when composing answers. Brand-owned and authoritative third-party citations are especially important.'
         : 'No brand-supporting citations were detected. That usually points to weak source eligibility, thin entity signals, or insufficient third-party validation.',
@@ -2030,21 +2564,21 @@ export function buildReportDraft(
       ].slice(0, 14),
     },
     {
-      title: '9. Likely Root Causes',
+      title: '10. Likely Root Causes',
       body: findings.length
         ? 'These are heuristic root causes inferred from the scored responses and evidence patterns.'
         : 'No root-cause findings are available yet. Capture and score more answers to generate a fix plan.',
       bullets: findings.slice(0, 8).map(finding => `${finding.code}: ${finding.title} - ${finding.description}`),
     },
     {
-      title: '10. Precise Next Steps',
+      title: '11. Precise Next Steps',
       body: reportActions.length
         ? 'Prioritize fixes that improve entity confidence, local proof, citation eligibility, and answer-ready service content. Re-audit after implementation so the client can see before/after movement.'
         : 'Run the full capture and approve scoring before finalizing paid fixes.',
       bullets: reportActions.map(action => `${action.priority.toUpperCase()}: ${action.serviceLine} - ${action.recommendedAction}. Owner: ${action.owner}. Estimate: ${action.estimatedHours} hours / $${action.estimatedPrice.toLocaleString()}. Due: ${action.dueInDays} days.`),
     },
     {
-      title: '11. 30/60/90-Day Fix Roadmap',
+      title: '12. 30/60/90-Day Fix Roadmap',
       body: 'Use this as the client-facing implementation cadence after the audit.',
       bullets: [
         'Days 0-30: Fix schema, GBP/category data, inconsistent business facts, core citations, and the top missing service/category pages.',
@@ -2053,7 +2587,7 @@ export function buildReportDraft(
       ],
     },
     {
-      title: '12. Caveats',
+      title: '13. Caveats',
       body: 'AI answers are point-in-time evidence, not a guaranteed ranking report.',
       bullets: [
         DEFAULT_AUDIT_CAVEAT,
@@ -2062,7 +2596,7 @@ export function buildReportDraft(
       ],
     },
     {
-      title: '13. Client Email Draft',
+      title: '14. Client Email Draft',
       body: 'Use this as the follow-up message after the report is reviewed.',
       bullets: [],
     },
@@ -2101,7 +2635,7 @@ export function buildReportDraft(
       'API captures and consumer web UI captures can differ; manual Google AI Overview evidence should be preserved for client-facing claims.',
       'Recommendations are based on captured answer behavior and visible evidence, not inside knowledge of any model ranking system.',
     ],
-    sections: sections.map(section => section.title === '13. Client Email Draft' ? { ...section, body: clientEmail } : section),
+    sections: sections.map(section => section.title === '14. Client Email Draft' ? { ...section, body: clientEmail } : section),
   };
 }
 
@@ -2160,6 +2694,34 @@ function summarizeEvidenceHighlights(runs: VisibilityAuditRun[]): string[] {
       const excerpt = text.length > 180 ? `${text.slice(0, 180)}...` : text;
       return `${PROVIDER_LABELS[run.provider]} / ${run.query.code}: ${excerpt}`;
     });
+}
+
+function summarizeSeoAuditSignals(profile: AuditBusinessProfile): string[] {
+  const seo = profile.seoAuditSignals;
+  const lines: string[] = [];
+
+  lines.push(`Schema signal: ${profile.schemaStatus || 'unknown'}.`);
+  lines.push(`Google Business Profile signal: ${profile.gbpSignal || 'unknown'}.`);
+  lines.push(`Review signal: ${profile.reviewSignal || 'unknown'}.`);
+
+  if (!seo) return lines.filter(line => !line.endsWith('unknown.'));
+
+  if (typeof seo.technicalHealthScore === 'number') lines.push(`Technical health score: ${seo.technicalHealthScore}/100.`);
+  if (typeof seo.pagesAnalyzed === 'number') lines.push(`Pages analyzed in SEO audit: ${seo.pagesAnalyzed}.`);
+  if (typeof seo.pagesWithSchema === 'number') lines.push(`Pages with detected schema: ${seo.pagesWithSchema}.`);
+  if (typeof seo.thinContentPages === 'number') lines.push(`Thin content pages flagged: ${seo.thinContentPages}.`);
+  if (typeof seo.missingMetaCount === 'number') lines.push(`Pages/items missing important metadata: ${seo.missingMetaCount}.`);
+  if (typeof seo.localLandingPages === 'number') lines.push(`Local landing/service-area pages: ${seo.localLandingPages}.`);
+  if (typeof seo.reviewCount === 'number') lines.push(`Review count: ${seo.reviewCount}.`);
+  if (typeof seo.averageRating === 'number') lines.push(`Average rating: ${seo.averageRating}.`);
+  if (typeof seo.competitorReviewGap === 'number') lines.push(`Competitor review gap: ${seo.competitorReviewGap} reviews.`);
+  if (seo.aiBotsBlocked) lines.push('Crawler access: AI/search bots may be blocked in robots.txt.');
+  if (seo.lastAuditUrl) lines.push(`Full SEO audit reference: ${seo.lastAuditUrl}.`);
+  for (const note of seo.notes || []) {
+    if (note.trim()) lines.push(`SEO audit note: ${note.trim()}`);
+  }
+
+  return lines;
 }
 
 export function topCompetitorMentions(runs: VisibilityAuditRun[]): Array<{ name: string; count: number }> {
