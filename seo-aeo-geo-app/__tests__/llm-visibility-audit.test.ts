@@ -142,6 +142,8 @@ describe('LLM Visibility Audit', () => {
 
     expect(actions[0]?.estimatedPrice).toBeGreaterThan(0);
     expect(report.clientEmail).toContain('Subject:');
+    expect(report.sections.map(section => section.title)).toContain('3. Clean Query Methodology');
+    expect(report.sections.map(section => section.title)).toContain('10. Precise Next Steps');
     expect(share.callToAction).toContain('15-minute');
   });
 

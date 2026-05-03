@@ -63,6 +63,7 @@ import {
   type AuditProfileId,
   type AuditQaStatus,
   type AuditReportDraft,
+  type AuditReportSection,
   type Citation,
   type RenderedVisibilityQuery,
   type ShareableLeadScorecard,
@@ -146,6 +147,10 @@ function getQuestionCategoryMeta(category: VisibilityQueryCategory | string) {
 
 function downloadTextFile(filename: string, content: string, type: string): void {
   const blob = new Blob([content], { type });
+  downloadBlob(filename, blob);
+}
+
+function downloadBlob(filename: string, blob: Blob): void {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -154,6 +159,10 @@ function downloadTextFile(filename: string, content: string, type: string): void
   anchor.click();
   anchor.remove();
   URL.revokeObjectURL(url);
+}
+
+function exportFilename(profile: AuditBusinessProfile, extension: string): string {
+  return `${profile.brand || 'llm-visibility-audit'}-report.${extension}`.replace(/\s+/g, '-').toLowerCase();
 }
 
 const LLMVisibilityAuditPage: React.FC = () => {
@@ -601,7 +610,7 @@ const LLMVisibilityAuditPage: React.FC = () => {
   const copyScorecard = async () => {
     const summary = [
       `${profile.brand} LLM Visibility Score: ${metrics.visibilityScore} (${metrics.grade})`,
-      `Workbook score: ${metrics.workbookAverage}/5`,
+      `0-5 audit average: ${metrics.workbookAverage}/5`,
       `Appeared in ${metrics.brandMentionCount} of ${metrics.capturedCount} captured AI recommendation moments.`,
       `Mention rate: ${formatPercent(metrics.mentionRate)}`,
       `Citation rate: ${formatPercent(metrics.citationRate)}`,
@@ -636,6 +645,67 @@ const LLMVisibilityAuditPage: React.FC = () => {
     );
   };
 
+  const exportReportDocx = async () => {
+    const { Document, HeadingLevel, Packer, Paragraph, TextRun } = await import('docx');
+    const children = [
+      new Paragraph({ text: `${profile.brand} AI Visibility Audit`, heading: HeadingLevel.TITLE }),
+      new Paragraph({ text: `${profile.niche} in ${[profile.city, profile.state].filter(Boolean).join(', ')}`, spacing: { after: 240 } }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: `Generated: ${new Date().toLocaleDateString()}`, bold: true }),
+        ],
+        spacing: { after: 240 },
+      }),
+      ...reportDraft.sections.flatMap(section => [
+        new Paragraph({ text: section.title, heading: HeadingLevel.HEADING_1, spacing: { before: 240, after: 120 } }),
+        new Paragraph({ text: section.body, spacing: { after: 120 } }),
+        ...(section.bullets || []).map(bullet => new Paragraph({ text: bullet, bullet: { level: 0 }, spacing: { after: 80 } })),
+      ]),
+    ];
+    const document = new Document({ sections: [{ children }] });
+    const blob = await Packer.toBlob(document);
+    downloadBlob(exportFilename(profile, 'docx'), blob);
+    addToast('DOCX report downloaded', 'success');
+  };
+
+  const exportReportPdf = async () => {
+    const { jsPDF } = await import('jspdf');
+    const pdf = new jsPDF({ unit: 'pt', format: 'letter' });
+    const margin = 48;
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const textWidth = pageWidth - margin * 2;
+    let y = margin;
+
+    const addLines = (text: string, fontSize = 10, bold = false) => {
+      pdf.setFont('helvetica', bold ? 'bold' : 'normal');
+      pdf.setFontSize(fontSize);
+      const lines = pdf.splitTextToSize(text || '', textWidth);
+      for (const line of lines) {
+        if (y > pageHeight - margin) {
+          pdf.addPage();
+          y = margin;
+        }
+        pdf.text(line, margin, y);
+        y += fontSize + 5;
+      }
+      y += 4;
+    };
+
+    addLines(`${profile.brand} AI Visibility Audit`, 18, true);
+    addLines(`${profile.niche} in ${[profile.city, profile.state].filter(Boolean).join(', ')} | Generated ${new Date().toLocaleDateString()}`, 10);
+    for (const section of reportDraft.sections) {
+      addLines(section.title, 13, true);
+      addLines(section.body, 10);
+      for (const bullet of section.bullets || []) {
+        addLines(`- ${bullet}`, 9);
+      }
+      y += 8;
+    }
+    pdf.save(exportFilename(profile, 'pdf'));
+    addToast('PDF report downloaded', 'success');
+  };
+
   if (sharedScorecard) {
     return (
       <ShareableScorecardView
@@ -660,7 +730,7 @@ const LLMVisibilityAuditPage: React.FC = () => {
               <h1 className="text-3xl font-bold tracking-tight">AI answer visibility for local businesses</h1>
               <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
                 A 30-minute operator workflow for any local website: instant intake, buyer-intent prompts, evidence capture,
-                workbook scoring, report writing, action plan pricing, and shareable lead scorecards.
+                0-5 audit scoring, report writing, action plan pricing, and shareable lead scorecards.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -989,7 +1059,7 @@ const LLMVisibilityAuditPage: React.FC = () => {
           {metrics.capturedCount > 0 && (
             <section className="grid grid-cols-2 gap-4 lg:grid-cols-6">
               <MetricCard label="Visibility" value={`${metrics.visibilityScore}`} helper={`Grade ${metrics.grade}`} icon={<BarChart3 className="h-4 w-4" />} />
-              <MetricCard label="Workbook" value={`${metrics.workbookAverage}/5`} helper={`${metrics.dominantCount} dominant answers`} icon={<FileText className="h-4 w-4" />} />
+              <MetricCard label="0-5 Audit Avg" value={`${metrics.workbookAverage}/5`} helper={`${metrics.dominantCount} dominant cited answers`} icon={<FileText className="h-4 w-4" />} />
               <MetricCard label="Mentions" value={formatPercent(metrics.mentionRate)} helper={`${metrics.brandMentionCount}/${metrics.capturedCount} captured`} icon={<Target className="h-4 w-4" />} />
               <MetricCard label="Citations" value={formatPercent(metrics.citationRate)} helper={`${metrics.citationCount} brand citations`} icon={<FileText className="h-4 w-4" />} />
               <MetricCard label="Competitors" value={formatPercent(metrics.competitorDominanceRatio)} helper="Dominance ratio" icon={<Zap className="h-4 w-4" />} />
@@ -1029,29 +1099,36 @@ const LLMVisibilityAuditPage: React.FC = () => {
           <section className="rounded-xl border bg-card">
             <div className="flex flex-col gap-3 border-b p-5 md:flex-row md:items-center md:justify-between">
               <div>
-                <h2 className="text-lg font-semibold">Report Writer</h2>
+                <h2 className="text-lg font-semibold">Client Report</h2>
                 <p className="text-sm text-muted-foreground">
-                  Drafts the client narrative, competitor story, fix priorities, caveats, and sales follow-up from the approved evidence.
+                  Evidence-based narrative, score explanation, platform/category findings, precise next steps, caveats, and client follow-up.
                 </p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigator.clipboard.writeText(reportToClipboardText(reportDraft)).then(() => addToast('Report draft copied', 'success'))}
-                disabled={!metrics.capturedCount}
-                className="gap-2"
-              >
-                <Copy className="h-4 w-4" />
-                Copy Report
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigator.clipboard.writeText(reportToClipboardText(reportDraft)).then(() => addToast('Report draft copied', 'success'))}
+                  disabled={!metrics.capturedCount}
+                  className="gap-2"
+                >
+                  <Copy className="h-4 w-4" />
+                  Copy
+                </Button>
+                <Button variant="outline" size="sm" onClick={exportReportDocx} disabled={!metrics.capturedCount} className="gap-2">
+                  <Download className="h-4 w-4" />
+                  DOCX
+                </Button>
+                <Button variant="outline" size="sm" onClick={exportReportPdf} disabled={!metrics.capturedCount} className="gap-2">
+                  <Download className="h-4 w-4" />
+                  PDF
+                </Button>
+              </div>
             </div>
-            <div className="grid gap-4 p-5 lg:grid-cols-2">
-              <ReportBlock title="Executive Summary" body={reportDraft.executiveSummary} icon={<FileText className="h-4 w-4" />} />
-              <ReportBlock title="What AI Says" body={reportDraft.aiVisibilityNarrative} icon={<Search className="h-4 w-4" />} />
-              <ReportBlock title="Who Beats You" body={reportDraft.competitorStory} icon={<Users className="h-4 w-4" />} />
-              <ReportBlock title="Why It Happens" body={reportDraft.whyItHappens} icon={<AlertCircle className="h-4 w-4" />} />
-              <ReportBlock title="What To Fix Next" body={reportDraft.whatToFixNext} icon={<PenLine className="h-4 w-4" />} />
-              <ReportBlock title="Client Email" body={reportDraft.clientEmail} icon={<Mail className="h-4 w-4" />} />
+            <div className="space-y-4 p-5">
+              {reportDraft.sections.map(section => (
+                <ReportSectionBlock key={section.title} section={section} />
+              ))}
             </div>
           </section>
 
@@ -1299,6 +1376,14 @@ const LLMVisibilityAuditPage: React.FC = () => {
               </div>
             </div>
 
+            <div className="border-b bg-muted/20 p-5 text-sm text-muted-foreground">
+              <p>
+                <span className="font-semibold text-foreground">0-5 Audit Avg</span> is the simple workbook rubric:
+                5 = dominant cited recommendation, 4 = top mention with citation, 3 = mentioned, 2 = category answer with the brand absent,
+                1 = competitors appear instead, 0 = harmful or likely incorrect brand information.
+              </p>
+            </div>
+
             <div className="grid gap-5 p-5 lg:grid-cols-2">
               <div className="rounded-lg border bg-muted/20 p-4">
                 <h3 className="mb-3 font-semibold">Winning Queries</h3>
@@ -1339,7 +1424,7 @@ const LLMVisibilityAuditPage: React.FC = () => {
                     <ScoreRow label="Visibility" value={formatSignedNumber(reAuditDelta.visibilityScoreDelta)} />
                     <ScoreRow label="Mention rate" value={formatSignedPercent(reAuditDelta.mentionRateDelta)} />
                     <ScoreRow label="Citation rate" value={formatSignedPercent(reAuditDelta.citationRateDelta)} />
-                    <ScoreRow label="Workbook" value={formatSignedNumber(reAuditDelta.workbookAverageDelta)} />
+                    <ScoreRow label="0-5 audit avg" value={formatSignedNumber(reAuditDelta.workbookAverageDelta)} />
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">Save a baseline, then rerun later to show before/after lift.</p>
@@ -1599,14 +1684,20 @@ const WorkflowPill: React.FC<{ label: string; value: string; done: boolean }> = 
   </div>
 );
 
-const ReportBlock: React.FC<{ title: string; body: string; icon: React.ReactNode }> = ({ title, body, icon }) => (
-  <div className="rounded-lg border bg-muted/20 p-4">
-    <div className="mb-3 flex items-center gap-2">
-      <span className="text-primary">{icon}</span>
-      <h3 className="font-semibold">{title}</h3>
-    </div>
-    <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{body}</p>
-  </div>
+const ReportSectionBlock: React.FC<{ section: AuditReportSection }> = ({ section }) => (
+  <section className="rounded-lg border bg-muted/15 p-5">
+    <h3 className="text-base font-semibold">{section.title}</h3>
+    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{section.body}</p>
+    {section.bullets?.length ? (
+      <ul className="mt-3 space-y-2 text-sm">
+        {section.bullets.map((bullet, index) => (
+          <li key={`${section.title}-${index}`} className="rounded-md bg-background px-3 py-2 text-muted-foreground">
+            {bullet}
+          </li>
+        ))}
+      </ul>
+    ) : null}
+  </section>
 );
 
 const ActionPlanCard: React.FC<{ action: AuditActionPlanItem }> = ({ action }) => (
@@ -1630,28 +1721,14 @@ const ActionPlanCard: React.FC<{ action: AuditActionPlanItem }> = ({ action }) =
 );
 
 function reportToClipboardText(report: AuditReportDraft): string {
-  return [
-    'Executive Summary',
-    report.executiveSummary,
-    '',
-    'What AI Says',
-    report.aiVisibilityNarrative,
-    '',
-    'Who Beats You',
-    report.competitorStory,
-    '',
-    'Why It Happens',
-    report.whyItHappens,
-    '',
-    'What To Fix Next',
-    report.whatToFixNext,
-    '',
-    'Client Email',
-    report.clientEmail,
-    '',
-    'Caveats',
-    ...report.caveats.map(caveat => `- ${caveat}`),
-  ].join('\n');
+  return report.sections
+    .flatMap(section => [
+      section.title,
+      section.body,
+      ...(section.bullets || []).map(bullet => `- ${bullet}`),
+      '',
+    ])
+    .join('\n');
 }
 
 const QueryPerformanceList: React.FC<{
@@ -1793,7 +1870,7 @@ const RunEvidenceDetails: React.FC<{
             <p className="mb-2 font-semibold">Score</p>
             {run.score ? (
               <dl className="space-y-2">
-                <ScoreRow label="Workbook" value={`${run.score.workbookScore}/5`} />
+                <ScoreRow label="0-5 audit score" value={`${run.score.workbookScore}/5`} />
                 <ScoreRow label="Confidence" value={formatPercent(run.score.confidence)} />
                 <ScoreRow label="Mentioned" value={run.score.brandMentioned ? 'Yes' : 'No'} />
                 <ScoreRow label="Position" value={run.score.brandPosition || 'None'} />
