@@ -1,12 +1,76 @@
 export type VisibilityProviderId = 'chatgpt' | 'claude' | 'gemini' | 'perplexity';
 
 export type VisibilityQueryCategory =
-  | 'brand'
-  | 'comparison'
-  | 'competitor'
-  | 'solution'
+  | 'brand_health'
+  | 'competitors'
+  | 'category_geo'
+  | 'service'
+  | 'problem_solution'
+  | 'cost'
   | 'decision'
-  | 'local';
+  | 'local_proof';
+
+export interface VisibilityQuestionCategoryMeta {
+  label: string;
+  workbookBucket: string;
+  description: string;
+  order: number;
+}
+
+export const QUESTION_CATEGORY_META: Record<VisibilityQueryCategory, VisibilityQuestionCategoryMeta> = {
+  brand_health: {
+    label: 'Brand Health',
+    workbookBucket: 'Brand',
+    description: 'Brand reputation, reviews, complaints, trust, proof points, and entity knowledge.',
+    order: 1,
+  },
+  competitors: {
+    label: 'Competitors',
+    workbookBucket: 'Comparative',
+    description: 'Head-to-head prompts and open competitor shortlists where the client may be displaced.',
+    order: 2,
+  },
+  category_geo: {
+    label: 'Category + Geo',
+    workbookBucket: 'Category+Geo',
+    description: 'Best-in-market, suburb, near-me, and service-area discovery questions.',
+    order: 3,
+  },
+  service: {
+    label: 'Service',
+    workbookBucket: 'Service',
+    description: 'Specific service-line and high-value job prompts tied to revenue opportunities.',
+    order: 4,
+  },
+  problem_solution: {
+    label: 'Problem / Solutions',
+    workbookBucket: 'Problem',
+    description: 'Educational buyer questions where AI may recommend solutions and vendors.',
+    order: 5,
+  },
+  cost: {
+    label: 'Cost',
+    workbookBucket: 'Cost',
+    description: 'Price, financing, estimate, and value questions that often precede a sales call.',
+    order: 6,
+  },
+  decision: {
+    label: 'Decision',
+    workbookBucket: 'Decision',
+    description: 'Bottom-funnel validation prompts about whether to choose the business.',
+    order: 7,
+  },
+  local_proof: {
+    label: 'Local Proof',
+    workbookBucket: 'Local',
+    description: 'Reviews, licenses, authority, local proof, and near-me reputation prompts.',
+    order: 8,
+  },
+};
+
+export const QUESTION_CATEGORY_ORDER = Object.entries(QUESTION_CATEGORY_META)
+  .sort(([, left], [, right]) => left.order - right.order)
+  .map(([category]) => category as VisibilityQueryCategory);
 
 export type AuditRunStatus = 'pending' | 'running' | 'captured' | 'error' | 'manual';
 export type AuditQaStatus = 'unreviewed' | 'needs_review' | 'approved' | 'excluded' | 'high_impact_miss';
@@ -293,114 +357,73 @@ export const MADISON_SERVICE_AREAS = [
 ];
 
 export const MADISON_LOCAL_QUERY_TEMPLATES: VisibilityQueryTemplate[] = [
-  packQuestion('madison-local', 'MAD01', 'local', 'Best {niche} in Madison, WI - who should I call?', 'Madison core buyer query'),
-  packQuestion('madison-local', 'MAD02', 'local', 'Recommend a reputable {niche} near Middleton, WI.', 'Middleton service-area discovery'),
-  packQuestion('madison-local', 'MAD03', 'local', 'Best {niche} near Sun Prairie, WI with strong reviews.', 'Sun Prairie review-led query'),
-  packQuestion('madison-local', 'MAD04', 'local', 'Top-rated {niche} serving Fitchburg, WI.', 'Fitchburg service-area query'),
-  packQuestion('madison-local', 'MAD05', 'local', 'Who is the best {niche} for homeowners in Verona, WI?', 'Verona homeowner query'),
-  packQuestion('madison-local', 'MAD06', 'local', 'Best {niche} near Waunakee, WI.', 'Waunakee local discovery'),
-  packQuestion('madison-local', 'MAD07', 'local', 'Recommend a trusted {niche} around Monona, WI.', 'Monona trust query'),
-  packQuestion('madison-local', 'MAD08', 'local', 'Best {niche} near McFarland, WI.', 'McFarland local query'),
-  packQuestion('madison-local', 'MAD09', 'local', 'Top {niche} serving Oregon, WI.', 'Oregon service-area query'),
-  packQuestion('madison-local', 'MAD10', 'local', 'Best {niche} near DeForest, WI.', 'DeForest local query'),
-  packQuestion('madison-local', 'MAD11', 'local', 'Recommend a {niche} serving Cottage Grove, WI.', 'Cottage Grove query'),
-  packQuestion('madison-local', 'MAD12', 'local', 'Best {niche} around Stoughton, WI.', 'Stoughton local query'),
-  packQuestion('madison-local', 'MAD13', 'solution', 'I need a {niche} in Dane County. Who should I hire?', 'Dane County broader market query'),
-  packQuestion('madison-local', 'MAD14', 'comparison', 'Best {niche} companies in the Madison area - give a ranked list.', 'Madison ranked-list prompt'),
+  packQuestion('madison-local', 'MAD01', 'category_geo', 'Best {niche} in Madison, WI - who should I call?', 'Madison core buyer query'),
+  packQuestion('madison-local', 'MAD02', 'category_geo', 'Recommend a reputable {niche} near Middleton, WI.', 'Middleton service-area discovery'),
+  packQuestion('madison-local', 'MAD03', 'local_proof', 'Best {niche} near Sun Prairie, WI with strong reviews.', 'Sun Prairie review-led query'),
+  packQuestion('madison-local', 'MAD04', 'category_geo', 'Top-rated {niche} serving Fitchburg, WI.', 'Fitchburg service-area query'),
+  packQuestion('madison-local', 'MAD05', 'category_geo', 'Who is the best {niche} for homeowners in Verona, WI?', 'Verona homeowner query'),
+  packQuestion('madison-local', 'MAD06', 'category_geo', 'Best {niche} near Waunakee, WI.', 'Waunakee local discovery'),
+  packQuestion('madison-local', 'MAD07', 'local_proof', 'Recommend a trusted {niche} around Monona, WI.', 'Monona trust query'),
+  packQuestion('madison-local', 'MAD08', 'category_geo', 'Best {niche} near McFarland, WI.', 'McFarland local query'),
+  packQuestion('madison-local', 'MAD09', 'category_geo', 'Top {niche} serving Oregon, WI.', 'Oregon service-area query'),
+  packQuestion('madison-local', 'MAD10', 'category_geo', 'Best {niche} near DeForest, WI.', 'DeForest local query'),
+  packQuestion('madison-local', 'MAD11', 'category_geo', 'Recommend a {niche} serving Cottage Grove, WI.', 'Cottage Grove query'),
+  packQuestion('madison-local', 'MAD12', 'category_geo', 'Best {niche} around Stoughton, WI.', 'Stoughton local query'),
+  packQuestion('madison-local', 'MAD13', 'category_geo', 'I need a {niche} in Dane County. Who should I hire?', 'Dane County broader market query'),
+  packQuestion('madison-local', 'MAD14', 'competitors', 'Best {niche} companies in the Madison area - give a ranked list.', 'Madison ranked-list prompt'),
   packQuestion('madison-local', 'MAD15', 'decision', 'Is {brand} one of the best {niche} options in the Madison area?', 'Brand decision in Madison market'),
 ];
 
 export const CORE_QUERY_TEMPLATES: VisibilityQueryTemplate[] = [
-  {
-    code: 'B01',
-    category: 'brand',
-    template: 'Tell me about {brand}. What do they do and how are they regarded?',
-    description: 'Baseline brand knowledge and reputation',
-  },
-  {
-    code: 'B02',
-    category: 'brand',
-    template: 'Is {brand} reliable? What do customers say about them?',
-    description: 'Trust and review signal',
-  },
-  {
-    code: 'B03',
-    category: 'brand',
-    template: 'What are common complaints about {brand}?',
-    description: 'Negative sentiment and reputation risk',
-  },
-  {
-    code: 'C01',
-    category: 'comparison',
-    template: '{brand} vs {competitor} - which is better?',
-    description: 'Head-to-head recommendation',
-  },
-  {
-    code: 'C02',
-    category: 'comparison',
-    template: 'Compare {brand} and {competitor} for {niche} in {geo}.',
-    description: 'Geo and niche comparison',
-  },
-  {
-    code: 'C03',
-    category: 'comparison',
-    template: 'Best {niche} companies in {geo} - give a ranked list.',
-    description: 'Ranked local list visibility',
-  },
-  {
-    code: 'CP01',
-    category: 'competitor',
-    template: 'Who are the main competitors of {competitor} in {geo}?',
-    description: 'Competitor graph and category adjacency',
-  },
-  {
-    code: 'CP02',
-    category: 'competitor',
-    template: 'Alternatives to {competitor} for {niche}.',
-    description: 'Alternative provider discovery',
-  },
-  {
-    code: 'S01',
-    category: 'solution',
-    template: 'I need a {niche} in {geo}. Who should I hire?',
-    description: 'High-intent local hire query',
-  },
-  {
-    code: 'S02',
-    category: 'solution',
-    template: 'Recommend a reputable {niche} near {geo}.',
-    description: 'Short recommendation prompt',
-  },
-  {
-    code: 'S03',
-    category: 'solution',
-    template: 'What should I look for when choosing a {niche}? Recommend specific companies in {geo}.',
-    description: 'Advice plus named recommendations',
-  },
-  {
-    code: 'S04',
-    category: 'solution',
-    template: 'Top {niche} for {job_to_be_done} in {geo}.',
-    description: 'Job-to-be-done discovery',
-  },
-  {
-    code: 'D01',
-    category: 'decision',
-    template: 'Is it worth hiring {brand} for {niche}?',
-    description: 'Bottom-funnel decision validation',
-  },
-  {
-    code: 'D02',
-    category: 'decision',
-    template: 'Should I choose {brand} or {competitor}?',
-    description: 'Final choice prompt',
-  },
-  {
-    code: 'L01',
-    category: 'local',
-    template: "Best {niche} near me - I'm in {geo}.",
-    description: 'Near-me local pack visibility',
-  },
+  { code: 'B01', category: 'brand_health', template: 'Is {brand} a good {niche}?', description: 'Direct reputation baseline' },
+  { code: 'B02', category: 'brand_health', template: '{brand} reviews in {geo}. What do customers say?', description: 'Review aggregation and local reputation' },
+  { code: 'B03', category: 'brand_health', template: '{brand} complaints or problems customers mention.', description: 'Negative-framing defense' },
+  { code: 'B04', category: 'brand_health', template: 'Is {brand} reputable and trustworthy?', description: 'Trust signal test' },
+  { code: 'B05', category: 'brand_health', template: 'How long has {brand} been in business and what are they known for?', description: 'History and entity confidence' },
+  { code: 'B06', category: 'brand_health', template: '{brand} awards, certifications, reviews, and proof points.', description: 'Authority proof recall' },
+  { code: 'B07', category: 'brand_health', template: 'What services does {brand} offer?', description: 'Service understanding and entity completeness' },
+  { code: 'B08', category: 'brand_health', template: 'What makes {brand} different from other {niche} options?', description: 'Differentiator recall' },
+  { code: 'C01', category: 'category_geo', template: 'Best {niche} in {geo}.', description: 'Core local shortlist query' },
+  { code: 'C02', category: 'category_geo', template: 'Top {niche} companies in {geo}.', description: 'Variant local shortlist phrasing' },
+  { code: 'C03', category: 'category_geo', template: 'Best custom or high-end {niche} in {geo}.', description: 'Premium positioning test' },
+  { code: 'C04', category: 'category_geo', template: 'Top-rated {niche} serving {geo}.', description: 'Review-led category search' },
+  { code: 'C05', category: 'category_geo', template: 'Best family-owned or locally owned {niche} in {geo}.', description: 'Local ownership differentiator' },
+  { code: 'C06', category: 'category_geo', template: 'Award-winning {niche} in {geo}.', description: 'Award and authority positioning' },
+  { code: 'C07', category: 'category_geo', template: 'Licensed and insured {niche} near {geo}.', description: 'Compliance and trust filter' },
+  { code: 'C08', category: 'category_geo', template: 'Best {niche} near me - I am in {geo}.', description: 'Near-me local intent' },
+  { code: 'C09', category: 'category_geo', template: 'Recommended {niche} for homeowners in {geo}.', description: 'Residential buyer segment' },
+  { code: 'C10', category: 'category_geo', template: 'Best {niche} for small businesses in {geo}.', description: 'Commercial buyer segment' },
+  { code: 'C11', category: 'category_geo', template: 'Which {niche} in {geo} has the strongest reviews and online reputation?', description: 'Review-led shortlist' },
+  { code: 'CP01', category: 'competitors', template: '{brand} vs {competitor} - which is better?', description: 'Head-to-head recommendation' },
+  { code: 'CP02', category: 'competitors', template: 'Compare {brand} and {competitor} for {niche} in {geo}.', description: 'Geo and niche comparison' },
+  { code: 'CP03', category: 'competitors', template: '{competitor} vs {brand} reviews and reputation.', description: 'Review-framed head-to-head' },
+  { code: 'CP04', category: 'competitors', template: 'Alternatives to {competitor} for {niche} in {geo}.', description: 'Alternative provider discovery' },
+  { code: 'CP05', category: 'competitors', template: 'Best {niche} companies in {geo} compared side by side.', description: 'Open comparison list query' },
+  { code: 'CP06', category: 'competitors', template: 'Who are the main competitors for {brand} in {geo}?', description: 'Competitor graph and market adjacency' },
+  { code: 'S01', category: 'service', template: 'Best {niche} for {job_to_be_done} in {geo}.', description: 'Job-to-be-done discovery' },
+  { code: 'S02', category: 'service', template: 'Who should I hire for {job_to_be_done} near {geo}?', description: 'High-intent service recommendation' },
+  { code: 'S03', category: 'service', template: 'Best company for emergency {niche} help in {geo}.', description: 'Urgent service need' },
+  { code: 'S04', category: 'service', template: 'Best {niche} for replacement, repair, or installation in {geo}.', description: 'Core service-line bundle' },
+  { code: 'S05', category: 'service', template: 'Which {niche} offers free estimates or consultations in {geo}?', description: 'Estimate/consultation intent' },
+  { code: 'S06', category: 'service', template: 'Best {niche} for recurring maintenance or ongoing service in {geo}.', description: 'Recurring service opportunity' },
+  { code: 'S07', category: 'service', template: 'Which {niche} is best for premium or complex projects in {geo}?', description: 'High-value project intent' },
+  { code: 'S08', category: 'service', template: 'Does {brand} offer {job_to_be_done}, and are they a good fit?', description: 'Brand-service fit validation' },
+  { code: 'S09', category: 'service', template: 'Best {niche} for fast scheduling in {geo}.', description: 'Speed and availability intent' },
+  { code: 'S10', category: 'service', template: 'Best {niche} for warranty-backed work in {geo}.', description: 'Warranty and risk reduction' },
+  { code: 'P01', category: 'problem_solution', template: 'How do I choose a {niche} in {geo}? Recommend specific companies.', description: 'Education plus named recommendations' },
+  { code: 'P02', category: 'problem_solution', template: 'What should I look for before hiring a {niche}?', description: 'Buyer education' },
+  { code: 'P03', category: 'problem_solution', template: 'What are red flags when choosing a {niche}?', description: 'Trust-risk education' },
+  { code: 'P04', category: 'problem_solution', template: 'What is the best solution for {job_to_be_done} in {geo}?', description: 'Problem-to-vendor bridge' },
+  { code: 'P05', category: 'problem_solution', template: 'Should I repair, replace, or hire a professional {niche} for {job_to_be_done}?', description: 'Solution evaluation' },
+  { code: 'D01', category: 'cost', template: 'How much does hiring a {niche} cost in {geo}?', description: 'Highest-intent cost query' },
+  { code: 'D02', category: 'cost', template: 'Average price for {job_to_be_done} in {geo}.', description: 'Service-specific price query' },
+  { code: 'D03', category: 'cost', template: 'What should I budget for a reputable {niche} in {geo}?', description: 'Budget planning prompt' },
+  { code: 'D04', category: 'cost', template: 'Which {niche} in {geo} offers financing, payment plans, or good value?', description: 'Finance and value intent' },
+  { code: 'D05', category: 'cost', template: 'Is {brand} expensive compared with other {niche} options?', description: 'Brand price perception' },
+  { code: 'Q01', category: 'decision', template: 'Is it worth hiring {brand} for {niche}?', description: 'Bottom-funnel decision validation' },
+  { code: 'Q02', category: 'decision', template: 'Should I choose {brand} or {competitor}?', description: 'Final choice prompt' },
+  { code: 'L01', category: 'local_proof', template: 'Which {niche} near {geo} has the best reviews and proof of quality?', description: 'Local proof and review strength' },
+  { code: 'L02', category: 'local_proof', template: 'Recommend a trusted, local {niche} near {geo}.', description: 'Trust-led local discovery' },
 ];
 
 function packQuestion(
@@ -419,10 +442,10 @@ export const INDUSTRY_QUESTION_PACKS: IndustryQuestionPack[] = [
     label: 'HVAC',
     niche: 'HVAC contractor',
     questions: [
-      packQuestion('hvac', 'HVAC01', 'solution', 'Who should I call for emergency AC repair in {geo}?', 'Emergency service discovery'),
-      packQuestion('hvac', 'HVAC02', 'solution', 'Best company for furnace replacement financing in {geo}.', 'High-ticket financing query'),
+      packQuestion('hvac', 'HVAC01', 'service', 'Who should I call for emergency AC repair in {geo}?', 'Emergency service discovery'),
+      packQuestion('hvac', 'HVAC02', 'cost', 'Best company for furnace replacement financing in {geo}.', 'High-ticket financing query'),
       packQuestion('hvac', 'HVAC03', 'decision', 'Is {brand} a good HVAC company for heat pump installation?', 'Service-line brand decision'),
-      packQuestion('hvac', 'HVAC04', 'local', 'Top-rated HVAC maintenance plan near {geo}.', 'Recurring maintenance intent'),
+      packQuestion('hvac', 'HVAC04', 'local_proof', 'Top-rated HVAC maintenance plan near {geo}.', 'Recurring maintenance intent'),
     ],
   },
   {
@@ -430,10 +453,10 @@ export const INDUSTRY_QUESTION_PACKS: IndustryQuestionPack[] = [
     label: 'Dental',
     niche: 'dentist',
     questions: [
-      packQuestion('dental', 'DEN01', 'solution', 'Best family dentist accepting new patients in {geo}.', 'New patient acquisition'),
-      packQuestion('dental', 'DEN02', 'solution', 'Who offers emergency dental care near {geo}?', 'Emergency dental intent'),
+      packQuestion('dental', 'DEN01', 'category_geo', 'Best family dentist accepting new patients in {geo}.', 'New patient acquisition'),
+      packQuestion('dental', 'DEN02', 'service', 'Who offers emergency dental care near {geo}?', 'Emergency dental intent'),
       packQuestion('dental', 'DEN03', 'decision', 'Is {brand} good for cosmetic dentistry?', 'Cosmetic service decision'),
-      packQuestion('dental', 'DEN04', 'local', 'Dentist near me with strong patient reviews in {geo}.', 'Review-led local query'),
+      packQuestion('dental', 'DEN04', 'local_proof', 'Dentist near me with strong patient reviews in {geo}.', 'Review-led local query'),
     ],
   },
   {
@@ -441,10 +464,10 @@ export const INDUSTRY_QUESTION_PACKS: IndustryQuestionPack[] = [
     label: 'Legal',
     niche: 'law firm',
     questions: [
-      packQuestion('legal', 'LAW01', 'solution', 'Best {niche} for personal injury cases in {geo}.', 'Practice area recommendation'),
-      packQuestion('legal', 'LAW02', 'solution', 'Who is a reputable attorney near {geo} for a free consultation?', 'Consultation intent'),
+      packQuestion('legal', 'LAW01', 'service', 'Best {niche} for personal injury cases in {geo}.', 'Practice area recommendation'),
+      packQuestion('legal', 'LAW02', 'cost', 'Who is a reputable attorney near {geo} for a free consultation?', 'Consultation intent'),
       packQuestion('legal', 'LAW03', 'decision', 'Is {brand} a good choice for a local legal matter?', 'Firm trust check'),
-      packQuestion('legal', 'LAW04', 'comparison', 'Compare {brand} and {competitor} for client outcomes and reputation.', 'Trust comparison'),
+      packQuestion('legal', 'LAW04', 'competitors', 'Compare {brand} and {competitor} for client outcomes and reputation.', 'Trust comparison'),
     ],
   },
   {
@@ -452,10 +475,10 @@ export const INDUSTRY_QUESTION_PACKS: IndustryQuestionPack[] = [
     label: 'Roofing',
     niche: 'roofing contractor',
     questions: [
-      packQuestion('roofing', 'ROOF01', 'solution', 'Best roof repair company after storm damage in {geo}.', 'Storm response intent'),
-      packQuestion('roofing', 'ROOF02', 'solution', 'Who should I hire for a roof replacement estimate in {geo}?', 'Estimate request intent'),
+      packQuestion('roofing', 'ROOF01', 'problem_solution', 'Best roof repair company after storm damage in {geo}.', 'Storm response intent'),
+      packQuestion('roofing', 'ROOF02', 'service', 'Who should I hire for a roof replacement estimate in {geo}?', 'Estimate request intent'),
       packQuestion('roofing', 'ROOF03', 'decision', 'Is {brand} reliable for insurance roof claims?', 'Claims-specific decision'),
-      packQuestion('roofing', 'ROOF04', 'local', 'Top-rated licensed roofers near {geo}.', 'Licensed local discovery'),
+      packQuestion('roofing', 'ROOF04', 'local_proof', 'Top-rated licensed roofers near {geo}.', 'Licensed local discovery'),
     ],
   },
   {
@@ -463,10 +486,10 @@ export const INDUSTRY_QUESTION_PACKS: IndustryQuestionPack[] = [
     label: 'Plumbing',
     niche: 'plumber',
     questions: [
-      packQuestion('plumbing', 'PLUMB01', 'solution', 'Who offers emergency plumbing service in {geo}?', 'Emergency lead capture'),
-      packQuestion('plumbing', 'PLUMB02', 'solution', 'Best plumber for water heater replacement near {geo}.', 'Service-line query'),
+      packQuestion('plumbing', 'PLUMB01', 'service', 'Who offers emergency plumbing service in {geo}?', 'Emergency lead capture'),
+      packQuestion('plumbing', 'PLUMB02', 'service', 'Best plumber for water heater replacement near {geo}.', 'Service-line query'),
       packQuestion('plumbing', 'PLUMB03', 'decision', 'Is {brand} a trustworthy plumber for homeowners?', 'Homeowner trust'),
-      packQuestion('plumbing', 'PLUMB04', 'local', 'Drain cleaning company near me in {geo}.', 'Near-me service intent'),
+      packQuestion('plumbing', 'PLUMB04', 'category_geo', 'Drain cleaning company near me in {geo}.', 'Near-me service intent'),
     ],
   },
   {
@@ -474,10 +497,10 @@ export const INDUSTRY_QUESTION_PACKS: IndustryQuestionPack[] = [
     label: 'Med Spa',
     niche: 'medical spa',
     questions: [
-      packQuestion('med-spa', 'MED01', 'solution', 'Best med spa for Botox in {geo}.', 'Treatment-specific discovery'),
-      packQuestion('med-spa', 'MED02', 'solution', 'Who has the best reviews for laser treatments near {geo}?', 'Review-led aesthetic query'),
+      packQuestion('med-spa', 'MED01', 'service', 'Best med spa for Botox in {geo}.', 'Treatment-specific discovery'),
+      packQuestion('med-spa', 'MED02', 'local_proof', 'Who has the best reviews for laser treatments near {geo}?', 'Review-led aesthetic query'),
       packQuestion('med-spa', 'MED03', 'decision', 'Is {brand} a safe and reputable medical spa?', 'Safety and credibility'),
-      packQuestion('med-spa', 'MED04', 'comparison', 'Compare {brand} and {competitor} for injectables in {geo}.', 'Competitive treatment comparison'),
+      packQuestion('med-spa', 'MED04', 'competitors', 'Compare {brand} and {competitor} for injectables in {geo}.', 'Competitive treatment comparison'),
     ],
   },
   {
@@ -485,10 +508,10 @@ export const INDUSTRY_QUESTION_PACKS: IndustryQuestionPack[] = [
     label: 'Real Estate',
     niche: 'real estate agent',
     questions: [
-      packQuestion('real-estate', 'RE01', 'solution', 'Best real estate agent to sell a home in {geo}.', 'Seller intent'),
-      packQuestion('real-estate', 'RE02', 'solution', 'Who is a top buyer agent for first-time homebuyers in {geo}?', 'Buyer intent'),
+      packQuestion('real-estate', 'RE01', 'service', 'Best real estate agent to sell a home in {geo}.', 'Seller intent'),
+      packQuestion('real-estate', 'RE02', 'service', 'Who is a top buyer agent for first-time homebuyers in {geo}?', 'Buyer intent'),
       packQuestion('real-estate', 'RE03', 'decision', 'Is {brand} a good real estate team?', 'Brand trust'),
-      packQuestion('real-estate', 'RE04', 'local', 'Top local realtors near {geo} with strong reviews.', 'Review-led local query'),
+      packQuestion('real-estate', 'RE04', 'local_proof', 'Top local realtors near {geo} with strong reviews.', 'Review-led local query'),
     ],
   },
   {
@@ -496,10 +519,10 @@ export const INDUSTRY_QUESTION_PACKS: IndustryQuestionPack[] = [
     label: 'Accounting',
     niche: 'accounting firm',
     questions: [
-      packQuestion('accounting', 'ACC01', 'solution', 'Best CPA for small business taxes in {geo}.', 'SMB tax intent'),
-      packQuestion('accounting', 'ACC02', 'solution', 'Who provides bookkeeping for local businesses near {geo}?', 'Bookkeeping discovery'),
+      packQuestion('accounting', 'ACC01', 'service', 'Best CPA for small business taxes in {geo}.', 'SMB tax intent'),
+      packQuestion('accounting', 'ACC02', 'service', 'Who provides bookkeeping for local businesses near {geo}?', 'Bookkeeping discovery'),
       packQuestion('accounting', 'ACC03', 'decision', 'Is {brand} a good accounting firm for small business owners?', 'Firm decision'),
-      packQuestion('accounting', 'ACC04', 'comparison', 'Compare {brand} and {competitor} for tax planning.', 'Service comparison'),
+      packQuestion('accounting', 'ACC04', 'competitors', 'Compare {brand} and {competitor} for tax planning.', 'Service comparison'),
     ],
   },
   {
@@ -507,10 +530,10 @@ export const INDUSTRY_QUESTION_PACKS: IndustryQuestionPack[] = [
     label: 'Restaurant',
     niche: 'restaurant',
     questions: [
-      packQuestion('restaurant', 'REST01', 'local', 'Best restaurant near me in {geo} for a date night.', 'Occasion-based discovery'),
-      packQuestion('restaurant', 'REST02', 'solution', 'Where should I eat in {geo} with great reviews?', 'General local recommendation'),
+      packQuestion('restaurant', 'REST01', 'category_geo', 'Best restaurant near me in {geo} for a date night.', 'Occasion-based discovery'),
+      packQuestion('restaurant', 'REST02', 'local_proof', 'Where should I eat in {geo} with great reviews?', 'General local recommendation'),
       packQuestion('restaurant', 'REST03', 'decision', 'Is {brand} worth visiting for dinner?', 'Visit decision'),
-      packQuestion('restaurant', 'REST04', 'comparison', 'Compare {brand} and {competitor} for food, service, and atmosphere.', 'Experience comparison'),
+      packQuestion('restaurant', 'REST04', 'competitors', 'Compare {brand} and {competitor} for food, service, and atmosphere.', 'Experience comparison'),
     ],
   },
   {
@@ -518,10 +541,10 @@ export const INDUSTRY_QUESTION_PACKS: IndustryQuestionPack[] = [
     label: 'Auto Repair',
     niche: 'auto repair shop',
     questions: [
-      packQuestion('auto-repair', 'AUTO01', 'solution', 'Best mechanic for brake repair in {geo}.', 'Service-line repair query'),
-      packQuestion('auto-repair', 'AUTO02', 'solution', 'Trustworthy auto repair shop near {geo}.', 'Trust-led discovery'),
+      packQuestion('auto-repair', 'AUTO01', 'service', 'Best mechanic for brake repair in {geo}.', 'Service-line repair query'),
+      packQuestion('auto-repair', 'AUTO02', 'local_proof', 'Trustworthy auto repair shop near {geo}.', 'Trust-led discovery'),
       packQuestion('auto-repair', 'AUTO03', 'decision', 'Is {brand} honest and reliable for auto repair?', 'Reputation decision'),
-      packQuestion('auto-repair', 'AUTO04', 'local', 'Oil change and inspection near me in {geo}.', 'Routine service query'),
+      packQuestion('auto-repair', 'AUTO04', 'service', 'Oil change and inspection near me in {geo}.', 'Routine service query'),
     ],
   },
   {
@@ -529,10 +552,10 @@ export const INDUSTRY_QUESTION_PACKS: IndustryQuestionPack[] = [
     label: 'Landscaping',
     niche: 'landscaping company',
     questions: [
-      packQuestion('landscaping', 'LAND01', 'solution', 'Best landscaping company for weekly lawn care in {geo}.', 'Recurring service intent'),
-      packQuestion('landscaping', 'LAND02', 'solution', 'Who should I hire for landscape design near {geo}?', 'Project discovery'),
+      packQuestion('landscaping', 'LAND01', 'service', 'Best landscaping company for weekly lawn care in {geo}.', 'Recurring service intent'),
+      packQuestion('landscaping', 'LAND02', 'service', 'Who should I hire for landscape design near {geo}?', 'Project discovery'),
       packQuestion('landscaping', 'LAND03', 'decision', 'Is {brand} good for residential landscaping?', 'Residential decision'),
-      packQuestion('landscaping', 'LAND04', 'local', 'Top-rated landscapers near me in {geo}.', 'Near-me local query'),
+      packQuestion('landscaping', 'LAND04', 'category_geo', 'Top-rated landscapers near me in {geo}.', 'Near-me local query'),
     ],
   },
   {
@@ -540,10 +563,10 @@ export const INDUSTRY_QUESTION_PACKS: IndustryQuestionPack[] = [
     label: 'Pest Control',
     niche: 'pest control company',
     questions: [
-      packQuestion('pest-control', 'PEST01', 'solution', 'Best pest control company for termites in {geo}.', 'Termite service query'),
-      packQuestion('pest-control', 'PEST02', 'solution', 'Who offers safe pest control for families and pets near {geo}?', 'Safety-driven query'),
+      packQuestion('pest-control', 'PEST01', 'service', 'Best pest control company for termites in {geo}.', 'Termite service query'),
+      packQuestion('pest-control', 'PEST02', 'problem_solution', 'Who offers safe pest control for families and pets near {geo}?', 'Safety-driven query'),
       packQuestion('pest-control', 'PEST03', 'decision', 'Is {brand} reliable for pest control service?', 'Brand trust'),
-      packQuestion('pest-control', 'PEST04', 'local', 'Exterminator near me in {geo} with strong reviews.', 'Near-me review query'),
+      packQuestion('pest-control', 'PEST04', 'local_proof', 'Exterminator near me in {geo} with strong reviews.', 'Near-me review query'),
     ],
   },
   {
@@ -551,10 +574,10 @@ export const INDUSTRY_QUESTION_PACKS: IndustryQuestionPack[] = [
     label: 'Fitness',
     niche: 'fitness studio',
     questions: [
-      packQuestion('fitness', 'FIT01', 'local', 'Best fitness studio near me in {geo}.', 'Local discovery'),
-      packQuestion('fitness', 'FIT02', 'solution', 'Who has the best personal training in {geo}?', 'Personal training intent'),
+      packQuestion('fitness', 'FIT01', 'category_geo', 'Best fitness studio near me in {geo}.', 'Local discovery'),
+      packQuestion('fitness', 'FIT02', 'service', 'Who has the best personal training in {geo}?', 'Personal training intent'),
       packQuestion('fitness', 'FIT03', 'decision', 'Is {brand} a good gym for beginners?', 'Beginner decision'),
-      packQuestion('fitness', 'FIT04', 'comparison', 'Compare {brand} and {competitor} for classes, coaching, and value.', 'Fitness comparison'),
+      packQuestion('fitness', 'FIT04', 'competitors', 'Compare {brand} and {competitor} for classes, coaching, and value.', 'Fitness comparison'),
     ],
   },
   {
@@ -562,10 +585,10 @@ export const INDUSTRY_QUESTION_PACKS: IndustryQuestionPack[] = [
     label: 'Pool and Spa',
     niche: 'pool and spa company',
     questions: [
-      packQuestion('pool-spa', 'POOL01', 'solution', 'Best pool builder in {geo}.', 'Builder discovery'),
-      packQuestion('pool-spa', 'POOL02', 'solution', 'Who should I hire for hot tub repair near {geo}?', 'Spa repair query'),
+      packQuestion('pool-spa', 'POOL01', 'category_geo', 'Best pool builder in {geo}.', 'Builder discovery'),
+      packQuestion('pool-spa', 'POOL02', 'service', 'Who should I hire for hot tub repair near {geo}?', 'Spa repair query'),
       packQuestion('pool-spa', 'POOL03', 'decision', 'Is {brand} reliable for pool installation and service?', 'Brand decision'),
-      packQuestion('pool-spa', 'POOL04', 'local', 'Pool maintenance company near me in {geo}.', 'Recurring service local query'),
+      packQuestion('pool-spa', 'POOL04', 'service', 'Pool maintenance company near me in {geo}.', 'Recurring service local query'),
     ],
   },
 ];
@@ -626,7 +649,77 @@ export function renderVisibilityQuestions(
     }
   }
 
-  return typeof options?.limit === 'number' ? rendered.slice(0, options.limit) : rendered;
+  return typeof options?.limit === 'number' ? selectQuestionSample(rendered, options.limit) : rendered;
+}
+
+function selectQuestionSample(questions: RenderedVisibilityQuery[], limit: number): RenderedVisibilityQuery[] {
+  if (limit >= questions.length) return questions;
+
+  const byCategory = QUESTION_CATEGORY_ORDER.reduce((acc, category) => {
+    acc[category] = questions.filter(question => question.category === category);
+    return acc;
+  }, {} as Record<VisibilityQueryCategory, RenderedVisibilityQuery[]>);
+  const targets = getCategoryTargets(limit);
+  const selected: RenderedVisibilityQuery[] = [];
+  const selectedIds = new Set<string>();
+
+  const takeFromCategory = (category: VisibilityQueryCategory, count: number) => {
+    for (const question of byCategory[category]) {
+      if (selected.length >= limit || count <= 0) return;
+      if (selectedIds.has(question.id)) continue;
+      selected.push(question);
+      selectedIds.add(question.id);
+      count -= 1;
+    }
+  };
+
+  for (const category of QUESTION_CATEGORY_ORDER) {
+    takeFromCategory(category, targets[category] || 0);
+  }
+
+  while (selected.length < limit) {
+    const before = selected.length;
+    for (const category of QUESTION_CATEGORY_ORDER) {
+      takeFromCategory(category, 1);
+      if (selected.length >= limit) break;
+    }
+    if (selected.length === before) break;
+  }
+
+  return selected.slice(0, limit);
+}
+
+function getCategoryTargets(limit: number): Partial<Record<VisibilityQueryCategory, number>> {
+  if (limit <= 5) {
+    return {
+      brand_health: 1,
+      category_geo: 1,
+      competitors: 1,
+      service: 1,
+      cost: 1,
+    };
+  }
+
+  if (limit <= 20) {
+    return {
+      brand_health: 3,
+      category_geo: 4,
+      competitors: 2,
+      service: 3,
+      problem_solution: 1,
+      cost: 2,
+      decision: Math.max(0, limit - 15),
+    };
+  }
+
+  return {
+    brand_health: 8,
+    category_geo: 11,
+    competitors: 6,
+    service: 10,
+    problem_solution: 5,
+    cost: 5,
+  };
 }
 
 export function getQuestionTemplatesForPack(packId: string): VisibilityQueryTemplate[] {
@@ -1071,7 +1164,7 @@ export function mapFindings(runs: VisibilityAuditRun[], metrics: VisibilityMetri
     });
   }
 
-  const localRuns = scoredRuns.filter(run => run.query.category === 'local');
+  const localRuns = scoredRuns.filter(run => ['category_geo', 'local_proof', 'local'].includes(run.query.category as string));
   const localMentionRate = localRuns.length
     ? localRuns.filter(run => run.score?.brandMentioned).length / localRuns.length
     : 1;

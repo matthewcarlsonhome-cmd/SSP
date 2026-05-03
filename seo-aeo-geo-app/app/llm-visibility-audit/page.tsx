@@ -50,6 +50,8 @@ import {
   loadVisibilityAudit,
   mapFindings,
   PROVIDER_LABELS,
+  QUESTION_CATEGORY_META,
+  QUESTION_CATEGORY_ORDER,
   renderVisibilityQuestions,
   runVisibilityPrompt,
   saveVisibilityAudit,
@@ -67,6 +69,7 @@ import {
   type VisibilityAuditRun,
   type VisibilityMetrics,
   type VisibilityProviderId,
+  type VisibilityQueryCategory,
 } from '@/lib/llm-visibility-audit';
 
 const DEFAULT_PROFILE: AuditBusinessProfile = {
@@ -130,6 +133,15 @@ function formatSignedPercent(value: number): string {
 
 function formatSignedNumber(value: number): string {
   return `${value >= 0 ? '+' : ''}${value}`;
+}
+
+function getQuestionCategoryMeta(category: VisibilityQueryCategory | string) {
+  return QUESTION_CATEGORY_META[category as VisibilityQueryCategory] || {
+    label: category.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase()),
+    workbookBucket: category,
+    description: 'Legacy or custom question category.',
+    order: 99,
+  };
 }
 
 function downloadTextFile(filename: string, content: string, type: string): void {
@@ -253,6 +265,18 @@ const LLMVisibilityAuditPage: React.FC = () => {
     () => renderedQuestions.filter(question => selectedQuestionIds.includes(question.id)),
     [renderedQuestions, selectedQuestionIds]
   );
+  const questionsByCategory = useMemo(() => {
+    const categories = Array.from(new Set([...QUESTION_CATEGORY_ORDER, ...renderedQuestions.map(question => question.category)]));
+    return categories
+      .map(category => ({
+        category,
+        meta: getQuestionCategoryMeta(category),
+        questions: renderedQuestions.filter(question => question.category === category),
+        selectedCount: renderedQuestions.filter(question => question.category === category && selectedQuestionIds.includes(question.id)).length,
+      }))
+      .filter(group => group.questions.length > 0)
+      .sort((left, right) => left.meta.order - right.meta.order);
+  }, [renderedQuestions, selectedQuestionIds]);
 
   const metrics = useMemo(() => computeVisibilityMetrics(runs), [runs]);
   const findings = useMemo(() => mapFindings(runs, metrics), [metrics, runs]);
@@ -1059,7 +1083,7 @@ const LLMVisibilityAuditPage: React.FC = () => {
               <div>
                 <h2 className="text-lg font-semibold">Question Batch</h2>
                 <p className="text-sm text-muted-foreground">
-                  All visible questions are rendered with the current profile and selected by default.
+                  Workbook-style buckets keep the audit readable: Brand Health, Competitors, Category + Geo, Service, Problem / Solutions, and Cost.
                 </p>
               </div>
               <div className="flex gap-2">
@@ -1073,33 +1097,53 @@ const LLMVisibilityAuditPage: React.FC = () => {
             </div>
             <details className="border-t">
               <summary className="flex cursor-pointer list-none items-center justify-between p-5 text-sm font-semibold">
-                <span>Review selected questions</span>
+                <span>Review selected questions by category</span>
                 <span className="rounded bg-muted px-2 py-1 text-xs text-muted-foreground">{selectedQuestions.length}/{renderedQuestions.length}</span>
               </summary>
-            <div className="max-h-[420px] divide-y overflow-y-auto border-t">
-              {renderedQuestions.map(question => (
-                <label key={question.id} className="flex gap-3 p-4 hover:bg-muted/40">
-                  <input
-                    type="checkbox"
-                    checked={selectedQuestionIds.includes(question.id)}
-                    onChange={() => toggleQuestion(question)}
-                    className="mt-1 h-4 w-4 rounded border-input"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-1 flex flex-wrap items-center gap-2">
-                      <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">{question.code}</span>
-                      <span className="rounded bg-muted px-2 py-0.5 text-xs capitalize text-muted-foreground">{question.category}</span>
-                      {question.competitor && (
-                        <span className="rounded bg-amber-500/10 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-300">
-                          {question.competitor}
-                        </span>
-                      )}
+              <div className="max-h-[560px] overflow-y-auto border-t">
+                {questionsByCategory.map(group => (
+                  <details key={group.category} className="border-b" open={group.selectedCount > 0}>
+                    <summary className="flex cursor-pointer list-none items-start justify-between gap-4 bg-muted/20 p-4">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold">{group.meta.label}</span>
+                          <span className="rounded bg-background px-2 py-0.5 text-xs text-muted-foreground">
+                            Workbook: {group.meta.workbookBucket}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">{group.meta.description}</p>
+                      </div>
+                      <span className="shrink-0 rounded bg-background px-2 py-1 text-xs font-semibold text-muted-foreground">
+                        {group.selectedCount}/{group.questions.length}
+                      </span>
+                    </summary>
+                    <div className="divide-y">
+                      {group.questions.map(question => (
+                        <label key={question.id} className="flex gap-3 p-4 hover:bg-muted/40">
+                          <input
+                            type="checkbox"
+                            checked={selectedQuestionIds.includes(question.id)}
+                            onChange={() => toggleQuestion(question)}
+                            className="mt-1 h-4 w-4 rounded border-input"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="mb-1 flex flex-wrap items-center gap-2">
+                              <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">{question.code}</span>
+                              <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">{group.meta.label}</span>
+                              {question.competitor && (
+                                <span className="rounded bg-amber-500/10 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-300">
+                                  {question.competitor}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm">{question.prompt}</p>
+                          </div>
+                        </label>
+                      ))}
                     </div>
-                    <p className="text-sm">{question.prompt}</p>
-                  </div>
-                </label>
-              ))}
-            </div>
+                  </details>
+                ))}
+              </div>
             </details>
           </section>
           )}
@@ -1163,7 +1207,7 @@ const LLMVisibilityAuditPage: React.FC = () => {
                 <Select className="mt-1" value={manualQueryId} onChange={event => setManualQueryId(event.target.value)}>
                   {renderedQuestions.map(question => (
                     <option key={question.id} value={question.id}>
-                      {question.code} - {question.prompt.slice(0, 80)}
+                      {question.code} - {getQuestionCategoryMeta(question.category).label} - {question.prompt.slice(0, 70)}
                     </option>
                   ))}
                 </Select>
@@ -1657,6 +1701,7 @@ const RunEvidenceDetails: React.FC<{
           {PROVIDER_LABELS[run.provider]}
         </span>
         <span className="rounded bg-muted px-2 py-1 text-xs font-semibold">{run.query.code}</span>
+        <span className="rounded bg-muted px-2 py-1 text-xs">{getQuestionCategoryMeta(run.query.category).label}</span>
         <span className="min-w-0 flex-1 truncate text-sm">{run.query.prompt}</span>
         <span className="rounded bg-muted px-2 py-1 text-xs capitalize">{run.qaStatus || 'unreviewed'}</span>
         <RunStatusBadge run={run} />
