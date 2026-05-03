@@ -98,7 +98,7 @@ describe('LLM Visibility Audit', () => {
     );
 
     expect(auditProfile.queryLimit).toBe(15);
-    expect(auditProfile.providerDefaults).toEqual(['chatgpt', 'perplexity', 'gemini']);
+    expect(auditProfile.providerDefaults).toEqual(['chatgpt', 'claude', 'gemini', 'perplexity']);
     expect(rendered).toHaveLength(15);
     expect(rendered.some(query => query.prompt.includes('Madison, WI'))).toBe(true);
   });
