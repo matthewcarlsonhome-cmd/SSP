@@ -106,6 +106,22 @@ const DEFAULT_PROFILE: AuditBusinessProfile = {
 const DEFAULT_PROVIDERS: VisibilityProviderId[] = ['chatgpt', 'claude', 'gemini', 'perplexity'];
 const PROVIDER_KEY_STORAGE = 'ssp_llm_visibility_provider_keys';
 type AuditStepId = 'intake' | 'setup' | 'capture' | 'review' | 'report';
+type ProviderProgress = {
+  provider: VisibilityProviderId;
+  label: string;
+  completed: number;
+  total: number;
+  running: number;
+  errors: number;
+};
+type BatchProgress = {
+  completed: number;
+  total: number;
+  percent: number;
+  running: number;
+  errors: number;
+  providers: ProviderProgress[];
+};
 
 const PROVIDER_API_KEY_LABELS: Record<VisibilityProviderId, string> = {
   chatgpt: 'OpenAI API key for ChatGPT',
@@ -147,6 +163,10 @@ function formatSignedPercent(value: number): string {
 
 function formatSignedNumber(value: number): string {
   return `${value >= 0 ? '+' : ''}${value}`;
+}
+
+function isRunFinished(run: VisibilityAuditRun): boolean {
+  return run.status === 'captured' || run.status === 'manual' || run.status === 'error';
 }
 
 function optionalNumber(value: string): number | undefined {
@@ -333,6 +353,35 @@ const LLMVisibilityAuditPage: React.FC = () => {
   const losingQueries = [...queryPerformance].reverse().slice(0, 3);
 
   const runCount = selectedQuestions.length * selectedProviders.length;
+  const batchProgress = useMemo<BatchProgress>(() => {
+    const total = runs.length || runCount;
+    const completed = runs.filter(isRunFinished).length;
+    const running = runs.filter(run => run.status === 'running').length;
+    const errors = runs.filter(run => run.status === 'error').length;
+    const providerIds = Array.from(new Set([...selectedProviders, ...runs.map(run => run.provider)]));
+    const providers = providerIds.map(provider => {
+      const providerRuns = runs.filter(run => run.provider === provider);
+      const providerTotal = providerRuns.length || selectedQuestions.length;
+      const providerCompleted = providerRuns.filter(isRunFinished).length;
+      return {
+        provider,
+        label: PROVIDER_LABELS[provider],
+        completed: providerCompleted,
+        total: providerTotal,
+        running: providerRuns.filter(run => run.status === 'running').length,
+        errors: providerRuns.filter(run => run.status === 'error').length,
+      };
+    });
+
+    return {
+      completed,
+      total,
+      percent: total ? Math.round((completed / total) * 100) : 0,
+      running,
+      errors,
+      providers,
+    };
+  }, [runCount, runs, selectedProviders, selectedQuestions.length]);
   const errorCount = runs.filter(run => run.status === 'error').length;
   const reviewAttentionCount = metrics.needsReviewCount + metrics.highImpactMissCount + errorCount;
   const keyStatus = useMemo(
@@ -878,10 +927,8 @@ const LLMVisibilityAuditPage: React.FC = () => {
               </Button>
             </div>
           </div>
-          {isRunning && (
-            <div className="mt-5 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-700 dark:text-blue-300">
-              Running {activeRunLabel || 'audit batch'}...
-            </div>
+          {(batchProgress.total > 0 || isRunning) && (
+            <BatchProgressPanel progress={batchProgress} activeRunLabel={activeRunLabel} isRunning={isRunning} />
           )}
           {shareUrl && (
             <div className="mt-5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
@@ -1897,6 +1944,81 @@ const CaptureStatusPanel: React.FC<{ runs: VisibilityAuditRun[] }> = ({ runs }) 
         )}
       </div>
     </section>
+  );
+};
+
+const BatchProgressPanel: React.FC<{ progress: BatchProgress; activeRunLabel: string; isRunning: boolean }> = ({
+  progress,
+  activeRunLabel,
+  isRunning,
+}) => {
+  const statusLabel = isRunning
+    ? activeRunLabel
+      ? `Running ${activeRunLabel}`
+      : 'Running batch'
+    : progress.total && progress.completed >= progress.total
+      ? 'Batch complete'
+      : progress.total
+        ? 'Batch ready'
+        : 'No batch queued';
+
+  return (
+    <div className="mt-5 rounded-xl border border-blue-500/30 bg-blue-500/10 p-4 text-blue-800 dark:text-blue-200">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide">Batch Progress</p>
+          <p className="mt-1 text-sm">{statusLabel}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="rounded-md bg-background/70 px-3 py-1 font-semibold text-foreground">
+            {progress.completed}/{progress.total || 0} complete
+          </span>
+          <span className="rounded-md bg-background/70 px-3 py-1 font-semibold text-foreground">
+            {progress.percent}%
+          </span>
+          {progress.running > 0 && (
+            <span className="rounded-md bg-blue-500/10 px-3 py-1 font-semibold">
+              {progress.running} running
+            </span>
+          )}
+          {progress.errors > 0 && (
+            <span className="rounded-md bg-red-500/10 px-3 py-1 font-semibold text-red-700 dark:text-red-300">
+              {progress.errors} error{progress.errors === 1 ? '' : 's'}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-background/70">
+        <div
+          className="h-full rounded-full bg-blue-600 transition-all duration-300"
+          style={{ width: `${Math.max(progress.percent ? 4 : 0, progress.percent)}%` }}
+        />
+      </div>
+      {progress.providers.length ? (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {progress.providers.map(provider => {
+            const percent = provider.total ? Math.round((provider.completed / provider.total) * 100) : 0;
+            return (
+              <div key={provider.provider} className="rounded-lg bg-background/70 p-3 text-xs text-foreground">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold">{provider.label}</span>
+                  <span>{provider.completed}/{provider.total}</span>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={`h-full rounded-full transition-all duration-300 ${provider.errors ? 'bg-red-500' : 'bg-blue-600'}`}
+                    style={{ width: `${Math.max(percent ? 4 : 0, percent)}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-muted-foreground">
+                  {percent}%{provider.running ? `, ${provider.running} running` : ''}{provider.errors ? `, ${provider.errors} error${provider.errors === 1 ? '' : 's'}` : ''}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
   );
 };
 
