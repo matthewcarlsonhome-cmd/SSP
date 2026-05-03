@@ -242,6 +242,12 @@ export interface AuditActionPlanItem {
   status: 'recommended' | 'accepted' | 'in_progress' | 'done' | 'wont_fix';
 }
 
+export interface AuditReportSection {
+  title: string;
+  body: string;
+  bullets?: string[];
+}
+
 export interface AuditReportDraft {
   executiveSummary: string;
   aiVisibilityNarrative: string;
@@ -250,6 +256,7 @@ export interface AuditReportDraft {
   whatToFixNext: string;
   clientEmail: string;
   caveats: string[];
+  sections: AuditReportSection[];
 }
 
 export interface VisibilityMetricDelta {
@@ -1927,43 +1934,232 @@ export function buildReportDraft(
   runs: VisibilityAuditRun[],
   actionPlan: AuditActionPlanItem[]
 ): AuditReportDraft {
+  const scoredRuns = runs.filter(run => run.score && run.qaStatus !== 'excluded');
   const competitorCounts = topCompetitorMentions(runs);
   const strongestCompetitor = competitorCounts[0]?.name;
-  const missingQueries = summarizeQueryPerformance(runs)
-    .filter(item => item.mentionRate === 0)
-    .slice(0, 3)
-    .map(item => item.query.prompt);
-  const topActions = actionPlan.slice(0, 3);
+  const queryPerformance = summarizeQueryPerformance(runs);
+  const winningQueries = queryPerformance.filter(item => item.mentionRate > 0).slice(0, 5);
+  const missingQueries = queryPerformance.filter(item => item.mentionRate === 0).slice(0, 8);
+  const reportActions = actionPlan.slice(0, 8);
+  const categoryLines = summarizeRunsByCategory(scoredRuns);
+  const platformLines = summarizeRunsByPlatform(scoredRuns);
+  const citationDomains = summarizeCitationDomains(scoredRuns);
+  const evidenceHighlights = summarizeEvidenceHighlights(scoredRuns);
+  const qaFlags = [
+    metrics.highImpactMissCount ? `${metrics.highImpactMissCount} high-impact miss${metrics.highImpactMissCount === 1 ? '' : 'es'}` : '',
+    metrics.needsReviewCount ? `${metrics.needsReviewCount} run${metrics.needsReviewCount === 1 ? '' : 's'} need review` : '',
+    metrics.excludedCount ? `${metrics.excludedCount} excluded run${metrics.excludedCount === 1 ? '' : 's'}` : '',
+  ].filter(Boolean);
+
+  const scoreExplanation = [
+    'The 0-5 Audit Avg is the simple workbook rubric averaged across captured answers.',
+    '5 = dominant cited recommendation.',
+    '4 = top mention with citation.',
+    '3 = mentioned without strong dominance or citation.',
+    '2 = category answer with the brand absent.',
+    '1 = competitors appear while the brand is absent.',
+    '0 = harmful, negative, or likely incorrect brand information.',
+  ];
+
+  const cleanCaptureProtocol = [
+    'API captures are sent as fresh, standalone requests: one system instruction plus one buyer prompt.',
+    'The app does not send prior prompts, prior responses, thread IDs, conversation IDs, or stored chat history into the next run.',
+    'Manual browser evidence should be captured in an incognito/private window or logged-out session when the goal is maximum consumer-query cleanliness.',
+    'Each stored evidence row keeps the exact prompt, platform, timestamp, raw response, citations, screenshot URLs, scorer, QA status, and caveat text.',
+  ];
+
+  const sections: AuditReportSection[] = [
+    {
+      title: '1. Executive Summary',
+      body: `${profile.brand} was tested against buyer-intent AI questions for ${profile.niche} in ${getGeo(profile)}. The business appeared in ${metrics.brandMentionCount} of ${metrics.capturedCount} captured answers. The composite AI Visibility Score is ${metrics.visibilityScore}/100 (${metrics.grade}); the simpler 0-5 Audit Avg is ${metrics.workbookAverage}/5.`,
+      bullets: [
+        `Mention rate: ${formatPercent(metrics.mentionRate)}.`,
+        `Brand citation rate: ${formatPercent(metrics.citationRate)}.`,
+        `Dominant cited answers: ${metrics.dominantCount}.`,
+        `Competitor dominance ratio: ${formatPercent(metrics.competitorDominanceRatio)}.`,
+        qaFlags.length ? `QA flags: ${qaFlags.join(', ')}.` : 'QA flags: no high-impact misses or excluded runs currently flagged.',
+      ],
+    },
+    {
+      title: '2. What The Scores Mean',
+      body: 'The report intentionally includes both a composite 0-100 score and the workbook-style 0-5 audit score. The 0-100 score is useful for trend reporting. The 0-5 score is easier to explain in a client meeting because it maps directly to what happened in each answer.',
+      bullets: scoreExplanation,
+    },
+    {
+      title: '3. Clean Query Methodology',
+      body: 'Each platform run is designed to approximate a fresh buyer question rather than a continuing conversation.',
+      bullets: cleanCaptureProtocol,
+    },
+    {
+      title: '4. Platform Findings',
+      body: platformLines.length
+        ? 'Platform-level performance shows whether the business is visible consistently or only in one answer engine.'
+        : 'No captured platform data is available yet.',
+      bullets: platformLines,
+    },
+    {
+      title: '5. Question Category Findings',
+      body: categoryLines.length
+        ? 'The workbook categories reveal where the brand wins or disappears across the buyer journey.'
+        : 'Run the category-balanced question set to populate category findings.',
+      bullets: categoryLines,
+    },
+    {
+      title: '6. Winning And Missing Buyer Questions',
+      body: 'These prompts are the easiest way to show a client where AI is helping them and where it is sending demand elsewhere.',
+      bullets: [
+        ...winningQueries.map(item => `Win: ${item.query.code} (${QUESTION_CATEGORY_META[item.query.category].label}) - ${formatPercent(item.mentionRate)} mention rate - ${item.query.prompt}`),
+        ...missingQueries.map(item => `Miss: ${item.query.code} (${QUESTION_CATEGORY_META[item.query.category].label}) - ${item.query.prompt}`),
+      ].slice(0, 12),
+    },
+    {
+      title: '7. Competitor Story',
+      body: strongestCompetitor
+        ? `${strongestCompetitor} is the strongest competitor signal in this evidence set. Competitors were mentioned in ${formatPercent(metrics.competitorDominanceRatio)} of total brand/competitor mention signals.`
+        : 'No single configured competitor dominated the returned answers, but unconfigured competitors may still appear in raw responses.',
+      bullets: competitorCounts.slice(0, 8).map(item => `${item.name}: ${item.count} mention${item.count === 1 ? '' : 's'}`),
+    },
+    {
+      title: '8. Citations And Evidence',
+      body: citationDomains.length
+        ? 'Citation domains show which sources AI tools leaned on when composing answers. Brand-owned and authoritative third-party citations are especially important.'
+        : 'No brand-supporting citations were detected. That usually points to weak source eligibility, thin entity signals, or insufficient third-party validation.',
+      bullets: [
+        ...citationDomains,
+        ...evidenceHighlights,
+      ].slice(0, 14),
+    },
+    {
+      title: '9. Likely Root Causes',
+      body: findings.length
+        ? 'These are heuristic root causes inferred from the scored responses and evidence patterns.'
+        : 'No root-cause findings are available yet. Capture and score more answers to generate a fix plan.',
+      bullets: findings.slice(0, 8).map(finding => `${finding.code}: ${finding.title} - ${finding.description}`),
+    },
+    {
+      title: '10. Precise Next Steps',
+      body: reportActions.length
+        ? 'Prioritize fixes that improve entity confidence, local proof, citation eligibility, and answer-ready service content. Re-audit after implementation so the client can see before/after movement.'
+        : 'Run the full capture and approve scoring before finalizing paid fixes.',
+      bullets: reportActions.map(action => `${action.priority.toUpperCase()}: ${action.serviceLine} - ${action.recommendedAction}. Owner: ${action.owner}. Estimate: ${action.estimatedHours} hours / $${action.estimatedPrice.toLocaleString()}. Due: ${action.dueInDays} days.`),
+    },
+    {
+      title: '11. 30/60/90-Day Fix Roadmap',
+      body: 'Use this as the client-facing implementation cadence after the audit.',
+      bullets: [
+        'Days 0-30: Fix schema, GBP/category data, inconsistent business facts, core citations, and the top missing service/category pages.',
+        'Days 31-60: Publish FAQ and buyer-question content for missed prompts; add city/service proof pages for Madison-area suburbs; build review velocity.',
+        'Days 61-90: Add third-party proof, partner citations, local PR/awards pages, video/transcript proof, and run the re-audit delta report.',
+      ],
+    },
+    {
+      title: '12. Caveats',
+      body: 'AI answers are point-in-time evidence, not a guaranteed ranking report.',
+      bullets: [
+        DEFAULT_AUDIT_CAVEAT,
+        'API captures and consumer web UI captures can differ; manual Google AI Overview evidence should be preserved for client-facing claims.',
+        'Recommendations are based on captured answer behavior and visible evidence, not inside knowledge of any model ranking system.',
+      ],
+    },
+    {
+      title: '13. Client Email Draft',
+      body: 'Use this as the follow-up message after the report is reviewed.',
+      bullets: [],
+    },
+  ];
+
+  const whatToFixNext = reportActions.length
+    ? reportActions.map((action, index) => `${index + 1}. ${action.serviceLine}: ${action.recommendedAction} (${action.estimatedHours} hrs, est. $${action.estimatedPrice.toLocaleString()}, ${action.dueInDays} days).`).join('\n')
+    : 'Run the full Madison MVP capture and approve scoring before recommending paid fixes.';
+
+  const clientEmail = [
+    `Subject: Your AI visibility snapshot for ${profile.brand}`,
+    '',
+    `I ran a point-in-time audit of how AI tools answer buyer questions about ${profile.niche} options in ${getGeo(profile)}.`,
+    `Your current AI Visibility Score is ${metrics.visibilityScore}/100 (${metrics.grade}). You appeared in ${metrics.brandMentionCount} of ${metrics.capturedCount} captured answers, with a 0-5 Audit Avg of ${metrics.workbookAverage}/5.`,
+    missingQueries.length ? `The biggest missed questions were:\n${missingQueries.slice(0, 3).map(item => `- ${item.query.prompt}`).join('\n')}` : '',
+    reportActions.length ? `The first fixes I would prioritize are:\n${reportActions.slice(0, 3).map(action => `- ${action.recommendedAction}`).join('\n')}` : '',
+    'Each API query was captured as a fresh standalone request, and manual browser evidence should be captured in a clean/incognito session for maximum neutrality.',
+    'This is a snapshot, not a guaranteed ranking, because AI answers change by tool, time, account state, and location.',
+  ].filter(Boolean).join('\n');
 
   return {
-    executiveSummary: `${profile.brand} appeared in ${metrics.brandMentionCount} of ${metrics.capturedCount} captured AI recommendation moments. The current AI Visibility Score is ${metrics.visibilityScore}/100 (${metrics.grade}), with a workbook average of ${metrics.workbookAverage}/5.`,
+    executiveSummary: sections[0].body,
     aiVisibilityNarrative: metrics.mentionRate > 0
-      ? `AI tools can identify ${profile.brand} in some prompts, but the brand is not consistently dominant across buyer-intent searches in ${getGeo(profile)}.`
+      ? `AI tools can identify ${profile.brand} in some prompts, but the brand is not consistently dominant across buyer-intent searches in ${getGeo(profile)}. The strongest opportunities are the missed prompts, weak citation coverage, and categories where competitors are named more often.`
       : `${profile.brand} is currently invisible in the captured AI answers, which means buyers asking for recommendations may never see the business before competitors are named.`,
     competitorStory: strongestCompetitor
-      ? `${strongestCompetitor} is the most frequent competitor signal in this audit. Competitors were mentioned in ${Math.round(metrics.competitorDominanceRatio * 100)}% of total brand/competitor mention signals.`
+      ? `${strongestCompetitor} is the most frequent competitor signal in this audit. Competitors were mentioned in ${formatPercent(metrics.competitorDominanceRatio)} of total brand/competitor mention signals.`
       : 'No single competitor dominated the captured responses, but the brand still needs stronger answer-ready proof signals.',
     whyItHappens: findings.length
       ? `The likely causes are ${findings.slice(0, 3).map(finding => finding.title.toLowerCase()).join(', ')}. These usually map to schema, local proof, third-party citations, content depth, reviews, and GBP freshness.`
       : 'The current evidence set does not show a severe root cause yet. A larger sample or manual Google AI Overview capture may reveal more.',
-    whatToFixNext: topActions.length
-      ? topActions.map(action => `${action.serviceLine}: ${action.recommendedAction} (${action.estimatedHours} hrs, est. $${action.estimatedPrice}).`).join('\n')
-      : 'Run the full Madison MVP capture and approve scoring before recommending paid fixes.',
-    clientEmail: [
-      `Subject: Your AI visibility snapshot for ${profile.brand}`,
-      '',
-      `I ran a point-in-time audit of how AI tools answer buyer questions about ${profile.niche} options in ${getGeo(profile)}.`,
-      `Your current visibility score is ${metrics.visibilityScore}/100 (${metrics.grade}). You appeared in ${metrics.brandMentionCount} of ${metrics.capturedCount} captured answers.`,
-      missingQueries.length ? `The biggest missed questions were:\n${missingQueries.map(query => `- ${query}`).join('\n')}` : '',
-      topActions.length ? `The first fixes I would prioritize are:\n${topActions.map(action => `- ${action.recommendedAction}`).join('\n')}` : '',
-      'This is a snapshot, not a guaranteed ranking, because AI answers change by tool, time, account state, and location.',
-    ].filter(Boolean).join('\n'),
+    whatToFixNext,
+    clientEmail,
     caveats: [
       DEFAULT_AUDIT_CAVEAT,
       'API captures and consumer web UI captures can differ; manual Google AI Overview evidence should be preserved for client-facing claims.',
       'Recommendations are based on captured answer behavior and visible evidence, not inside knowledge of any model ranking system.',
     ],
+    sections: sections.map(section => section.title === '13. Client Email Draft' ? { ...section, body: clientEmail } : section),
   };
+}
+
+function formatPercent(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
+function summarizeRunsByPlatform(runs: VisibilityAuditRun[]): string[] {
+  return (Object.keys(PROVIDER_LABELS) as VisibilityProviderId[])
+    .map(provider => {
+      const providerRuns = runs.filter(run => run.provider === provider);
+      if (!providerRuns.length) return '';
+      const mentioned = providerRuns.filter(run => run.score?.brandMentioned).length;
+      const citations = providerRuns.filter(run => run.score?.brandWithCitation).length;
+      const avgScore = roundToTwo(providerRuns.reduce((sum, run) => sum + (run.score?.workbookScore || 0), 0) / providerRuns.length);
+      return `${PROVIDER_LABELS[provider]}: ${mentioned}/${providerRuns.length} mentions, ${citations} brand citations, 0-5 avg ${avgScore}.`;
+    })
+    .filter(Boolean);
+}
+
+function summarizeRunsByCategory(runs: VisibilityAuditRun[]): string[] {
+  return QUESTION_CATEGORY_ORDER
+    .map(category => {
+      const categoryRuns = runs.filter(run => run.query.category === category);
+      if (!categoryRuns.length) return '';
+      const mentioned = categoryRuns.filter(run => run.score?.brandMentioned).length;
+      const top = categoryRuns.filter(run => (run.score?.workbookScore || 0) >= 4).length;
+      const competitors = categoryRuns.reduce((sum, run) => sum + (run.score?.competitorCount || 0), 0);
+      const avgScore = roundToTwo(categoryRuns.reduce((sum, run) => sum + (run.score?.workbookScore || 0), 0) / categoryRuns.length);
+      return `${QUESTION_CATEGORY_META[category].label}: ${mentioned}/${categoryRuns.length} mentions, ${top} top/cited answers, ${competitors} competitor mentions, 0-5 avg ${avgScore}.`;
+    })
+    .filter(Boolean);
+}
+
+function summarizeCitationDomains(runs: VisibilityAuditRun[]): string[] {
+  const counts = new Map<string, number>();
+  for (const run of runs) {
+    for (const citation of run.response?.citations || []) {
+      const domain = normalizeDomain(citation.url);
+      if (!domain) continue;
+      counts.set(domain, (counts.get(domain) || 0) + 1);
+    }
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([domain, count]) => `${domain}: ${count} citation${count === 1 ? '' : 's'}`);
+}
+
+function summarizeEvidenceHighlights(runs: VisibilityAuditRun[]): string[] {
+  return runs
+    .filter(run => run.response?.rawText)
+    .slice(0, 6)
+    .map(run => {
+      const text = (run.response?.rawText || '').replace(/\s+/g, ' ').trim();
+      const excerpt = text.length > 180 ? `${text.slice(0, 180)}...` : text;
+      return `${PROVIDER_LABELS[run.provider]} / ${run.query.code}: ${excerpt}`;
+    });
 }
 
 export function topCompetitorMentions(runs: VisibilityAuditRun[]): Array<{ name: string; count: number }> {
