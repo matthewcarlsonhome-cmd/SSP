@@ -20,6 +20,7 @@ export type AuditJob = {
     | "analyzing_competitors"
     | "optimizing_pages"
     | "generating_report"
+    | "formatting_report"
     | "completed"
     | "failed";
   progress: number;
@@ -125,5 +126,25 @@ export type PageAudit = {
   heading_structure: Record<string, unknown> | null;
   content_requirements: Record<string, unknown> | null;
   internal_linking_plan: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export type ClientSiteCrawl = {
+  id: string;
+  client_id: string;
+  job_id: string | null;
+  seed_url: string;
+  firecrawl_job_id: string | null;
+  status: "queued" | "running" | "complete" | "failed" | "cancelled";
+  crawl_limit: number;
+  max_depth: number;
+  credits_used: number | null;
+  discovered_url_count: number | null;
+  selected_url_count: number | null;
+  selected_urls: Record<string, unknown>[] | null;
+  config_json: Record<string, unknown>;
+  error_message: string | null;
+  started_at: string | null;
+  completed_at: string | null;
   created_at: string;
 };

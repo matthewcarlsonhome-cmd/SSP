@@ -36,7 +36,28 @@ export async function GET(
       .eq("job_id", id)
       .order("timestamp", { ascending: true });
 
-    return NextResponse.json({ ...job, audit_logs: logs || [] });
+    const { data: siteCrawls, error: siteCrawlError } = await supabase
+      .from("client_site_crawl")
+      .select(
+        `
+        *,
+        client_site_page (*, client_schema_item (*)),
+        client_voice_profile (*),
+        seo_geo_finding (*)
+      `
+      )
+      .eq("job_id", id)
+      .order("created_at", { ascending: false });
+
+    if (siteCrawlError) {
+      console.warn("Failed to fetch Firecrawl site evidence:", siteCrawlError.message);
+    }
+
+    return NextResponse.json({
+      ...job,
+      audit_logs: logs || [],
+      site_crawls: siteCrawls || [],
+    });
   } catch (error) {
     console.error("Failed to fetch job:", error);
     return NextResponse.json(

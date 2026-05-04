@@ -6,6 +6,8 @@ import {
 } from "@/lib/claude";
 import { getServiceClient } from "@/lib/supabase";
 import { fetchSiteSignals, formatSiteSignalsForPrompt } from "@/lib/utils/html-fetcher";
+import { isFirecrawlConfigured } from "@/lib/firecrawl/client";
+import { runFirecrawlSiteCrawl } from "@/lib/site-crawl/firecrawl-ingest";
 import {
   AGENT_1_SYSTEM_PROMPT,
   AGENT_2_SYSTEM_PROMPT,
@@ -26,13 +28,12 @@ const INTER_BATCH_DELAY_MS = 5_000; // delay between batches to avoid rate limit
 const INTER_AGENT_DELAY_MS = 10_000; // delay between agents to avoid rate limits
 
 // Model IDs — resolved per-job based on user's model selection
-const MODELS = {
-  haiku: "claude-haiku-4-5-20251001",
-  sonnet: "claude-sonnet-4-20250514",
+const MODEL_BATCH = "claude-haiku-4-5-20251001";
+const MODEL_DEEP_SONNET = "claude-sonnet-4-20250514";
+const MODEL_CHOICES = {
+  haiku: MODEL_BATCH,
+  sonnet: MODEL_DEEP_SONNET,
 } as const;
-
-// Default model for batch operations (always Haiku for cost savings)
-const MODEL_BATCH = MODELS.haiku;
 
 type AgentConfig = {
   name: string;
@@ -186,8 +187,8 @@ export async function runPipeline(jobId: string) {
   const brief = job.input_brief as Record<string, unknown>;
 
   // Resolve model based on job's model_used field (set at job creation from user's selection)
-  const modelChoice = (job.model_used === "sonnet" ? "sonnet" : "haiku") as keyof typeof MODELS;
-  const MODEL_DEEP = MODELS[modelChoice];
+  const modelChoice = (job.model_used === "sonnet" ? "sonnet" : "haiku") as keyof typeof MODEL_CHOICES;
+  const MODEL_DEEP = MODEL_CHOICES[modelChoice];
   const modelLabel = modelChoice === "sonnet" ? "Sonnet (premium)" : "Haiku (standard)";
 
   await updateJob(jobId, {
@@ -201,32 +202,65 @@ export async function runPipeline(jobId: string) {
   await writeLog(jobId, "info", `Client: ${(brief.business_name || brief.client_name || brief.website_url || "Unknown")} | Model: ${MODEL_DEEP}`);
 
   try {
-    // ─── Pre-fetch: Fetch actual HTML for ground-truth SEO signals ───
+    // Pre-fetch: Firecrawl site evidence layer, with lightweight HTML fallback.
     await updateJob(jobId, {
-      current_step: "Fetching website HTML for technical analysis...",
+      current_step: "Building site evidence layer for technical analysis...",
       progress: 2,
     });
-    await writeLog(jobId, "info", `Fetching actual HTML from ${brief.website_url}...`, "HTML Fetcher");
 
     let siteSignalsText = "";
-    try {
-      const siteSignals = await fetchSiteSignals(brief.website_url as string, 4);
-      siteSignalsText = formatSiteSignalsForPrompt(siteSignals);
+    const siteCrawlConfig = (brief.site_crawl || {}) as { enabled?: boolean; profile?: string };
+    const firecrawlEnabled = siteCrawlConfig.enabled !== false && isFirecrawlConfigured();
 
-      const schemaCount = [siteSignals.homepage, ...siteSignals.subpages]
-        .filter(Boolean)
-        .reduce((sum, p) => sum + (p?.schemaObjects.length || 0), 0);
-      const pagesFetched = (siteSignals.homepage ? 1 : 0) + siteSignals.subpages.length;
+    if (firecrawlEnabled && brief.website_url) {
+      try {
+        await writeLog(jobId, "info", `Using Firecrawl server-side crawl for ${brief.website_url}...`, "Firecrawl");
+        const firecrawlResult = await runFirecrawlSiteCrawl({
+          jobId,
+          clientId: job.client_id as string,
+          seedUrl: brief.website_url as string,
+          profile: siteCrawlConfig.profile || "standard",
+          writeLog: (level, message, agent, detail, pageUrl) =>
+            writeLog(jobId, level, message, agent, detail, pageUrl),
+        });
+        siteSignalsText = firecrawlResult.promptSummary;
+        await writeLog(
+          jobId,
+          "success",
+          `Firecrawl evidence ready: ${firecrawlResult.pages.length} pages, ${firecrawlResult.creditsUsed} credits, crawl job ${firecrawlResult.firecrawlJobId}`,
+          "Firecrawl"
+        );
+      } catch (firecrawlError) {
+        const msg = firecrawlError instanceof Error ? firecrawlError.message : String(firecrawlError);
+        await writeLog(jobId, "warn", `Firecrawl crawl failed (${msg}) - falling back to lightweight HTML fetch`, "Firecrawl");
+      }
+    } else if (siteCrawlConfig.enabled !== false) {
+      await writeLog(jobId, "warn", "FIRECRAWL_API_KEY is not configured - using lightweight HTML fetch fallback", "Firecrawl");
+    } else {
+      await writeLog(jobId, "info", "Firecrawl site crawl disabled for this audit run", "Firecrawl");
+    }
 
-      await writeLog(
-        jobId,
-        "success",
-        `Fetched ${pagesFetched} pages | ${schemaCount} schema objects found | robots.txt: ${siteSignals.robotsTxt.exists ? "found" : "missing"}`,
-        "HTML Fetcher"
-      );
-    } catch (fetchError) {
-      const msg = fetchError instanceof Error ? fetchError.message : String(fetchError);
-      await writeLog(jobId, "warn", `HTML fetch failed (${msg}) — Agent 1 will rely on web search only`, "HTML Fetcher");
+    if (!siteSignalsText) {
+      await writeLog(jobId, "info", `Fetching actual HTML from ${brief.website_url}...`, "HTML Fetcher");
+      try {
+        const siteSignals = await fetchSiteSignals(brief.website_url as string, 4);
+        siteSignalsText = formatSiteSignalsForPrompt(siteSignals);
+
+        const schemaCount = [siteSignals.homepage, ...siteSignals.subpages]
+          .filter(Boolean)
+          .reduce((sum, p) => sum + (p?.schemaObjects.length || 0), 0);
+        const pagesFetched = (siteSignals.homepage ? 1 : 0) + siteSignals.subpages.length;
+
+        await writeLog(
+          jobId,
+          "success",
+          `Fetched ${pagesFetched} pages | ${schemaCount} schema objects found | robots.txt: ${siteSignals.robotsTxt.exists ? "found" : "missing"}`,
+          "HTML Fetcher"
+        );
+      } catch (fetchError) {
+        const msg = fetchError instanceof Error ? fetchError.message : String(fetchError);
+        await writeLog(jobId, "warn", `HTML fetch failed (${msg}) — Agent 1 will rely on web search only`, "HTML Fetcher");
+      }
     }
 
     // ─── Agent 1: Site Crawler & Scorer ───

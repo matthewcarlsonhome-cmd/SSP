@@ -65,6 +65,13 @@ const PRIMARY_GOALS = [
 
 type Competitor = { url: string; name: string };
 type Keyword = { keyword: string; priority: string; currentRanking: string };
+type SiteCrawlPreview = {
+  auditProfile: { id: string; label: string; limit: number; maxDiscoveryDepth: number };
+  discoveredCount: number;
+  selectedCount: number;
+  estimatedCredits: number;
+  selectedUrls: Array<{ url: string; pageType: string; title?: string }>;
+};
 
 export default function NewAuditPageWrapper() {
   return (
@@ -109,6 +116,13 @@ function NewAuditPage() {
 
   // Model selection
   const [selectedModel, setSelectedModel] = useState<"haiku" | "sonnet">("haiku");
+
+  // Firecrawl site evidence layer
+  const [siteCrawlEnabled, setSiteCrawlEnabled] = useState(true);
+  const [siteCrawlProfile, setSiteCrawlProfile] = useState<"free-snapshot" | "standard" | "full-audit">("standard");
+  const [siteCrawlPreview, setSiteCrawlPreview] = useState<SiteCrawlPreview | null>(null);
+  const [isPreviewingSiteCrawl, setIsPreviewingSiteCrawl] = useState(false);
+  const [siteCrawlPreviewError, setSiteCrawlPreviewError] = useState("");
 
   // Upload state
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -251,6 +265,29 @@ function NewAuditPage() {
     }
   };
 
+  const handlePreviewSiteCrawl = async () => {
+    if (!websiteUrl) return;
+    setIsPreviewingSiteCrawl(true);
+    setSiteCrawlPreviewError("");
+    setSiteCrawlPreview(null);
+
+    try {
+      const res = await fetch("/api/site-crawl/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: websiteUrl, profile: siteCrawlProfile }),
+        cache: "no-store",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to preview site crawl");
+      setSiteCrawlPreview(data);
+    } catch (error) {
+      setSiteCrawlPreviewError(error instanceof Error ? error.message : "Failed to preview site crawl");
+    } finally {
+      setIsPreviewingSiteCrawl(false);
+    }
+  };
+
   // Pre-fill form when re-running a previous audit
   useEffect(() => {
     if (!rerunJobId) return;
@@ -291,6 +328,12 @@ function NewAuditPage() {
         setPainPoints(brief.pain_points || "");
         setPreviousSeo(brief.previous_seo || "");
         setBudget(brief.budget || "");
+        if (brief.site_crawl) {
+          setSiteCrawlEnabled(brief.site_crawl.enabled !== false);
+          if (["free-snapshot", "standard", "full-audit"].includes(brief.site_crawl.profile)) {
+            setSiteCrawlProfile(brief.site_crawl.profile);
+          }
+        }
       })
       .catch(() => {});
   }, [rerunJobId]);
@@ -336,6 +379,17 @@ function NewAuditPage() {
       previous_seo: previousSeo,
       budget,
       model: selectedModel,
+      site_crawl: {
+        enabled: siteCrawlEnabled,
+        profile: siteCrawlProfile,
+        preview: siteCrawlPreview
+          ? {
+              discoveredCount: siteCrawlPreview.discoveredCount,
+              selectedCount: siteCrawlPreview.selectedCount,
+              estimatedCredits: siteCrawlPreview.estimatedCredits,
+            }
+          : null,
+      },
     };
 
     try {
@@ -599,6 +653,99 @@ function NewAuditPage() {
                   </div>
                 </div>
               )}
+
+              <div className="rounded-xl border bg-muted/30 p-4 space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Firecrawl site evidence layer</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Maps the sitemap first, then runs a server-side crawl for schema, page inventory,
+                      client voice, and SEO/AEO/GEO evidence before the AI audit runs.
+                    </p>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm font-medium">
+                    <input
+                      type="checkbox"
+                      checked={siteCrawlEnabled}
+                      onChange={(e) => setSiteCrawlEnabled(e.target.checked)}
+                      className="h-4 w-4 rounded border-input"
+                    />
+                    Enabled
+                  </label>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                  <div className="space-y-2">
+                    <Label htmlFor="siteCrawlProfile">Crawl budget profile</Label>
+                    <Select
+                      id="siteCrawlProfile"
+                      value={siteCrawlProfile}
+                      onChange={(e) => {
+                        setSiteCrawlProfile(e.target.value as "free-snapshot" | "standard" | "full-audit");
+                        setSiteCrawlPreview(null);
+                      }}
+                      disabled={!siteCrawlEnabled}
+                    >
+                      <option value="free-snapshot">Free Snapshot - up to 10 pages</option>
+                      <option value="standard">Standard Audit - up to 50 pages</option>
+                      <option value="full-audit">Full Audit - up to 150 pages</option>
+                    </Select>
+                  </div>
+                  <div className="flex items-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handlePreviewSiteCrawl}
+                      disabled={!websiteUrl || !siteCrawlEnabled || isPreviewingSiteCrawl}
+                    >
+                      {isPreviewingSiteCrawl ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Mapping...
+                        </>
+                      ) : (
+                        <>
+                          <BarChart3 className="h-3.5 w-3.5" />
+                          Preview Crawl
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {siteCrawlPreviewError && (
+                  <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
+                    {siteCrawlPreviewError}
+                  </div>
+                )}
+
+                {siteCrawlPreview && (
+                  <div className="rounded-lg border bg-background p-3">
+                    <div className="grid grid-cols-3 gap-3 text-center text-sm">
+                      <div>
+                        <p className="text-lg font-bold">{siteCrawlPreview.discoveredCount}</p>
+                        <p className="text-xs text-muted-foreground">URLs discovered</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold">{siteCrawlPreview.selectedCount}</p>
+                        <p className="text-xs text-muted-foreground">Priority pages</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold">{siteCrawlPreview.estimatedCredits}</p>
+                        <p className="text-xs text-muted-foreground">Est. credits</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 max-h-32 space-y-1 overflow-y-auto border-t pt-3">
+                      {siteCrawlPreview.selectedUrls.slice(0, 8).map((item) => (
+                        <div key={item.url} className="flex items-center justify-between gap-2 text-xs">
+                          <span className="truncate">{item.url}</span>
+                          <Badge variant="outline" className="shrink-0 capitalize">{item.pageType}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2">

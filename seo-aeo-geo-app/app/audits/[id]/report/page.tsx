@@ -20,6 +20,7 @@ import {
   TrendingUp,
   Loader2,
   BookOpen,
+  Globe,
   ExternalLink,
   AlertTriangle,
   CheckCircle2,
@@ -38,6 +39,7 @@ import { formatDate } from "@/lib/utils";
 const tabs = [
   { id: "formatted", label: "Full Report", icon: BookOpen },
   { id: "summary", label: "Executive Summary", icon: FileText },
+  { id: "crawl", label: "Site Crawl", icon: Globe },
   { id: "competitors", label: "Competitive Intel", icon: BarChart3 },
   { id: "pages", label: "Page Optimization", icon: TrendingUp },
   { id: "schema", label: "Schema Code", icon: Code },
@@ -84,6 +86,27 @@ type JobData = {
   page_audits: PageAudit[];
   link_opportunities: Array<Record<string, unknown>>;
   citation_tasks: Array<Record<string, unknown>>;
+  site_crawls?: Array<{
+    id: string;
+    seed_url: string;
+    status: string;
+    crawl_limit: number;
+    max_depth: number;
+    credits_used: number | null;
+    discovered_url_count: number | null;
+    selected_url_count: number | null;
+    client_site_page?: Array<{
+      id: string;
+      url: string;
+      title: string | null;
+      page_type: string;
+      word_count: number | null;
+      indexability_status: string | null;
+      client_schema_item?: Array<{ id: string; schema_type: string; warnings: string[] | null }>;
+    }>;
+    client_voice_profile?: Array<Record<string, unknown>>;
+    seo_geo_finding?: Array<Record<string, unknown>>;
+  }>;
 };
 
 // ─── Utility Components ───
@@ -129,6 +152,20 @@ function StatusIcon({ status }: { status: string }) {
   if (status === "pass") return <CheckCircle2 className="h-4 w-4 text-success shrink-0" />;
   if (status === "fail") return <XCircle className="h-4 w-4 text-destructive shrink-0" />;
   return <AlertTriangle className="h-4 w-4 text-warning shrink-0" />;
+}
+
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function asText(value: unknown, fallback = "No data"): string {
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+function severityLabel(value: unknown) {
+  if (value === 3 || value === "3" || value === "critical") return "critical";
+  if (value === 2 || value === "2" || value === "high") return "high";
+  return "info";
 }
 
 // ─── Simple Markdown Renderer ───
@@ -401,6 +438,11 @@ export default function ReportViewerPage() {
   const offpage = job.offpage_strategy as Record<string, unknown> | null;
   const techAudit = job.technical_audit as Record<string, unknown> | null;
   const measurement = job.measurement_framework as Record<string, unknown> | null;
+  const siteCrawl = job.site_crawls?.[0];
+  const siteCrawlPages = siteCrawl?.client_site_page || [];
+  const schemaItemCount = siteCrawlPages.reduce((sum, page) => sum + (page.client_schema_item?.length || 0), 0);
+  const voiceProfile = siteCrawl?.client_voice_profile?.[0];
+  const seoGeoFindings = siteCrawl?.seo_geo_finding || [];
 
   return (
     <div className="space-y-8">
@@ -491,6 +533,197 @@ export default function ReportViewerPage() {
             <SimpleMarkdown content={job.formatted_report} />
           </CardContent>
         </Card>
+      )}
+
+      {/* Site Crawl Tab */}
+      {activeTab === "crawl" && (
+        <div className="space-y-6">
+          {siteCrawl ? (
+            <>
+              <div className="grid gap-4 sm:grid-cols-4">
+                <Card className="text-center">
+                  <CardContent className="py-6">
+                    <p className="text-sm text-muted-foreground">Captured Pages</p>
+                    <p className="mt-2 text-3xl font-bold">{siteCrawlPages.length}</p>
+                  </CardContent>
+                </Card>
+                <Card className="text-center">
+                  <CardContent className="py-6">
+                    <p className="text-sm text-muted-foreground">Discovered URLs</p>
+                    <p className="mt-2 text-3xl font-bold">{siteCrawl.discovered_url_count || "No data"}</p>
+                  </CardContent>
+                </Card>
+                <Card className="text-center">
+                  <CardContent className="py-6">
+                    <p className="text-sm text-muted-foreground">Schema Items</p>
+                    <p className="mt-2 text-3xl font-bold">{schemaItemCount}</p>
+                  </CardContent>
+                </Card>
+                <Card className="text-center">
+                  <CardContent className="py-6">
+                    <p className="text-sm text-muted-foreground">Credits Used</p>
+                    <p className="mt-2 text-3xl font-bold">{siteCrawl.credits_used || "Pending"}</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {voiceProfile && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Client Voice Profile</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-5">
+                    <div>
+                      <p className="text-sm font-medium">Tone</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{asText(voiceProfile.tone)}</p>
+                    </div>
+                    <div className="grid gap-5 md:grid-cols-2">
+                      <div>
+                        <p className="text-sm font-medium">Services Found</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {asStringArray(voiceProfile.services).slice(0, 18).map((service) => (
+                            <Badge key={service} variant="secondary">{service}</Badge>
+                          ))}
+                          {asStringArray(voiceProfile.services).length === 0 && (
+                            <span className="text-sm text-muted-foreground">No services detected.</span>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Proof Points</p>
+                        <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                          {asStringArray(voiceProfile.proof_points).slice(0, 5).map((point) => (
+                            <li key={point}>{point}</li>
+                          ))}
+                          {asStringArray(voiceProfile.proof_points).length === 0 && <li>No proof points detected.</li>}
+                        </ul>
+                      </div>
+                    </div>
+                    <div className="grid gap-5 md:grid-cols-2">
+                      <div>
+                        <p className="text-sm font-medium">Value Props</p>
+                        <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                          {asStringArray(voiceProfile.value_props).slice(0, 5).map((prop) => (
+                            <li key={prop}>{prop}</li>
+                          ))}
+                          {asStringArray(voiceProfile.value_props).length === 0 && <li>No value props detected.</li>}
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">CTAs Found</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {asStringArray(voiceProfile.ctas).slice(0, 8).map((cta) => (
+                            <Badge key={cta} variant="outline">{cta}</Badge>
+                          ))}
+                          {asStringArray(voiceProfile.ctas).length === 0 && (
+                            <span className="text-sm text-muted-foreground">No CTAs detected.</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {seoGeoFindings.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>SEO/AEO/GEO Evidence Findings</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {seoGeoFindings.map((finding, index) => (
+                        <div key={String(finding.id || index)} className="rounded-lg border p-4">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant={severityLabel(finding.severity) === "critical" ? "destructive" : "secondary"}>
+                              {severityLabel(finding.severity)}
+                            </Badge>
+                            <Badge variant="outline">{asText(finding.category)}</Badge>
+                            <p className="font-medium">{asText(finding.title)}</p>
+                          </div>
+                          <p className="mt-2 text-sm text-muted-foreground">{asText(finding.evidence)}</p>
+                          <p className="mt-2 text-sm">
+                            <span className="font-medium">Recommended fix: </span>
+                            {asText(finding.recommended_fix)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Firecrawl Page Inventory</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {siteCrawlPages.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="pb-3 text-left font-medium text-muted-foreground">Page</th>
+                            <th className="pb-3 text-left font-medium text-muted-foreground">Type</th>
+                            <th className="pb-3 text-left font-medium text-muted-foreground">Words</th>
+                            <th className="pb-3 text-left font-medium text-muted-foreground">Indexability</th>
+                            <th className="pb-3 text-left font-medium text-muted-foreground">Schema</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {siteCrawlPages.map((page) => (
+                            <tr key={page.id}>
+                              <td className="py-3">
+                                <a
+                                  href={page.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="font-medium text-primary hover:underline"
+                                >
+                                  {page.title || page.url}
+                                </a>
+                                <div className="max-w-xl truncate text-xs text-muted-foreground">{page.url}</div>
+                              </td>
+                              <td className="py-3"><Badge variant="secondary">{page.page_type}</Badge></td>
+                              <td className="py-3 text-muted-foreground">{page.word_count || 0}</td>
+                              <td className="py-3 text-muted-foreground">{page.indexability_status || "unknown"}</td>
+                              <td className="py-3">
+                                {page.client_schema_item && page.client_schema_item.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {page.client_schema_item.map((item) => (
+                                      <Badge key={item.id} variant={item.warnings?.length ? "outline" : "secondary"}>
+                                        {item.schema_type}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground">None</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="py-8 text-center text-sm text-muted-foreground">No pages were stored for this crawl.</p>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          ) : (
+            <Card>
+              <CardContent className="py-16 text-center">
+                <Globe className="mx-auto h-10 w-10 text-muted-foreground" />
+                <h2 className="mt-4 text-lg font-semibold">No Firecrawl site evidence yet</h2>
+                <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">
+                  Enable Site Crawl on the new audit form to map the website, crawl the priority pages,
+                  parse schema and page evidence, and feed that evidence into the SEO/AEO/GEO report.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
 
       {/* ─── Summary Tab ─── */}
