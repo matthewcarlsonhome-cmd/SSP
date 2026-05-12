@@ -1666,7 +1666,6 @@ async function runClaudeVisibilityPrompt(options: ProviderRunOptions): Promise<N
         'x-api-key': options.apiKey,
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
-        'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify(body),
     }, 'Claude Messages API');
@@ -1689,7 +1688,6 @@ async function runClaudeVisibilityPrompt(options: ProviderRunOptions): Promise<N
         'x-api-key': options.apiKey,
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
-        'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
         model: fallbackModel,
