@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, GitBranch, Network, ShieldCheck, Activity, Workflow, Play, ArrowRightLeft, Bot, DollarSign } from 'lucide-react';
+import { ArrowRight, GitBranch, Network, ShieldCheck, Activity, Workflow, Play, ArrowRightLeft, Bot, DollarSign, Sparkles, ListChecks, LayoutDashboard } from 'lucide-react';
 import { Card, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 
 interface SurfaceTile {
@@ -18,6 +18,22 @@ interface SurfaceTile {
 }
 
 const SURFACES: SurfaceTile[] = [
+  {
+    to: '/agentic/console',
+    title: 'Business Agent Console',
+    description:
+      'Operator cockpit for goal inbox, run timeline, approvals, memory, recurring goals, policies, and client/account dashboard cards.',
+    icon: LayoutDashboard,
+    status: 'live',
+  },
+  {
+    to: '/agentic/goals',
+    title: 'Goal Console',
+    description:
+      'Turn an open business goal into an inspectable capability plan, dynamic DAG, model routing choices, validation trace, and executable run.',
+    icon: Sparkles,
+    status: 'live',
+  },
   {
     to: '/agentic/run/ppc-master-weekly-workflow',
     title: 'Agentic Runner',
@@ -88,6 +104,14 @@ const SURFACES: SurfaceTile[] = [
       'Compare router-driven cost against blanket-Opus / blanket-Sonnet / blanket-Haiku ' +
       'strategies to see savings live.',
     icon: DollarSign,
+    status: 'live',
+  },
+  {
+    to: '/agentic/capabilities',
+    title: 'Capability Coverage',
+    description:
+      'Admin checklist for migrating skill inventory into composable capabilities with contracts, axioms, language games, routing, examples, and side effects.',
+    icon: ListChecks,
     status: 'live',
   },
 ];

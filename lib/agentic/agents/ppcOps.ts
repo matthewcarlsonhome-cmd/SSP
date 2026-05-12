@@ -63,6 +63,7 @@ export const PPC_OPS_AGENT: Agent = {
         agentId: AGENT_ID,
         workflowId: PPC_MASTER_WEEKLY_DAG.id,
         plan: executionPlan,
+        dag: PPC_MASTER_WEEKLY_DAG,
         triggerEventId: input.triggerEventId,
       },
       results,

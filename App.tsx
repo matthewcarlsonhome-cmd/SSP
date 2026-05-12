@@ -161,6 +161,9 @@ import EntityInspectorPage from './pages/agentic/EntityInspectorPage';
 import ApprovalsPage from './pages/agentic/ApprovalsPage';
 import AgentConsolePage from './pages/agentic/AgentConsolePage';
 import CostExplorerPage from './pages/agentic/CostExplorerPage';
+import GoalConsolePage from './pages/agentic/GoalConsolePage';
+import CapabilityCoveragePage from './pages/agentic/CapabilityCoveragePage';
+import BusinessAgentConsolePage from './pages/agentic/BusinessAgentConsolePage';
 import { useAuth } from './hooks/useAuth';
 
 /**
@@ -343,6 +346,9 @@ function App() {
                     <Route path="/agentic/approvals" element={<RouteErrorBoundary pageName="Approvals"><AdminOnlyRoute><ApprovalsPage /></AdminOnlyRoute></RouteErrorBoundary>} />
                     <Route path="/agentic/agents" element={<RouteErrorBoundary pageName="Agents"><AdminOnlyRoute><AgentConsolePage /></AdminOnlyRoute></RouteErrorBoundary>} />
                     <Route path="/agentic/agents/:agentId" element={<RouteErrorBoundary pageName="Agent Console"><AdminOnlyRoute><AgentConsolePage /></AdminOnlyRoute></RouteErrorBoundary>} />
+                    <Route path="/agentic/console" element={<RouteErrorBoundary pageName="Business Agent Console"><AdminOnlyRoute><BusinessAgentConsolePage /></AdminOnlyRoute></RouteErrorBoundary>} />
+                    <Route path="/agentic/goals" element={<RouteErrorBoundary pageName="Goal Console"><AdminOnlyRoute><GoalConsolePage /></AdminOnlyRoute></RouteErrorBoundary>} />
+                    <Route path="/agentic/capabilities" element={<RouteErrorBoundary pageName="Capability Coverage"><AdminOnlyRoute><CapabilityCoveragePage /></AdminOnlyRoute></RouteErrorBoundary>} />
                     <Route path="/agentic/costs" element={<RouteErrorBoundary pageName="Cost Explorer"><AdminOnlyRoute><CostExplorerPage /></AdminOnlyRoute></RouteErrorBoundary>} />
                   </Routes>
                 </main>

@@ -3,6 +3,15 @@
  * Existing workflows continue to use lib/storage/types.ts unchanged.
  */
 
+import type {
+  DataSensitivity,
+  ModelTierKey,
+  Provider,
+  TaskComplexity,
+  TaskKind,
+  TaskStakes,
+} from './costing';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Output contracts: structured fields a step is expected to produce. Used by
 // the two-pass extractor to turn LLM prose into addressable data downstream
@@ -43,6 +52,8 @@ export type SkipRule = {
 export interface AgenticStep {
   id: string;
   skillId: string;
+  capabilityId?: string;
+  executionMode?: 'skill' | 'internal' | 'renderer' | 'connector' | 'workflow';
   name: string;
   description?: string;
 
@@ -50,6 +61,20 @@ export interface AgenticStep {
   skipIf?: SkipRule;
   contextRequirements?: ContextRequirement[];
   outputContract?: OutputContract;
+  routing?: {
+    kind?: TaskKind;
+    complexity?: TaskComplexity;
+    stakes?: TaskStakes;
+    minTier?: ModelTierKey;
+    maxTier?: ModelTierKey;
+    preferredTier?: ModelTierKey;
+    allowedProviders?: Provider[];
+    forbiddenProviders?: Provider[];
+    requiresJson?: boolean;
+    requiresToolCalling?: boolean;
+    requiresStreaming?: boolean;
+    dataSensitivity?: DataSensitivity;
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -21,8 +21,8 @@
 import type {
   AgenticDAG,
   AgenticStep,
-  StepRunResult,
 } from './types';
+import type { StepRunResult } from './runner';
 
 export type EvaluatorDecision = 'proceed' | 'retry' | 'stop';
 

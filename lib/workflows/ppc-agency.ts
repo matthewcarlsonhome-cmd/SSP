@@ -122,6 +122,7 @@ const PPC_MASTER_WEEKLY_WORKFLOW: Workflow = {
       skillId: 'ppc-weekly-triage',
       name: 'Monday Triage & Prioritization',
       description: 'Review anomaly alerts, budget pacing, and dashboard flags to build P1/P2/P3 priority matrix',
+      outputKey: 'triagePriorityMatrix',
       inputMappings: {
         alertEmails: { type: 'global', globalInputId: 'alertEmails' },
         dashboardFlags: { type: 'static', value: 'Review Looker Studio Portfolio Overview for visual flags not caught by scripts. Note any gradual 3-week trends, seasonal transitions, and accounts with upcoming client calls.' },
@@ -137,6 +138,7 @@ const PPC_MASTER_WEEKLY_WORKFLOW: Workflow = {
       skillId: 'ppc-recommendations-audit',
       name: 'Recommendations Audit & Scoring',
       description: 'Score and triage Google Ads recommendations across the portfolio with accept/reject guidance',
+      outputKey: 'recommendationsAudit',
       inputMappings: {
         recommendationsData: { type: 'global', globalInputId: 'recommendationsData' },
         accountName: { type: 'static', value: 'SSP MCC Portfolio' },
@@ -152,6 +154,7 @@ const PPC_MASTER_WEEKLY_WORKFLOW: Workflow = {
       skillId: 'ppc-search-terms-negatives',
       name: 'Search Terms & Negatives Review',
       description: 'Review search terms, identify waste, add negatives, and generate the biweekly summary',
+      outputKey: 'searchTermsReview',
       inputMappings: {
         searchTermsData: { type: 'global', globalInputId: 'searchTermsData' },
         accountsReviewed: { type: 'static', value: 'Top 12 highest-spend accounts' },
@@ -167,6 +170,7 @@ const PPC_MASTER_WEEKLY_WORKFLOW: Workflow = {
       skillId: 'ppc-pmax-hygiene-auditor',
       name: 'PMax Asset Hygiene Audit',
       description: 'Audit PMax asset groups, prune underperformers, update audience signals, check for Search cannibalization',
+      outputKey: 'pmaxAssetHygiene',
       inputMappings: {
         accountName: { type: 'global', globalInputId: 'pmaxAccountName' },
         assetGroupData: { type: 'global', globalInputId: 'pmaxAssetData' },
@@ -183,6 +187,7 @@ const PPC_MASTER_WEEKLY_WORKFLOW: Workflow = {
       skillId: 'ppc-deliverables-generator',
       name: 'Client Report Narratives & Call Prep',
       description: 'Generate reporting draft queue with 4-part narratives for upcoming client calls',
+      outputKey: 'clientReportNarratives',
       inputMappings: {
         deliverableType: { type: 'static', value: 'Reporting Draft Queue' },
         accountData: { type: 'global', globalInputId: 'clientCallsThisWeek' },
@@ -199,6 +204,7 @@ const PPC_MASTER_WEEKLY_WORKFLOW: Workflow = {
       skillId: 'ppc-looker-studio-setup',
       name: 'Dashboard Review & Updates',
       description: 'Review Looker Studio portfolio dashboard, update conditional formatting thresholds, generate client report exports',
+      outputKey: 'dashboardReview',
       inputMappings: {
         dashboardType: { type: 'static', value: 'Both' },
         dataSourceInfo: { type: 'static', value: 'Google Ads MCC connected. Review data freshness and any discrepancies flagged during triage.' },
@@ -215,6 +221,7 @@ const PPC_MASTER_WEEKLY_WORKFLOW: Workflow = {
       skillId: 'ppc-deliverables-generator',
       name: 'Weekly Change Log & Documentation',
       description: 'Generate the Account Change Log summarizing all changes made this week',
+      outputKey: 'weeklyChangeLog',
       inputMappings: {
         deliverableType: { type: 'static', value: 'Account Change Log' },
         accountData: { type: 'static', value: 'Portfolio-wide changes this week' },

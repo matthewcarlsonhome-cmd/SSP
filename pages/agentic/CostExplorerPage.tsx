@@ -30,12 +30,16 @@ import {
   calculateCost,
   classifyStep,
   formatCostCompact,
+  listRecentQualityEvents,
+  listRecentSkillExecutions,
   listModels,
+  planShadowRoute,
   routeDag,
-  routeModel,
   type AgenticDAG,
   type ModelProfile,
   type ModelTierKey,
+  type PersistedQualityEvent,
+  type PersistedSkillExecution,
 } from '../../lib/agentic';
 import { Card, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 
@@ -164,6 +168,38 @@ const STRATEGY_LABELS: Record<Strategy, string> = {
   'blanket-balanced': 'Blanket Sonnet/4o',
   'blanket-smart': 'Blanket Opus',
 };
+
+function persistedCost(row: PersistedSkillExecution): number {
+  return Number(row.actual_cost_cents ?? row.estimated_cost_cents ?? row.cost_cents ?? 0);
+}
+
+function dayKey(value: string | null | undefined): string {
+  if (!value) return 'unknown';
+  return value.slice(0, 10);
+}
+
+function completenessProxy(row: PersistedSkillExecution): number {
+  if (row.status === 'failed') return 0;
+  const fields = row.structured_output ?? {};
+  const fieldCount = Object.values(fields).filter((value) => value !== undefined && value !== null && value !== '').length;
+  if (fieldCount > 0) return 1;
+  if ((row.raw_output?.length ?? 0) > 100) return 0.5;
+  return 0;
+}
+
+function workflowForExecution(row: PersistedSkillExecution): string {
+  for (const dag of Object.values(HAND_AUTHORED_DAGS)) {
+    if (dag.steps.some((step) => step.id === row.step_id || step.skillId === row.skill_id)) {
+      return dag.id;
+    }
+  }
+  return 'unknown';
+}
+
+function average(values: number[]): number {
+  if (values.length === 0) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
 
 function blanketModelForTier(tier: ModelTierKey): ModelProfile | null {
   const candidates = listModels()
@@ -368,6 +404,25 @@ const SystemTab: React.FC = () => {
   const dags = Object.values(HAND_AUTHORED_DAGS);
   const [runsPerWeek, setRunsPerWeek] = React.useState(50);
   const [accounts, setAccounts] = React.useState(45);
+  const [actualExecutions, setActualExecutions] = React.useState<PersistedSkillExecution[]>([]);
+  const [qualityEvents, setQualityEvents] = React.useState<PersistedQualityEvent[]>([]);
+  const [actualLoaded, setActualLoaded] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      listRecentSkillExecutions(100),
+      listRecentQualityEvents(100),
+    ]).then(([executionRows, qualityRows]) => {
+      if (cancelled) return;
+      setActualExecutions(executionRows);
+      setQualityEvents(qualityRows);
+      setActualLoaded(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const projections = dags.map((dag) => {
     const router = routeDag(dag);
@@ -399,6 +454,15 @@ const SystemTab: React.FC = () => {
   const totalAnnualRouter = projections.reduce((s, p) => s + p.totals.router, 0) * annualMultiplier / 100;
   const totalAnnualBlanketSmart = projections.reduce((s, p) => s + p.totals['blanket-smart'], 0) * annualMultiplier / 100;
   const annualSavings = totalAnnualBlanketSmart - totalAnnualRouter;
+  const actualTotalCents = actualExecutions.reduce(
+    (sum, row) => sum + persistedCost(row),
+    0,
+  );
+  const actualByTier = actualExecutions.reduce<Record<string, number>>((acc, row) => {
+    const tier = row.model_tier ?? 'unknown';
+    acc[tier] = (acc[tier] ?? 0) + persistedCost(row);
+    return acc;
+  }, {});
 
   return (
     <div className="space-y-4">
@@ -467,6 +531,42 @@ const SystemTab: React.FC = () => {
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">Actual attribution overlay</CardTitle>
+          <CardDescription>
+            Recent persisted agentic skill executions from Supabase. When no rows load, this page remains a projection tool.
+          </CardDescription>
+        </CardHeader>
+        <div className="mt-3 grid sm:grid-cols-3 gap-3">
+          <div className="p-3 rounded-lg bg-card border">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Rows loaded</div>
+            <div className="text-2xl font-bold mt-0.5">{actualLoaded ? actualExecutions.length : '...'}</div>
+          </div>
+          <div className="p-3 rounded-lg bg-card border">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Actual cost</div>
+            <div className="text-2xl font-bold mt-0.5">{formatCostCompact(actualTotalCents)}</div>
+          </div>
+          <div className="p-3 rounded-lg bg-card border">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Spend by tier</div>
+            <div className="text-xs mt-1 space-y-0.5">
+              {Object.keys(actualByTier).length === 0 && (
+                <span className="text-muted-foreground">No persisted routing rows yet.</span>
+              )}
+              {Object.entries(actualByTier).map(([tier, cents]) => (
+                <div key={tier} className="flex justify-between gap-3">
+                  <span><code>{tier}</code></span>
+                  <span className="font-mono">{formatCostCompact(cents)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <ActualQualityMetrics executions={actualExecutions} qualityEvents={qualityEvents} />
+      <ShadowDownshiftCandidates dags={dags} />
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">Per-workflow breakdown</CardTitle>
           <CardDescription>Single-run cost across strategies.</CardDescription>
         </CardHeader>
@@ -512,6 +612,224 @@ const SystemTab: React.FC = () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // Local UI bits
 // ─────────────────────────────────────────────────────────────────────────────
+
+const ActualQualityMetrics: React.FC<{
+  executions: PersistedSkillExecution[];
+  qualityEvents: PersistedQualityEvent[];
+}> = ({ executions, qualityEvents }) => {
+  const costByDay = React.useMemo(() => {
+    const rows: Record<string, number> = {};
+    for (const row of executions) {
+      const key = dayKey(row.started_at);
+      rows[key] = (rows[key] ?? 0) + persistedCost(row);
+    }
+    return rows;
+  }, [executions]);
+
+  const byDay = React.useMemo(() => {
+    if (qualityEvents.length > 0) {
+      const rows: Record<string, { calls: number; cost: number; completeness: number[] }> = {};
+      for (const event of qualityEvents) {
+        const key = dayKey(event.created_at);
+        rows[key] = rows[key] ?? { calls: 0, cost: costByDay[key] ?? 0, completeness: [] };
+        rows[key].calls += 1;
+        rows[key].completeness.push(Number(event.contract_completeness ?? 0));
+      }
+      return Object.entries(rows)
+        .map(([day, value]) => ({ day, ...value, averageCompleteness: average(value.completeness) }))
+        .sort((a, b) => b.day.localeCompare(a.day))
+        .slice(0, 10);
+    }
+
+    const rows: Record<string, { calls: number; cost: number; completeness: number[] }> = {};
+    for (const row of executions) {
+      const key = dayKey(row.started_at);
+      rows[key] = rows[key] ?? { calls: 0, cost: 0, completeness: [] };
+      rows[key].calls += 1;
+      rows[key].cost += persistedCost(row);
+      rows[key].completeness.push(completenessProxy(row));
+    }
+    return Object.entries(rows)
+      .map(([day, value]) => ({ day, ...value, averageCompleteness: average(value.completeness) }))
+      .sort((a, b) => b.day.localeCompare(a.day))
+      .slice(0, 10);
+  }, [costByDay, executions, qualityEvents]);
+
+  const byTierWorkflow = React.useMemo(() => {
+    if (qualityEvents.length > 0) {
+      const rows: Record<string, { tier: string; workflow: string; calls: number; completeness: number[]; failures: number; retries: number }> = {};
+      for (const event of qualityEvents) {
+        const tier = event.model_tier ?? 'unknown';
+        const workflow = event.workflow_id;
+        const key = `${workflow}:${tier}`;
+        rows[key] = rows[key] ?? { tier, workflow, calls: 0, completeness: [], failures: 0, retries: 0 };
+        rows[key].calls += 1;
+        rows[key].completeness.push(Number(event.contract_completeness ?? 0));
+        if (event.status === 'failed') rows[key].failures += 1;
+        if (['retry', 'escalate', 'replan', 'stop'].includes(event.decision)) rows[key].retries += 1;
+      }
+      return Object.values(rows)
+        .map((row) => ({
+          ...row,
+          averageCompleteness: average(row.completeness),
+          retryRateProxy: row.calls === 0 ? 0 : row.retries / row.calls,
+        }))
+        .sort((a, b) => b.calls - a.calls)
+        .slice(0, 12);
+    }
+
+    const rows: Record<string, { tier: string; workflow: string; calls: number; completeness: number[]; failures: number; escalations: number }> = {};
+    for (const row of executions) {
+      const tier = row.model_tier ?? 'unknown';
+      const workflow = workflowForExecution(row);
+      const key = `${workflow}:${tier}`;
+      rows[key] = rows[key] ?? { tier, workflow, calls: 0, completeness: [], failures: 0, escalations: 0 };
+      rows[key].calls += 1;
+      rows[key].completeness.push(completenessProxy(row));
+      if (row.status === 'failed') rows[key].failures += 1;
+      if (row.routing_reason?.includes('Escalated by quality gate')) rows[key].escalations += 1;
+    }
+    return Object.values(rows)
+      .map((row) => ({
+        ...row,
+        averageCompleteness: average(row.completeness),
+        retryRateProxy: row.calls === 0 ? 0 : (row.failures + row.escalations) / row.calls,
+      }))
+      .sort((a, b) => b.calls - a.calls)
+      .slice(0, 12);
+  }, [executions, qualityEvents]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Cost and quality rollup</CardTitle>
+        <CardDescription>
+          Uses persisted quality events when available; falls back to execution-row quality proxies for offline/local runs.
+        </CardDescription>
+      </CardHeader>
+      <div className="mt-3 grid xl:grid-cols-2 gap-4">
+        <div className="overflow-x-auto">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Actual rows grouped by day</div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-[10px] uppercase tracking-wider text-muted-foreground border-b">
+                <th className="py-2 pr-3">Day</th>
+                <th className="py-2 pr-3 text-right">Calls</th>
+                <th className="py-2 pr-3 text-right">Cost</th>
+                <th className="py-2 pr-3 text-right">Completeness</th>
+              </tr>
+            </thead>
+            <tbody>
+              {byDay.length === 0 && (
+                <tr><td className="py-3 text-muted-foreground" colSpan={4}>No persisted rows yet.</td></tr>
+              )}
+              {byDay.map((row) => (
+                <tr key={row.day} className="border-b last:border-b-0">
+                  <td className="py-2 pr-3 font-medium">{row.day}</td>
+                  <td className="py-2 pr-3 text-right">{row.calls}</td>
+                  <td className="py-2 pr-3 text-right font-mono">{formatCostCompact(row.cost)}</td>
+                  <td className="py-2 pr-3 text-right">{(row.averageCompleteness * 100).toFixed(0)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="overflow-x-auto">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Tier mix and quality by workflow</div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-[10px] uppercase tracking-wider text-muted-foreground border-b">
+                <th className="py-2 pr-3">Workflow</th>
+                <th className="py-2 pr-3">Tier</th>
+                <th className="py-2 pr-3 text-right">Calls</th>
+                <th className="py-2 pr-3 text-right">Complete</th>
+                <th className="py-2 pr-3 text-right">Retry</th>
+              </tr>
+            </thead>
+            <tbody>
+              {byTierWorkflow.length === 0 && (
+                <tr><td className="py-3 text-muted-foreground" colSpan={5}>No persisted rows yet.</td></tr>
+              )}
+              {byTierWorkflow.map((row) => (
+                <tr key={`${row.workflow}-${row.tier}`} className="border-b last:border-b-0">
+                  <td className="py-2 pr-3 font-medium">{row.workflow}</td>
+                  <td className="py-2 pr-3"><code className="text-xs">{row.tier}</code></td>
+                  <td className="py-2 pr-3 text-right">{row.calls}</td>
+                  <td className="py-2 pr-3 text-right">{(row.averageCompleteness * 100).toFixed(0)}%</td>
+                  <td className="py-2 pr-3 text-right">{(row.retryRateProxy * 100).toFixed(0)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </Card>
+  );
+};
+
+const ShadowDownshiftCandidates: React.FC<{ dags: AgenticDAG[] }> = ({ dags }) => {
+  const rows = React.useMemo(() => {
+    return dags.flatMap((dag) => {
+      const routed = routeDag(dag);
+      return dag.steps.map((step) => {
+        const entry = routed.perStep[step.id];
+        const shadow = planShadowRoute(entry.classification, entry.choice);
+        return { dag, step, entry, shadow };
+      });
+    }).filter((row) => row.shadow.eligible && row.shadow.shadowChoice).slice(0, 12);
+  }, [dags]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Candidate downshift experiments</CardTitle>
+        <CardDescription>
+          Shadow-route rows identify cheaper tiers worth testing against current production routing.
+        </CardDescription>
+      </CardHeader>
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-[10px] uppercase tracking-wider text-muted-foreground border-b">
+              <th className="py-2 pr-3">Workflow</th>
+              <th className="py-2 pr-3">Step</th>
+              <th className="py-2 pr-3">Production</th>
+              <th className="py-2 pr-3">Candidate</th>
+              <th className="py-2 pr-3 text-right">Savings</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && (
+              <tr><td className="py-3 text-muted-foreground" colSpan={5}>No downshift candidates under current routing.</td></tr>
+            )}
+            {rows.map(({ dag, step, entry, shadow }) => {
+              const shadowChoice = shadow.shadowChoice!;
+              const savings = entry.choice.estimatedCostCents - shadowChoice.estimatedCostCents;
+              return (
+                <tr key={`${dag.id}-${step.id}`} className="border-b last:border-b-0 align-top">
+                  <td className="py-2 pr-3 font-medium">{dag.name}</td>
+                  <td className="py-2 pr-3 text-xs">{step.name}</td>
+                  <td className="py-2 pr-3 text-xs">
+                    <TierPill tier={entry.choice.selectedTier} />
+                    <div className="font-mono mt-1">{formatCostCompact(entry.choice.estimatedCostCents)}</div>
+                  </td>
+                  <td className="py-2 pr-3 text-xs">
+                    <TierPill tier={shadowChoice.selectedTier} />
+                    <div className="font-mono mt-1">{formatCostCompact(shadowChoice.estimatedCostCents)}</div>
+                  </td>
+                  <td className="py-2 pr-3 text-right font-mono text-emerald-600">
+                    {formatCostCompact(Math.max(0, savings))}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+};
 
 const TabButton: React.FC<{
   active: boolean;

@@ -35,6 +35,9 @@ export interface DiscoveredProspect {
   linkedInUrl?: string;
   contacts: Partial<ClientContact>[];
   sourceUrl?: string;
+  sourceProvider?: string;
+  sourceExternalId?: string;
+  lookupRaw?: unknown;
   confidence: number;      // 0-1 score of data quality
 }
 
@@ -509,9 +512,19 @@ export async function createClientsFromProspects(
         contacts,
         selectedSkillIds: prospect.suggestedSkillIds,
         selectedWorkflowIds: prospect.suggestedWorkflowIds,
+        sourceProvider: prospect.sourceProvider || 'manual',
+        sourceExternalId: prospect.sourceExternalId,
+        sourceUrl: prospect.sourceUrl,
+        lookupConfidence: prospect.confidence,
+        lookupRaw: prospect.lookupRaw,
         portalEnabled: options.portalEnabled ?? false,
         status: 'prospect',
-        notes: `Discovered via prospecting search. Source: ${prospect.sourceUrl || 'N/A'}. Confidence: ${Math.round(prospect.confidence * 100)}%`,
+        notes: [
+          `Discovered via prospecting search. Source: ${prospect.sourceUrl || 'N/A'}.`,
+          `Confidence: ${Math.round(prospect.confidence * 100)}%.`,
+          prospect.sourceProvider ? `Provider: ${prospect.sourceProvider}.` : '',
+          prospect.sourceExternalId ? `External ID: ${prospect.sourceExternalId}.` : '',
+        ].filter(Boolean).join(' '),
       });
 
       created.push(client);

@@ -575,6 +575,7 @@ const AdminPage: React.FC = () => {
             {/* Prospect Discovery - Bulk import new prospects */}
             <div className="border-t pt-6">
               <ProspectingPanel
+                existingClients={clients}
                 onProspectsCreated={(count) => {
                   addToast(`Created ${count} new prospects`, 'success');
                   loadClients();

@@ -9,6 +9,8 @@ import { SKILLS } from '../skills';
 import type { Skill } from '../../types';
 import { runPrompt, type AgenticProvider, type ModelTier } from './providers';
 import type { AgenticStep, OutputContract } from './types';
+import type { ModelChoice } from './orchestrator';
+import type { TokenUsage } from './costing';
 
 export interface SkillToolInvocation {
   step: AgenticStep;
@@ -17,6 +19,7 @@ export interface SkillToolInvocation {
   provider: AgenticProvider;
   apiKey: string;
   modelTier?: ModelTier;
+  modelChoice?: ModelChoice;
   onChunk?: (chunk: string) => void;
   signal?: AbortSignal;
 }
@@ -26,6 +29,8 @@ export interface SkillToolResult {
   skillId: string;
   rawOutput: string;
   durationMs: number;
+  modelChoice?: ModelChoice;
+  tokenUsage?: TokenUsage;
 }
 
 /**
@@ -72,17 +77,18 @@ export function appendContractDirective(userPrompt: string, contract?: OutputCon
  * is performed in a separate pass by lib/agentic/extractor.ts.
  */
 export async function invokeSkill(args: SkillToolInvocation): Promise<SkillToolResult> {
-  const { step, skill, inputs, provider, apiKey, modelTier, onChunk, signal } = args;
+  const { step, skill, inputs, provider, apiKey, modelTier, modelChoice, onChunk, signal } = args;
   const prompt = skill.generatePrompt(inputs);
 
   const userPrompt = appendContractDirective(prompt.userPrompt, step.outputContract);
+  const routedTier = modelChoice?.selectedTier ?? modelTier;
 
   const result = await runPrompt({
     provider,
     apiKey,
     systemInstruction: prompt.systemInstruction,
     userPrompt,
-    modelTier,
+    modelTier: routedTier,
     onChunk,
     signal,
   });
@@ -92,5 +98,7 @@ export async function invokeSkill(args: SkillToolInvocation): Promise<SkillToolR
     skillId: step.skillId,
     rawOutput: result.text,
     durationMs: result.durationMs,
+    modelChoice,
+    tokenUsage: result.tokenUsage,
   };
 }

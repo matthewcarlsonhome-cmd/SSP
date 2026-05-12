@@ -56,6 +56,19 @@ export interface PersistedSkillExecution {
   structured_output: Record<string, unknown> | null;
   duration_ms: number | null;
   cost_cents: number;
+  model_id: string | null;
+  model_provider: string | null;
+  model_tier: string | null;
+  price_snapshot_id: string | null;
+  estimated_cost_cents: number | null;
+  actual_cost_cents: number | null;
+  tokens_in: number | null;
+  tokens_out: number | null;
+  tokens_cached_read: number | null;
+  tokens_cached_write: number | null;
+  tokens_reasoning: number | null;
+  routing_reason: string | null;
+  routing_rejected_candidates: unknown;
   started_at: string;
   completed_at: string | null;
 }
@@ -81,6 +94,54 @@ export interface PersistedApproval {
   resolved_by: string | null;
   resolved_at: string | null;
   decision: 'approved' | 'edited' | 'rejected' | null;
+}
+
+export interface PersistedQualityEvent {
+  id: string;
+  agent_run_id: string;
+  workflow_id: string;
+  step_id: string;
+  skill_id: string | null;
+  round_index: number;
+  model_id: string | null;
+  model_provider: string | null;
+  model_tier: string | null;
+  evaluator_id: string;
+  status: string;
+  decision: string;
+  contract_completeness: number;
+  required_fields: string[];
+  present_required_fields: string[];
+  missing_required_fields: string[];
+  optional_fields: string[];
+  present_optional_fields: string[];
+  retry_count: number;
+  escalation_tier: string | null;
+  reasons: string[];
+  created_at: string;
+}
+
+export interface QualityEventInput {
+  agentRunId: string;
+  workflowId: string;
+  stepId: string;
+  skillId?: string | null;
+  roundIndex: number;
+  modelId?: string | null;
+  modelProvider?: string | null;
+  modelTier?: string | null;
+  evaluatorId?: string;
+  status: StepStatus | string;
+  decision: string;
+  contractCompleteness: number;
+  requiredFields?: string[];
+  presentRequiredFields?: string[];
+  missingRequiredFields?: string[];
+  optionalFields?: string[];
+  presentOptionalFields?: string[];
+  retryCount?: number;
+  escalationTier?: string | null;
+  reasons?: string[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -137,6 +198,36 @@ export async function listEntityFacts(
   return (data ?? []) as unknown as PersistedEntityFact[];
 }
 
+export async function listRecentSkillExecutions(limit = 100): Promise<PersistedSkillExecution[]> {
+  const c = client();
+  if (!c) return [];
+  const { data, error } = await c
+    .from('skill_executions')
+    .select('*')
+    .order('started_at', { ascending: false })
+    .limit(limit);
+  if (error) {
+    logger.warn('agentic.listRecentSkillExecutions failed', { error: error.message });
+    return [];
+  }
+  return (data ?? []) as unknown as PersistedSkillExecution[];
+}
+
+export async function listRecentQualityEvents(limit = 100): Promise<PersistedQualityEvent[]> {
+  const c = client();
+  if (!c) return [];
+  const { data, error } = await c
+    .from('quality_events')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) {
+    logger.warn('agentic.listRecentQualityEvents failed', { error: error.message });
+    return [];
+  }
+  return (data ?? []) as unknown as PersistedQualityEvent[];
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Writes (used by the runner / agents)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -177,10 +268,87 @@ export async function recordSkillExecution(input: {
   rawOutput?: string;
   structuredOutput?: Record<string, unknown>;
   durationMs?: number;
+  modelId?: string;
+  modelProvider?: string;
+  modelTier?: string;
+  priceSnapshotId?: string;
+  estimatedCostCents?: number;
+  actualCostCents?: number;
+  tokensIn?: number;
+  tokensOut?: number;
+  tokensCachedRead?: number;
+  tokensCachedWrite?: number;
+  tokensReasoning?: number;
+  routingReason?: string;
+  routingRejectedCandidates?: unknown;
 }): Promise<void> {
   const c = client();
   if (!c) return;
-  const { error } = await c.from('skill_executions').insert({
+  const { error } = await c.from('skill_executions').insert(toSkillExecutionRow(input));
+  if (error) logger.warn('agentic.recordSkillExecution failed', { error: error.message });
+}
+
+export async function recordQualityEvent(input: QualityEventInput): Promise<void> {
+  await recordQualityEvents([input]);
+}
+
+export async function recordQualityEvents(inputs: QualityEventInput[]): Promise<void> {
+  const c = client();
+  if (!c || inputs.length === 0) return;
+  const { error } = await c.from('quality_events').insert(inputs.map(toQualityEventRow));
+  if (error) logger.warn('agentic.recordQualityEvents failed', { error: error.message });
+}
+
+export function toQualityEventRow(input: QualityEventInput): Record<string, unknown> {
+  return {
+    agent_run_id: input.agentRunId,
+    workflow_id: input.workflowId,
+    step_id: input.stepId,
+    skill_id: input.skillId ?? null,
+    round_index: input.roundIndex,
+    model_id: input.modelId ?? null,
+    model_provider: input.modelProvider ?? null,
+    model_tier: input.modelTier ?? null,
+    evaluator_id: input.evaluatorId ?? 'deterministic-contract',
+    status: input.status,
+    decision: input.decision,
+    contract_completeness: input.contractCompleteness,
+    required_fields: input.requiredFields ?? [],
+    present_required_fields: input.presentRequiredFields ?? [],
+    missing_required_fields: input.missingRequiredFields ?? [],
+    optional_fields: input.optionalFields ?? [],
+    present_optional_fields: input.presentOptionalFields ?? [],
+    retry_count: input.retryCount ?? 0,
+    escalation_tier: input.escalationTier ?? null,
+    reasons: input.reasons ?? [],
+  };
+}
+
+export function toSkillExecutionRow(input: {
+  agentRunId: string;
+  skillId: string;
+  stepId?: string;
+  roundIndex: number;
+  status: StepStatus | string;
+  inputs: Record<string, unknown>;
+  rawOutput?: string;
+  structuredOutput?: Record<string, unknown>;
+  durationMs?: number;
+  modelId?: string;
+  modelProvider?: string;
+  modelTier?: string;
+  priceSnapshotId?: string;
+  estimatedCostCents?: number;
+  actualCostCents?: number;
+  tokensIn?: number;
+  tokensOut?: number;
+  tokensCachedRead?: number;
+  tokensCachedWrite?: number;
+  tokensReasoning?: number;
+  routingReason?: string;
+  routingRejectedCandidates?: unknown;
+}): Record<string, unknown> {
+  return {
     agent_run_id: input.agentRunId,
     skill_id: input.skillId,
     step_id: input.stepId ?? null,
@@ -190,9 +358,22 @@ export async function recordSkillExecution(input: {
     raw_output: input.rawOutput ?? null,
     structured_output: input.structuredOutput ?? null,
     duration_ms: input.durationMs ?? null,
+    cost_cents: input.actualCostCents ?? input.estimatedCostCents ?? 0,
+    model_id: input.modelId ?? null,
+    model_provider: input.modelProvider ?? null,
+    model_tier: input.modelTier ?? null,
+    price_snapshot_id: input.priceSnapshotId ?? null,
+    estimated_cost_cents: input.estimatedCostCents ?? null,
+    actual_cost_cents: input.actualCostCents ?? input.estimatedCostCents ?? null,
+    tokens_in: input.tokensIn ?? null,
+    tokens_out: input.tokensOut ?? null,
+    tokens_cached_read: input.tokensCachedRead ?? null,
+    tokens_cached_write: input.tokensCachedWrite ?? null,
+    tokens_reasoning: input.tokensReasoning ?? null,
+    routing_reason: input.routingReason ?? null,
+    routing_rejected_candidates: input.routingRejectedCandidates ?? null,
     completed_at: new Date().toISOString(),
-  });
-  if (error) logger.warn('agentic.recordSkillExecution failed', { error: error.message });
+  };
 }
 
 export async function completeAgentRun(input: {

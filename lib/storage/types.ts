@@ -855,6 +855,13 @@ export interface Client {
   companyTechnicalInfo?: string;  // Technical stack, key use cases, research notes
   keyUseCases?: string[];         // Array of identified use cases for quick scanning
 
+  // Lookup provenance for imported prospects
+  sourceProvider?: string;         // e.g., "google_places", "demo", "manual"
+  sourceExternalId?: string;       // Provider-specific external ID/place ID
+  sourceUrl?: string;              // Provider, maps, website, or directory URL used for import
+  lookupConfidence?: number;       // 0-1 confidence score from lookup/enrichment
+  lookupRaw?: unknown;             // Provider raw record for audit/debugging
+
   // Contacts (supports 1-3 contacts with per-contact messaging)
   contacts: ClientContact[];
 

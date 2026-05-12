@@ -50,6 +50,11 @@ interface SupabaseClient {
   pain_points: string | null;
   company_technical_info: string | null;
   key_use_cases: string[] | null;
+  source_provider: string | null;
+  source_external_id: string | null;
+  source_url: string | null;
+  lookup_confidence: number | null;
+  lookup_raw: unknown;
   contacts: unknown;
   selected_skill_ids: string[] | null;
   selected_workflow_ids: string[] | null;
@@ -84,6 +89,11 @@ function supabaseToClient(row: SupabaseClient): Client {
     painPoints: row.pain_points || undefined,
     companyTechnicalInfo: row.company_technical_info || undefined,
     keyUseCases: row.key_use_cases || [],
+    sourceProvider: row.source_provider || undefined,
+    sourceExternalId: row.source_external_id || undefined,
+    sourceUrl: row.source_url || undefined,
+    lookupConfidence: row.lookup_confidence ?? undefined,
+    lookupRaw: row.lookup_raw ?? undefined,
     contacts: Array.isArray(row.contacts) ? migrateContacts(row.contacts as unknown[]) : [],
     selectedSkillIds: row.selected_skill_ids || [],
     selectedWorkflowIds: row.selected_workflow_ids || [],
@@ -176,6 +186,11 @@ function clientToSupabase(client: Partial<Client>): Record<string, unknown> {
   if (client.painPoints !== undefined) result.pain_points = client.painPoints || null;
   if (client.companyTechnicalInfo !== undefined) result.company_technical_info = client.companyTechnicalInfo || null;
   if (client.keyUseCases !== undefined) result.key_use_cases = client.keyUseCases || [];
+  if (client.sourceProvider !== undefined) result.source_provider = client.sourceProvider || null;
+  if (client.sourceExternalId !== undefined) result.source_external_id = client.sourceExternalId || null;
+  if (client.sourceUrl !== undefined) result.source_url = client.sourceUrl || null;
+  if (client.lookupConfidence !== undefined) result.lookup_confidence = client.lookupConfidence ?? null;
+  if (client.lookupRaw !== undefined) result.lookup_raw = client.lookupRaw ?? null;
   if (client.contacts !== undefined) result.contacts = client.contacts || [];
   if (client.selectedSkillIds !== undefined) result.selected_skill_ids = client.selectedSkillIds || [];
   if (client.selectedWorkflowIds !== undefined) result.selected_workflow_ids = client.selectedWorkflowIds || [];
@@ -485,6 +500,13 @@ export async function createClientAsync(data: Partial<Client>): Promise<Client> 
     estimatedTimeSavings: data.estimatedTimeSavings,
     estimatedCostSavings: data.estimatedCostSavings,
     painPoints: data.painPoints,
+    companyTechnicalInfo: data.companyTechnicalInfo,
+    keyUseCases: data.keyUseCases,
+    sourceProvider: data.sourceProvider,
+    sourceExternalId: data.sourceExternalId,
+    sourceUrl: data.sourceUrl,
+    lookupConfidence: data.lookupConfidence,
+    lookupRaw: data.lookupRaw,
     contacts: data.contacts || [],
     selectedSkillIds: data.selectedSkillIds || [],
     selectedWorkflowIds: data.selectedWorkflowIds || [],
@@ -543,6 +565,13 @@ export function createClient(data: Partial<Client>): Client {
     estimatedTimeSavings: data.estimatedTimeSavings,
     estimatedCostSavings: data.estimatedCostSavings,
     painPoints: data.painPoints,
+    companyTechnicalInfo: data.companyTechnicalInfo,
+    keyUseCases: data.keyUseCases,
+    sourceProvider: data.sourceProvider,
+    sourceExternalId: data.sourceExternalId,
+    sourceUrl: data.sourceUrl,
+    lookupConfidence: data.lookupConfidence,
+    lookupRaw: data.lookupRaw,
     contacts: data.contacts || [],
     selectedSkillIds: data.selectedSkillIds || [],
     selectedWorkflowIds: data.selectedWorkflowIds || [],

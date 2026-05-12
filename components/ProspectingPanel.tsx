@@ -7,16 +7,12 @@
  * - Bulk create clients with pre-filled data
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Search,
   Building2,
   MapPin,
-  Users,
-  Globe,
   Loader2,
-  CheckCircle2,
-  AlertCircle,
   Plus,
   Sparkles,
   Target,
@@ -25,10 +21,10 @@ import {
   ChevronUp,
   Zap,
   Phone,
-  Briefcase,
   DollarSign,
   Clock,
-  RefreshCw,
+  Database,
+  Star,
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
@@ -39,14 +35,20 @@ import {
   enrichProspect,
   createClientsFromProspects,
   getSuggestedQueries,
-  detectIndustry,
-  type DiscoveredProspect,
   type EnrichedProspect,
 } from '../lib/prospecting';
-import type { ClientIndustry, ClientPriority } from '../lib/storage/types';
+import {
+  assessAutomationCampaignFit,
+  buildClientProspectImportPreview,
+  localBusinessRecordsToEnrichedProspects,
+  lookupLocalBusinesses,
+  type LocalBusinessLookupProvider,
+} from '../lib/localBusinessLookup';
+import type { Client, ClientIndustry, ClientPriority } from '../lib/storage/types';
 import { useToast } from '../hooks/useToast';
 
 interface ProspectingPanelProps {
+  existingClients?: Client[];
   onProspectsCreated?: (count: number) => void;
   className?: string;
 }
@@ -77,7 +79,14 @@ const PRIORITIES: { value: ClientPriority; label: string; color: string }[] = [
   { value: 'RESEARCH', label: 'Research', color: 'text-blue-500' },
 ];
 
+const LOOKUP_PROVIDERS: { value: LocalBusinessLookupProvider; label: string }[] = [
+  { value: 'demo', label: 'Demo lookup' },
+  { value: 'supabase_proxy', label: 'Supabase Places proxy' },
+  { value: 'google_places', label: 'Direct Google Places' },
+];
+
 export const ProspectingPanel: React.FC<ProspectingPanelProps> = ({
+  existingClients = [],
   onProspectsCreated,
   className,
 }) => {
@@ -88,6 +97,10 @@ export const ProspectingPanel: React.FC<ProspectingPanelProps> = ({
   const [selectedIndustry, setSelectedIndustry] = useState<ClientIndustry>('marketing_advertising');
   const [location, setLocation] = useState('Milwaukee, WI');
   const [isSearching, setIsSearching] = useState(false);
+  const [lookupProvider, setLookupProvider] = useState<LocalBusinessLookupProvider>('demo');
+  const [maxResults, setMaxResults] = useState(12);
+  const [minRating, setMinRating] = useState('');
+  const [googlePlacesApiKey, setGooglePlacesApiKey] = useState('');
 
   // Results state
   const [prospects, setProspects] = useState<EnrichedProspect[]>([]);
@@ -105,6 +118,14 @@ export const ProspectingPanel: React.FC<ProspectingPanelProps> = ({
 
   // Get suggested queries
   const suggestedQueries = getSuggestedQueries(selectedIndustry, location);
+  const importPreview = useMemo(
+    () => buildClientProspectImportPreview(prospects, existingClients),
+    [prospects, existingClients],
+  );
+  const previewByName = useMemo(
+    () => new Map(importPreview.rows.map((row) => [row.prospect.companyName, row])),
+    [importPreview],
+  );
 
   // Handle search
   const handleSearch = useCallback(async () => {
@@ -118,16 +139,33 @@ export const ProspectingPanel: React.FC<ProspectingPanelProps> = ({
     setSelectedProspects(new Set());
 
     try {
-      // In a real implementation, this would call a web search API
-      // For now, we'll show the manual entry option for pasting search results
-      addToast('Use the manual entry option to paste search results', 'info');
-      setShowManualEntry(true);
+      const lookup = await lookupLocalBusinesses({
+        businessType: searchQuery,
+        location,
+        industry: selectedIndustry,
+        provider: lookupProvider,
+        maxResults,
+        minRating: minRating ? Number(minRating) : undefined,
+        apiKey: googlePlacesApiKey.trim() || undefined,
+      });
+
+      const enriched = localBusinessRecordsToEnrichedProspects(lookup.records, selectedIndustry);
+
+      setProspects(enriched);
+      setSelectedProspects(new Set(enriched.map(p => p.companyName)));
+      setShowManualEntry(false);
+
+      if (lookup.warnings.length > 0) {
+        addToast(lookup.warnings[0], 'info');
+      }
+      addToast(`Found ${enriched.length} prospects from ${lookup.query}`, 'success');
     } catch (error) {
-      addToast('Search failed. Please try again.', 'error');
+      const message = error instanceof Error ? error.message : 'Lookup failed. Please try again.';
+      addToast(message, 'error');
     } finally {
       setIsSearching(false);
     }
-  }, [searchQuery, addToast]);
+  }, [searchQuery, location, selectedIndustry, lookupProvider, maxResults, minRating, googlePlacesApiKey, addToast]);
 
   // Handle manual results parsing
   const handleParseManualResults = useCallback(() => {
@@ -226,10 +264,22 @@ export const ProspectingPanel: React.FC<ProspectingPanelProps> = ({
 
   // Import selected prospects
   const handleImport = async () => {
-    const toImport = prospects.filter(p => selectedProspects.has(p.companyName));
+    const selectedRows = prospects
+      .filter(p => selectedProspects.has(p.companyName))
+      .map((prospect) => previewByName.get(prospect.companyName))
+      .filter((row): row is NonNullable<typeof row> => Boolean(row));
+    const skippedDuplicates = selectedRows.filter((row) => row.recommendation === 'skip');
+    const toImport = selectedRows
+      .filter((row) => row.recommendation !== 'skip')
+      .map((row) => row.prospect);
+
+    if (selectedRows.length === 0) {
+      addToast('Select at least one prospect to import', 'error');
+      return;
+    }
 
     if (toImport.length === 0) {
-      addToast('Select at least one prospect to import', 'error');
+      addToast('Selected prospects already match existing clients', 'error');
       return;
     }
 
@@ -240,6 +290,10 @@ export const ProspectingPanel: React.FC<ProspectingPanelProps> = ({
         priority: defaultPriority,
         portalEnabled: enablePortals,
       });
+
+      if (skippedDuplicates.length > 0) {
+        addToast(`Skipped ${skippedDuplicates.length} exact duplicate prospect${skippedDuplicates.length !== 1 ? 's' : ''}`, 'info');
+      }
 
       if (result.totalCreated > 0) {
         addToast(`Created ${result.totalCreated} clients`, 'success');
@@ -284,7 +338,7 @@ export const ProspectingPanel: React.FC<ProspectingPanelProps> = ({
 
       {/* Search Form */}
       <div className="rounded-xl border bg-card p-6 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Industry */}
           <div>
             <label className="text-sm font-medium mb-1.5 block">Industry</label>
@@ -314,7 +368,7 @@ export const ProspectingPanel: React.FC<ProspectingPanelProps> = ({
 
           {/* Search Query */}
           <div>
-            <label className="text-sm font-medium mb-1.5 block">Search Query</label>
+            <label className="text-sm font-medium mb-1.5 block">Business Type</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -326,6 +380,61 @@ export const ProspectingPanel: React.FC<ProspectingPanelProps> = ({
               />
             </div>
           </div>
+
+          {/* Lookup Provider */}
+          <div>
+            <label className="text-sm font-medium mb-1.5 block">Lookup Source</label>
+            <Select
+              value={lookupProvider}
+              onChange={(e) => setLookupProvider(e.target.value as LocalBusinessLookupProvider)}
+            >
+              {LOOKUP_PROVIDERS.map(provider => (
+                <option key={provider.value} value={provider.value}>{provider.label}</option>
+              ))}
+            </Select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="text-sm font-medium mb-1.5 block">Max Results</label>
+            <Input
+              type="number"
+              min={1}
+              max={20}
+              value={maxResults}
+              onChange={(e) => setMaxResults(Number(e.target.value))}
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium mb-1.5 block">Minimum Rating</label>
+            <div className="relative">
+              <Star className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="number"
+                min={0}
+                max={5}
+                step={0.1}
+                value={minRating}
+                onChange={(e) => setMinRating(e.target.value)}
+                placeholder="Optional"
+                className="pl-9"
+              />
+            </div>
+          </div>
+
+          {lookupProvider === 'google_places' && (
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium mb-1.5 block">Google Places API Key</label>
+              <Input
+                type="password"
+                value={googlePlacesApiKey}
+                onChange={(e) => setGooglePlacesApiKey(e.target.value)}
+                placeholder="Local development only"
+              />
+            </div>
+          )}
         </div>
 
         {/* Suggested Queries */}
@@ -350,12 +459,12 @@ export const ProspectingPanel: React.FC<ProspectingPanelProps> = ({
             {isSearching ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Searching...
+                Looking up...
               </>
             ) : (
               <>
                 <Search className="h-4 w-4 mr-2" />
-                Search for Prospects
+                Lookup Businesses
               </>
             )}
           </Button>
@@ -407,7 +516,7 @@ The system will extract company names, websites, and descriptions.`}
               Parse & Enrich Results
             </Button>
             <span className="text-sm text-muted-foreground">
-              Auto-populates: industry, pain points, skills, savings estimates
+              Auto-populates: contact path, industry, pain points, skills, savings estimates
             </span>
           </div>
         </div>
@@ -425,6 +534,16 @@ The system will extract company names, websites, and descriptions.`}
               <span className="text-sm text-muted-foreground">
                 ({selectedProspects.size} selected)
               </span>
+              {importPreview.skipCount > 0 && (
+                <span className="text-xs px-2 py-1 rounded-full bg-yellow-500/10 text-yellow-700">
+                  {importPreview.skipCount} duplicate
+                </span>
+              )}
+              {importPreview.reviewCount > 0 && (
+                <span className="text-xs px-2 py-1 rounded-full bg-blue-500/10 text-blue-700">
+                  {importPreview.reviewCount} review
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={selectAll}>
@@ -441,6 +560,8 @@ The system will extract company names, websites, and descriptions.`}
             {prospects.map((prospect) => {
               const isSelected = selectedProspects.has(prospect.companyName);
               const isExpanded = expandedProspect === prospect.companyName;
+              const campaignFit = assessAutomationCampaignFit(prospect);
+              const previewRow = previewByName.get(prospect.companyName);
 
               return (
                 <div
@@ -472,6 +593,16 @@ The system will extract company names, websites, and descriptions.`}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <h5 className="font-medium truncate">{prospect.companyName}</h5>
+                          {previewRow?.recommendation === 'skip' && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-700">
+                              Duplicate
+                            </span>
+                          )}
+                          {previewRow?.recommendation === 'review' && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-700">
+                              Review
+                            </span>
+                          )}
                           {prospect.website && (
                             <a
                               href={prospect.website}
@@ -513,6 +644,13 @@ The system will extract company names, websites, and descriptions.`}
 
                       {/* Savings Preview */}
                       <div className="flex items-center gap-4 text-sm">
+                        <div className="text-center">
+                          <div className="flex items-center gap-1 text-purple-500">
+                            <Database className="h-4 w-4" />
+                            <span className="font-medium">{campaignFit.score}</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">Fit score</span>
+                        </div>
                         {prospect.estimatedTimeSavings && (
                           <div className="text-center">
                             <div className="flex items-center gap-1 text-blue-500">
@@ -572,6 +710,22 @@ The system will extract company names, websites, and descriptions.`}
                           </div>
                         )}
 
+                        {/* Duplicate Preview */}
+                        {previewRow && previewRow.duplicateMatches.length > 0 && (
+                          <div className="md:col-span-2">
+                            <h6 className="text-xs font-medium text-muted-foreground mb-1.5">
+                              Existing Client Match
+                            </h6>
+                            <div className="rounded-lg border bg-background p-3 space-y-1">
+                              {previewRow.duplicateMatches.slice(0, 3).map((match) => (
+                                <p key={`${match.clientId}-${match.reason}`} className="text-sm">
+                                  {match.companyName} - {match.confidence} match by {match.reason.replace(/-/g, ' ')}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Key Use Cases */}
                         {prospect.keyUseCases && prospect.keyUseCases.length > 0 && (
                           <div className="md:col-span-2">
@@ -590,6 +744,31 @@ The system will extract company names, websites, and descriptions.`}
                             </div>
                           </div>
                         )}
+
+                        {/* Campaign Fit */}
+                        <div className="md:col-span-2">
+                          <h6 className="text-xs font-medium text-muted-foreground mb-1.5">
+                            Campaign Fit
+                          </h6>
+                          <div className="rounded-lg border bg-background p-3 space-y-2">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-sm font-medium capitalize">
+                                {campaignFit.level} automation campaign fit
+                              </span>
+                              <span className="text-sm font-semibold">{campaignFit.score}/100</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">{campaignFit.recommendedAngle}</p>
+                            {campaignFit.reasons.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {campaignFit.reasons.slice(0, 3).map((reason, i) => (
+                                  <span key={i} className="text-xs px-2 py-1 rounded-full bg-green-500/10 text-green-700">
+                                    {reason}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
 
                         {/* Suggested Skills */}
                         {prospect.suggestedSkillIds.length > 0 && (
@@ -674,6 +853,11 @@ The system will extract company names, websites, and descriptions.`}
               </div>
             </div>
 
+            <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+              Import preview: {importPreview.importableCount} ready, {importPreview.reviewCount} review, {importPreview.skipCount} exact duplicate.
+              Exact duplicates are skipped automatically.
+            </div>
+
             {/* Import Button */}
             <div className="flex items-center gap-4 pt-2">
               <Button
@@ -707,8 +891,8 @@ The system will extract company names, websites, and descriptions.`}
           <Target className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
           <h4 className="font-medium mb-2">Discover New Prospects</h4>
           <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
-            Search for companies by industry and location, or paste results from Google/LinkedIn to
-            auto-populate client records with enriched data.
+            Look up local companies by business type and location, or paste results from Google,
+            LinkedIn, or directories to auto-populate client records with enriched data.
           </p>
           <Button variant="outline" onClick={() => setShowManualEntry(true)}>
             <Plus className="h-4 w-4 mr-2" />

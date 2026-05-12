@@ -134,6 +134,7 @@ const AgenticRunnerPage: React.FC = () => {
           agentId: 'manual:web',
           workflowId,
           plan: executionPlan,
+          dag,
           triggerEventId: null,
         },
         finalResults,

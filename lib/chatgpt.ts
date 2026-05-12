@@ -6,11 +6,13 @@ import { logger } from './logger';
 // Available ChatGPT models:
 // - gpt-4o: Most capable model, best for complex tasks
 // - gpt-4o-mini: Fast and cost-effective, good for most tasks
-// - o1-preview: Advanced reasoning model (experimental)
+// - o1: Advanced reasoning model
+// - o1-preview: Legacy reasoning model alias
 // - o1-mini: Smaller reasoning model (experimental)
 export const CHATGPT_MODELS = {
   'gpt-4o': 'gpt-4o',
   'gpt-4o-mini': 'gpt-4o-mini',
+  'o1': 'o1',
   'o1-preview': 'o1-preview',
   'o1-mini': 'o1-mini',
 } as const;
@@ -21,6 +23,7 @@ export type ChatGPTModelType = keyof typeof CHATGPT_MODELS;
 const MODEL_NAMES: Record<ChatGPTModelType, string> = {
   'gpt-4o': 'GPT-4o',
   'gpt-4o-mini': 'GPT-4o Mini',
+  'o1': 'o1',
   'o1-preview': 'o1 Preview',
   'o1-mini': 'o1 Mini',
 };
@@ -67,6 +70,7 @@ export async function runSkillStream(
         model: MODEL_NAME,
         messages,
         stream: !isO1Model, // o1 models don't support streaming
+        stream_options: isO1Model ? undefined : { include_usage: true },
         max_completion_tokens: isO1Model ? 16384 : undefined,
         max_tokens: isO1Model ? undefined : 4096,
       }),
@@ -117,7 +121,7 @@ export async function runSkillStream(
           // Send as a single SSE event
           const sseData = `data: ${JSON.stringify({
             choices: [{ delta: { content } }],
-          })}\n\ndata: [DONE]\n\n`;
+          })}\n\ndata: ${JSON.stringify({ choices: [], usage: data.usage })}\n\ndata: [DONE]\n\n`;
           controller.enqueue(encoder.encode(sseData));
           controller.close();
         },

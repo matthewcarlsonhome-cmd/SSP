@@ -17,6 +17,8 @@ import { runSkillStream as runClaude } from '../claude';
 import { runSkillStream as runGemini } from '../gemini';
 import { runSkillStream as runChatGPT, type ChatGPTModelType } from '../chatgpt';
 import { logger } from '../logger';
+import type { TokenUsage } from './costing';
+import { mergeTokenUsage, normalizeProviderTokenUsage } from './tokenUsage';
 
 export type AgenticProvider = 'claude' | 'gemini' | 'chatgpt';
 
@@ -25,7 +27,7 @@ export type AgenticProvider = 'claude' | 'gemini' | 'chatgpt';
  * specific model name, and we map that to the right model on each provider.
  * Avoids hardcoding "claude-3-5-haiku-latest" in twenty places.
  */
-export type ModelTier = 'fast' | 'balanced' | 'smart';
+export type ModelTier = 'fast' | 'balanced' | 'smart' | 'reasoning';
 
 interface RunPromptArgs {
   provider: AgenticProvider;
@@ -40,6 +42,7 @@ interface RunPromptArgs {
 interface RunPromptResult {
   text: string;
   durationMs: number;
+  tokenUsage?: TokenUsage;
 }
 
 /**
@@ -49,10 +52,11 @@ function modelFor(provider: AgenticProvider, tier: ModelTier): string {
   if (provider === 'claude') {
     if (tier === 'fast') return 'haiku';
     if (tier === 'balanced') return 'sonnet';
-    return 'sonnet';
+    return 'opus';
   }
   if (provider === 'chatgpt') {
     if (tier === 'fast') return 'gpt-4o-mini';
+    if (tier === 'reasoning') return 'o1';
     return 'gpt-4o';
   }
   // gemini ignores the tier — single model exposed today
@@ -63,12 +67,16 @@ function modelFor(provider: AgenticProvider, tier: ModelTier): string {
 // Stream consumers — each provider returns a different shape; reduce to text.
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function consumeClaudeStream(response: Response, onChunk?: (s: string) => void): Promise<string> {
+async function consumeClaudeStream(
+  response: Response,
+  onChunk?: (s: string) => void,
+): Promise<{ text: string; tokenUsage?: TokenUsage }> {
   if (!response.body) throw new Error('Claude response has no body');
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
   let full = '';
+  let tokenUsage: TokenUsage | undefined;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -83,6 +91,11 @@ async function consumeClaudeStream(response: Response, onChunk?: (s: string) => 
       if (!payload || payload === '[DONE]') continue;
       try {
         const evt = JSON.parse(payload);
+        const eventUsage = normalizeProviderTokenUsage(
+          'claude',
+          evt.usage ?? evt.message?.usage,
+        );
+        tokenUsage = mergeTokenUsage(tokenUsage, eventUsage);
         if (evt.type === 'content_block_delta' && evt.delta?.text) {
           full += evt.delta.text;
           onChunk?.(evt.delta.text);
@@ -92,15 +105,19 @@ async function consumeClaudeStream(response: Response, onChunk?: (s: string) => 
       }
     }
   }
-  return full;
+  return { text: full, tokenUsage };
 }
 
-async function consumeOpenAIStream(response: Response, onChunk?: (s: string) => void): Promise<string> {
+async function consumeOpenAIStream(
+  response: Response,
+  onChunk?: (s: string) => void,
+): Promise<{ text: string; tokenUsage?: TokenUsage }> {
   if (!response.body) throw new Error('OpenAI response has no body');
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
   let full = '';
+  let tokenUsage: TokenUsage | undefined;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -115,6 +132,10 @@ async function consumeOpenAIStream(response: Response, onChunk?: (s: string) => 
       if (!payload || payload === '[DONE]') continue;
       try {
         const evt = JSON.parse(payload);
+        tokenUsage = mergeTokenUsage(
+          tokenUsage,
+          normalizeProviderTokenUsage('chatgpt', evt.usage),
+        );
         const delta = evt.choices?.[0]?.delta?.content;
         if (delta) {
           full += delta;
@@ -125,13 +146,13 @@ async function consumeOpenAIStream(response: Response, onChunk?: (s: string) => 
       }
     }
   }
-  return full;
+  return { text: full, tokenUsage };
 }
 
 async function consumeGeminiStream(
-  result: { stream: AsyncIterable<{ text(): string }> },
+  result: { stream: AsyncIterable<{ text(): string }>; response?: Promise<{ usageMetadata?: unknown }> },
   onChunk?: (s: string) => void,
-): Promise<string> {
+): Promise<{ text: string; tokenUsage?: TokenUsage }> {
   let full = '';
   for await (const chunk of result.stream) {
     const text = chunk.text();
@@ -140,7 +161,11 @@ async function consumeGeminiStream(
       onChunk?.(text);
     }
   }
-  return full;
+  const finalResponse = await result.response?.catch(() => undefined);
+  return {
+    text: full,
+    tokenUsage: normalizeProviderTokenUsage('gemini', finalResponse?.usageMetadata),
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -156,21 +181,21 @@ export async function runPrompt(args: RunPromptArgs): Promise<RunPromptResult> {
     if (args.provider === 'claude') {
       const model = modelFor('claude', tier) as 'haiku' | 'sonnet' | 'opus';
       const response = await runClaude(args.apiKey, promptData, model);
-      const text = await consumeClaudeStream(response, args.onChunk);
-      return { text, durationMs: Date.now() - startedAt };
+      const consumed = await consumeClaudeStream(response, args.onChunk);
+      return { ...consumed, durationMs: Date.now() - startedAt };
     }
 
     if (args.provider === 'chatgpt') {
       const model = modelFor('chatgpt', tier) as ChatGPTModelType;
       const response = await runChatGPT(args.apiKey, promptData, model);
-      const text = await consumeOpenAIStream(response, args.onChunk);
-      return { text, durationMs: Date.now() - startedAt };
+      const consumed = await consumeOpenAIStream(response, args.onChunk);
+      return { ...consumed, durationMs: Date.now() - startedAt };
     }
 
     // gemini
     const result = await runGemini(args.apiKey, promptData);
-    const text = await consumeGeminiStream(result, args.onChunk);
-    return { text, durationMs: Date.now() - startedAt };
+    const consumed = await consumeGeminiStream(result, args.onChunk);
+    return { ...consumed, durationMs: Date.now() - startedAt };
   } catch (err) {
     logger.error('agentic.runPrompt failed', {
       provider: args.provider,

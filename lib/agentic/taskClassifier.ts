@@ -1,27 +1,15 @@
 /**
- * taskClassifier.ts — converts an AgenticStep into a TaskClassification.
+ * Rule-based AgenticStep classifier.
  *
- * Rule-based, deterministic, fast. The router needs a TaskClassification
- * for every call but does not need an LLM call to compute it.
- *
- * Classification heuristics:
- *  1. Skill-id pattern matching (most reliable when skills follow naming
- *     conventions — "extract", "audit", "summary", "strategy", etc.).
- *  2. Output-contract shape (a contract with a single `summary` text field
- *     suggests routine summarization; a contract with structured arrays
- *     suggests analysis or extraction).
- *  3. Step-name keywords (fallback when skill id is uninformative).
- *  4. Position in the DAG (root steps and steps with many dependents are
- *     promoted to higher complexity; leaf steps with no dependents are
- *     usually generation-tier).
- *
- * Edge cases land in `routine` / `analysis` / `team` stakes. Those are the
- * safe defaults — the router maps them to balanced-tier models, which
- * handle most workloads acceptably.
+ * Explicit step routing metadata wins. Otherwise the classifier uses skill
+ * names, step names, output contracts, and DAG position to produce the task
+ * classification consumed by routeModel().
  */
 
 import type { AgenticDAG, AgenticStep } from './types';
 import type {
+  DataSensitivity,
+  ModelTierKey,
   TaskClassification,
   TaskComplexity,
   TaskKind,
@@ -29,72 +17,35 @@ import type {
 } from './costing';
 import { estimateTokens } from './costing';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Keyword tables — pattern-match against skill ids, step names, and step
-// descriptions to infer task kind. Match order matters: more specific
-// patterns first.
-// ─────────────────────────────────────────────────────────────────────────────
-
 const KIND_PATTERNS: Array<{ kind: TaskKind; patterns: RegExp[] }> = [
-  // Reasoning is searched first because it dominates routing decisions.
-  { kind: 'reasoning',     patterns: [/strategy/i, /optimi[sz]e/i, /allocat/i, /plan(?:ner|ning)?/i, /decision/i, /trade-?off/i] },
-  { kind: 'creative',      patterns: [/creative/i, /brainstorm/i, /ideat/i, /pitch/i, /tagline/i, /headline/i, /name[ -]?generator/i] },
-  { kind: 'extraction',    patterns: [/extract/i, /parse/i, /pull[ -]?fields?/i, /intake/i] },
-  { kind: 'classification',patterns: [/classify/i, /categori[sz]e/i, /tag/i, /label/i, /tier/i, /priorit[iy]/i, /score/i, /rank/i] },
-  { kind: 'transformation',patterns: [/transform/i, /reformat/i, /convert/i, /translate/i, /compress/i] },
+  { kind: 'reasoning', patterns: [/strategy/i, /optimi[sz]e/i, /allocat/i, /plan(?:ner|ning)?/i, /decision/i, /trade-?off/i] },
+  { kind: 'creative', patterns: [/creative/i, /brainstorm/i, /ideat/i, /pitch/i, /tagline/i, /headline/i, /name[ -]?generator/i] },
+  { kind: 'extraction', patterns: [/extract/i, /parse/i, /pull[ -]?fields?/i, /intake/i] },
+  { kind: 'classification', patterns: [/classify/i, /categori[sz]e/i, /tag/i, /label/i, /tier/i, /priorit/i, /score/i, /rank/i] },
+  { kind: 'transformation', patterns: [/transform/i, /reformat/i, /convert/i, /translate/i, /compress/i] },
   { kind: 'summarization', patterns: [/summari[sz]e/i, /summary/i, /digest/i, /recap/i, /change[ -]?log/i] },
-  { kind: 'synthesis',     patterns: [/deliverable/i, /merge/i, /synthesi[sz]e/i, /aggregat/i, /combin/i, /compile/i, /rollup/i, /report/i] },
-  { kind: 'generation',    patterns: [/generat/i, /write/i, /draft/i, /compose/i, /author/i, /email/i, /proposal/i, /brief/i, /content/i] },
-  { kind: 'analysis',      patterns: [/audit/i, /analy[sz]e/i, /analysis/i, /assess/i, /review/i, /research/i, /investigat/i, /diagnose/i] },
+  { kind: 'synthesis', patterns: [/deliverable/i, /merge/i, /synthesi[sz]e/i, /aggregat/i, /combin/i, /compile/i, /rollup/i, /report/i] },
+  { kind: 'generation', patterns: [/generat/i, /write/i, /draft/i, /compose/i, /author/i, /email/i, /proposal/i, /brief/i, /content/i] },
+  { kind: 'analysis', patterns: [/audit/i, /analy[sz]e/i, /analysis/i, /assess/i, /review/i, /research/i, /investigat/i, /diagnose/i] },
 ];
 
 function pickKindByText(text: string): TaskKind | null {
   for (const { kind, patterns } of KIND_PATTERNS) {
-    for (const p of patterns) {
-      if (p.test(text)) return kind;
-    }
+    if (patterns.some((pattern) => pattern.test(text))) return kind;
   }
   return null;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Complexity inference — based on contract shape, kind, and DAG position.
-// ─────────────────────────────────────────────────────────────────────────────
-
 function inferComplexity(step: AgenticStep, kind: TaskKind, isMergePoint: boolean, isLeaf: boolean): TaskComplexity {
-  // Reasoning is always at least complex; if it's a merge point in the DAG
-  // (depends on multiple predecessors), it's strategic.
   if (kind === 'reasoning') return isMergePoint ? 'strategic' : 'complex';
-
-  // Creative work without structured constraints is strategic; with a
-  // narrow contract it drops to complex.
-  if (kind === 'creative') {
-    return step.outputContract && step.outputContract.fields.length <= 2 ? 'complex' : 'strategic';
-  }
-
-  // Extraction / classification / transformation / summarization are all
-  // trivial-to-routine; default routine.
-  if (kind === 'extraction')     return 'trivial';
-  if (kind === 'classification') return 'trivial';
-  if (kind === 'transformation') return 'routine';
-  if (kind === 'summarization')  return 'routine';
-
-  // Synthesis and analysis are complexity-by-context. Merge points need to
-  // reason across multiple inputs — promote them. Leaf steps with no
-  // dependents are usually feeding back to the user; keep at complex.
+  if (kind === 'creative') return step.outputContract && step.outputContract.fields.length <= 2 ? 'complex' : 'strategic';
+  if (kind === 'extraction' || kind === 'classification') return 'trivial';
+  if (kind === 'transformation' || kind === 'summarization' || kind === 'evaluation') return 'routine';
   if (kind === 'synthesis') return isMergePoint ? 'strategic' : 'complex';
-  if (kind === 'analysis')  return isMergePoint ? 'complex'   : 'routine';
-
-  // Generation: leaf steps producing client-facing content stay at complex;
-  // intermediate generation can be routine.
+  if (kind === 'analysis') return isMergePoint ? 'complex' : 'routine';
   if (kind === 'generation') return isLeaf ? 'complex' : 'routine';
-
   return 'routine';
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Stakes inference — coarse heuristic based on text patterns.
-// ─────────────────────────────────────────────────────────────────────────────
 
 function inferStakes(text: string): TaskStakes {
   if (/board|ceo|exec|leadership|investor/i.test(text)) return 'leadership';
@@ -103,80 +54,86 @@ function inferStakes(text: string): TaskStakes {
   return 'team';
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Reversibility — true unless the step's output is going somewhere that
-// can't be revised easily. Heuristic: any step that produces a "send",
-// "publish", "modify-account" output is treated as not-reversible. Most
-// content-generation outputs are reversible because they go through human
-// review before delivery.
-// ─────────────────────────────────────────────────────────────────────────────
-
 function inferReversibility(text: string): boolean {
-  if (/\bsend\b|publish|deploy|modify[ -]?account/i.test(text)) return false;
-  return true;
+  return !/\bsend\b|publish|deploy|modify[ -]?account/i.test(text);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DAG-position helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
 function isMergePointInDag(step: AgenticStep): boolean {
-  // A step that depends on 2+ predecessors is a merge.
   return step.dependsOn.length >= 2;
 }
 
 function isLeafInDag(step: AgenticStep, dag: AgenticDAG): boolean {
-  // No other step depends on this one → it's a leaf (terminal output).
   return !dag.steps.some((s) => s.dependsOn.includes(step.id));
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Public API
-// ─────────────────────────────────────────────────────────────────────────────
+function inferOutputTokens(kind: TaskKind): number {
+  if (kind === 'extraction' || kind === 'classification' || kind === 'evaluation') return 500;
+  if (kind === 'transformation' || kind === 'summarization') return 1000;
+  if (kind === 'analysis' || kind === 'synthesis' || kind === 'generation') return 2000;
+  return 2500;
+}
+
+function inferDataSensitivity(stakes: TaskStakes): DataSensitivity {
+  if (stakes === 'client' || stakes === 'leadership') return 'client-confidential';
+  return 'internal';
+}
+
+function inferMinTier(args: {
+  kind: TaskKind;
+  complexity: TaskComplexity;
+  stakes: TaskStakes;
+  isIntermediate: boolean;
+  reversible: boolean;
+}): ModelTierKey | undefined {
+  if (args.kind === 'reasoning' && args.complexity === 'strategic') return 'smart';
+  if (args.kind === 'synthesis' && args.complexity === 'strategic') return 'balanced';
+  if (args.kind === 'generation' && !args.isIntermediate && (args.stakes === 'client' || args.stakes === 'leadership')) {
+    return 'balanced';
+  }
+  if (!args.reversible && (args.stakes === 'client' || args.stakes === 'leadership')) return 'balanced';
+  return undefined;
+}
 
 export interface ClassifyStepArgs {
   step: AgenticStep;
   dag: AgenticDAG;
-  /** Optional: text of inputs that will be passed to the step at runtime,
-   *  used for input-token estimation. */
   inputsText?: string;
 }
 
-/**
- * Classify a step in a DAG. Pure function — same step + DAG always
- * produces the same classification. The result is what the router
- * consumes via routeModel().
- */
 export function classifyStep(args: ClassifyStepArgs): TaskClassification {
   const { step, dag, inputsText } = args;
   const haystack = `${step.skillId} ${step.name} ${step.description ?? ''}`;
-  const kind = pickKindByText(haystack) ?? 'analysis';
-  const merge = isMergePointInDag(step);
   const leaf = isLeafInDag(step, dag);
-  const complexity = inferComplexity(step, kind, merge, leaf);
-  const stakes = inferStakes(haystack);
+  const merge = isMergePointInDag(step);
+
+  const kind = step.routing?.kind ?? pickKindByText(haystack) ?? 'analysis';
+  const complexity = step.routing?.complexity ?? inferComplexity(step, kind, merge, leaf);
+  const stakes = step.routing?.stakes ?? inferStakes(haystack);
   const reversible = inferReversibility(haystack);
-
-  const inputTokens = inputsText ? estimateTokens(inputsText) : 4000;
-  // Output token estimate by kind — extraction stays small, generation /
-  // synthesis run large.
-  const outputTokens =
-    kind === 'extraction' || kind === 'classification' ? 500 :
-    kind === 'transformation' || kind === 'summarization' ? 1000 :
-    kind === 'analysis' || kind === 'synthesis' ? 2000 :
-    kind === 'reasoning' || kind === 'creative' ? 2500 :
-    /* generation */ 2000;
-
-  // Intermediate iff the step has at least one downstream dependent.
   const isIntermediate = !leaf;
+
+  const estimatedInputTokens = inputsText ? estimateTokens(inputsText) : 4000;
+  const estimatedOutputTokens = inferOutputTokens(kind);
+  const minTier =
+    step.routing?.minTier ??
+    inferMinTier({ kind, complexity, stakes, isIntermediate, reversible });
 
   return {
     complexity,
     kind,
     stakes,
     reversible,
-    estimatedInputTokens: inputTokens,
-    estimatedOutputTokens: outputTokens,
+    estimatedInputTokens,
+    estimatedOutputTokens,
     isIntermediate,
+    minTier,
+    maxTier: step.routing?.maxTier,
+    preferredTier: step.routing?.preferredTier,
+    allowedProviders: step.routing?.allowedProviders,
+    forbiddenProviders: step.routing?.forbiddenProviders,
+    requiresJson: step.routing?.requiresJson ?? false,
+    requiresToolCalling: step.routing?.requiresToolCalling ?? false,
+    requiresStreaming: step.routing?.requiresStreaming,
+    dataSensitivity: step.routing?.dataSensitivity ?? inferDataSensitivity(stakes),
   };
 }

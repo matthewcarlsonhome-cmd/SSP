@@ -17,10 +17,17 @@ import { logger } from '../logger';
 import {
   completeAgentRun,
   createAgentRun,
+  recordQualityEvents,
   recordSkillExecution,
   writeEntityFacts,
 } from './supabaseClient';
-import type { ExecutionPlan, ExecutionRound, StepRunResult } from '../agentic';
+import type { AgenticDAG, ExecutionPlan, ExecutionRound, StepRunResult } from '../agentic';
+import {
+  DEFAULT_FACT_POLICIES,
+  extractFactsFromStepOutput,
+  type MemoryFact,
+} from './memory';
+import { assessRunQuality } from './replanner';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fact projection — workflow-aware mappers.
@@ -30,120 +37,26 @@ import type { ExecutionPlan, ExecutionRound, StepRunResult } from '../agentic';
 // projections doesn't require touching the runner.
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface ProjectedFact {
+interface PersistableFact {
   entityType: string;
   entityId: string;
   key: string;
   value: unknown;
   confidence?: number;
+  sourceRunId?: string | null;
+  validUntil?: string | null;
 }
 
-type FactProjector = (fields: Record<string, unknown>) => ProjectedFact[];
-
-/**
- * Coerce an unknown value that could be a JSON string OR an actual array
- * into an array. The extractor sometimes returns string-encoded JSON; this
- * unwraps it.
- */
-function coerceArray(value: unknown): unknown[] {
-  if (Array.isArray(value)) return value;
-  if (typeof value === 'string') {
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) return parsed;
-    } catch {
-      /* not JSON */
-    }
-  }
-  return [];
-}
-
-/**
- * Try several common shapes to pull an "account name" out of a P1/P2/P3 entry
- * since the LLM may emit different keys.
- */
-function readAccountName(entry: unknown): string | null {
-  if (!entry || typeof entry !== 'object') return null;
-  const e = entry as Record<string, unknown>;
-  for (const key of ['account', 'name', 'account_name', 'client', 'client_name']) {
-    const v = e[key];
-    if (typeof v === 'string' && v.trim()) return v.trim();
-  }
-  return null;
-}
-
-/**
- * Workflow-keyed registry of fact projectors. To add facts for another
- * workflow, register a `<workflowId>:<stepId>` entry returning an array of
- * { entityType, entityId, key, value } facts.
- */
-const FACT_PROJECTORS: Record<string, FactProjector> = {
-  'ppc-master-weekly-workflow:step-1-triage': (fields) => {
-    const facts: ProjectedFact[] = [];
-    for (const [tier, key] of [
-      ['p1_accounts', 'priority'],
-      ['p2_accounts', 'priority'],
-      ['p3_accounts', 'priority'],
-    ] as const) {
-      const entries = coerceArray(fields[tier]);
-      for (const entry of entries) {
-        const name = readAccountName(entry);
-        if (!name) continue;
-        facts.push({
-          entityType: 'account',
-          entityId: name,
-          key,
-          value: tier === 'p1_accounts' ? 'P1' : tier === 'p2_accounts' ? 'P2' : 'P3',
-          confidence: 0.9,
-        });
-        if (entry && typeof entry === 'object') {
-          const e = entry as Record<string, unknown>;
-          if (typeof e.reason === 'string') {
-            facts.push({
-              entityType: 'account',
-              entityId: name,
-              key: 'last_triage_reason',
-              value: e.reason,
-              confidence: 0.85,
-            });
-          }
-        }
-      }
-    }
-    return facts;
-  },
-
-  'ppc-master-weekly-workflow:step-3-search-terms': (fields) => {
-    const facts: ProjectedFact[] = [];
-    if (typeof fields.wasted_spend_estimate === 'number') {
-      facts.push({
-        entityType: 'portfolio',
-        entityId: 'ssp-mcc',
-        key: 'wasted_spend_estimate_weekly',
-        value: fields.wasted_spend_estimate,
-        confidence: 0.7,
-      });
-    }
-    return facts;
-  },
-};
-
-function projectFacts(
-  workflowId: string,
-  stepResult: StepRunResult,
-): ProjectedFact[] {
-  const key = `${workflowId}:${stepResult.stepId}`;
-  const projector = FACT_PROJECTORS[key];
-  if (!projector) return [];
-  try {
-    return projector(stepResult.structuredFields);
-  } catch (err) {
-    logger.warn('agentic.persistence projector threw', {
-      key,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return [];
-  }
+function memoryFactToPersistable(fact: MemoryFact, sourceRunId: string): PersistableFact {
+  return {
+    entityType: fact.entity.type,
+    entityId: fact.entity.id,
+    key: fact.key,
+    value: fact.value,
+    confidence: fact.confidence,
+    sourceRunId,
+    validUntil: fact.validUntil ?? null,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -154,6 +67,7 @@ export interface RunPersistenceContext {
   agentId: string;
   workflowId: string;
   plan?: ExecutionPlan;
+  dag?: AgenticDAG;
   triggerEventId?: string | null;
   userId?: string | null;
 }
@@ -181,9 +95,16 @@ export async function persistRun(
   const stepRound = new Map<string, number>();
   rounds.forEach(r => r.stepIds.forEach(id => stepRound.set(id, r.index)));
 
-  const allFacts: Array<ProjectedFact & { sourceRunId: string }> = [];
+  const allFacts: PersistableFact[] = [];
+  let totalCostCents = 0;
 
   for (const result of Object.values(results)) {
+    const estimatedUsage = result.routing?.estimatedUsage;
+    const actualUsage = result.routing?.actualUsage ?? estimatedUsage;
+    const estimatedCostCents = result.routing?.estimatedCostCents;
+    const actualCostCents = result.routing?.actualCostCents ?? estimatedCostCents;
+    if (typeof actualCostCents === 'number') totalCostCents += actualCostCents;
+
     await recordSkillExecution({
       agentRunId: runId,
       skillId: result.skillId,
@@ -194,11 +115,30 @@ export async function persistRun(
       rawOutput: result.rawOutput,
       structuredOutput: result.structuredFields,
       durationMs: result.durationMs,
+      modelId: result.routing?.modelId,
+      modelProvider: result.routing?.modelProvider,
+      modelTier: result.routing?.modelTier,
+      priceSnapshotId: result.routing?.priceSnapshotId,
+      estimatedCostCents,
+      actualCostCents,
+      tokensIn: actualUsage?.inputTokens,
+      tokensOut: actualUsage?.outputTokens,
+      tokensCachedRead: actualUsage?.cacheReadTokens,
+      tokensCachedWrite: actualUsage?.cacheWriteTokens,
+      tokensReasoning: actualUsage?.reasoningTokens,
+      routingReason: result.routing?.routingReason,
+      routingRejectedCandidates: result.routing?.rejectedCandidates,
     });
 
     if (result.status === 'succeeded') {
-      const facts = projectFacts(ctx.workflowId, result);
-      facts.forEach(f => allFacts.push({ ...f, sourceRunId: runId }));
+      const facts = extractFactsFromStepOutput({
+        workflowId: ctx.workflowId,
+        stepId: result.stepId,
+        structuredFields: result.structuredFields,
+        sourceRunId: runId,
+        policies: DEFAULT_FACT_POLICIES,
+      });
+      facts.forEach(f => allFacts.push(memoryFactToPersistable(f, runId)));
     }
   }
 
@@ -206,11 +146,44 @@ export async function persistRun(
     await writeEntityFacts(allFacts);
   }
 
+  if (ctx.dag) {
+    const report = assessRunQuality(ctx.dag, results);
+    const qualityRows = report.assessments.map((assessment) => {
+      const result = results[assessment.stepId];
+      const step = ctx.dag?.steps.find((s) => s.id === assessment.stepId);
+      return {
+        agentRunId: runId,
+        workflowId: ctx.workflowId,
+        stepId: assessment.stepId,
+        skillId: result?.skillId ?? step?.skillId ?? null,
+        roundIndex: stepRound.get(assessment.stepId) ?? 0,
+        modelId: result?.routing?.modelId ?? null,
+        modelProvider: result?.routing?.modelProvider ?? null,
+        modelTier: result?.routing?.modelTier ?? null,
+        evaluatorId: 'post-run-contract-assessment',
+        status: assessment.status,
+        decision: assessment.decision,
+        contractCompleteness: assessment.contract.completeness,
+        requiredFields: assessment.contract.requiredFields,
+        presentRequiredFields: assessment.contract.presentRequiredFields,
+        missingRequiredFields: assessment.contract.missingRequiredFields,
+        optionalFields: assessment.contract.optionalFields,
+        presentOptionalFields: assessment.contract.presentOptionalFields,
+        retryCount: 0,
+        escalationTier: result?.routing?.routingReason?.includes('Escalated by quality gate')
+          ? result.routing.modelTier
+          : null,
+        reasons: assessment.reasons,
+      };
+    });
+    await recordQualityEvents(qualityRows);
+  }
+
   await completeAgentRun({
     runId,
     status: outcome,
     summary,
-    costCents: 0,  // cost tracking is stubbed during the beta
+    costCents: totalCostCents,
   });
 
   logger.info('agentic.persistRun complete', {

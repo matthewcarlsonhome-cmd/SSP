@@ -1,25 +1,17 @@
 /**
- * orchestrator.ts — the model router.
+ * Deterministic model router for agentic runs.
  *
- * Takes a TaskClassification and a RoutingContext, produces a ModelChoice
- * (which model to call, why, estimated cost). Pure function over the price
- * registry and a small ruleset; no LLM call to make the routing decision.
- *
- * Decision priority (matches docs/AGENTIC_ORCHESTRATION_DESIGN.md §4.4):
- *   1. Hard constraints — respect policy filters and capability requirements.
- *   2. Map complexity → tier baseline.
- *   3. Bump up for stakes (client/leadership).
- *   4. Bump down for intermediate (errors caught downstream).
- *   5. Pick the cheapest model in the chosen tier that is goodFor or
- *      acceptableFor the kind, with provider preference applied.
- *   6. Estimate cost; if it exceeds policy caps, downshift one tier.
- *   7. Return ModelChoice with a human-readable reasoning string.
+ * The router is pure: it receives task metadata, policy/budget context, and
+ * the model registry, then returns the cheapest eligible model that satisfies
+ * the quality floor. It never calls an LLM to make the routing decision.
  */
 
 import {
+  MODEL_REGISTRY,
   calculateCost,
   formatCostCompact,
   listModels,
+  type CostBreakdown,
   type ModelProfile,
   type ModelTierKey,
   type Provider,
@@ -28,277 +20,326 @@ import {
   type TokenUsage,
 } from './costing';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Public types
-// ─────────────────────────────────────────────────────────────────────────────
-
 export interface RoutingContext {
-  /** Cumulative cost spent by this agent today, in cents. 0 if not tracked. */
   agentSpendTodayCents: number;
-  /** Daily budget cap in cents; 0 = no cap. */
   agentDailyBudgetCents: number;
-  /** Per-call ceiling in cents; 0 = no cap. */
   perCallCeilingCents: number;
-  /**
-   * Provider preference order — the router picks the first provider in this
-   * list that has a model in the chosen tier capable of the task. Allows
-   * accounts to express "Anthropic only" or "Gemini for cheap, Claude for
-   * everything else."
-   */
   preferredProviders: Provider[];
-  /** Forbidden providers (e.g., contractual restrictions). */
+  allowedProviders?: Provider[];
   forbiddenProviders?: Provider[];
-  /** True for live UI runs (latency-sensitive); false for background. */
   latencySensitive?: boolean;
+  forceTier?: ModelTierKey;
+  forceModelId?: string;
+}
+
+export interface RejectedModelCandidate {
+  modelId: string;
+  reason: string;
 }
 
 export interface ModelChoice {
   model: ModelProfile;
-  /** Tier that was selected (may differ from model.tier if the registry
-   *  doesn't have a tier-exact match and the router fell back). */
   selectedTier: ModelTierKey;
-  /** True if the model supports + is using extended thinking for this call. */
+  tier: ModelTierKey;
   useExtendedThinking: boolean;
-  /** Estimated token usage for the call. */
+  useStreaming: boolean;
+  usePromptCaching: boolean;
+  extendedThinkingBudgetTokens?: number;
   estimatedUsage: TokenUsage;
-  /** Estimated cost breakdown. */
+  estimatedCost: CostBreakdown;
   estimatedCostCents: number;
-  /** Human-readable explanation of how the choice was reached. Used for
-   *  the Cost Explorer's audit trail. */
   reasoning: string;
+  routingReason: string;
+  rejectedCandidates: RejectedModelCandidate[];
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Tier mapping rules
-// ─────────────────────────────────────────────────────────────────────────────
+export class RoutingBudgetExceededError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RoutingBudgetExceededError';
+  }
+}
+
+const DEFAULT_PREFERRED: Provider[] = ['claude', 'gemini', 'chatgpt'];
+const TIER_ORDER: ModelTierKey[] = ['fast', 'balanced', 'smart', 'reasoning'];
 
 const COMPLEXITY_TO_BASE_TIER: Record<TaskClassification['complexity'], ModelTierKey> = {
-  trivial:   'fast',
-  routine:   'fast',
-  complex:   'balanced',
+  trivial: 'fast',
+  routine: 'balanced',
+  complex: 'balanced',
   strategic: 'smart',
 };
 
-// Routine tasks producing user-visible output get bumped to balanced (the
-// router decides this in shouldBumpForStakes; this constant is only used
-// for the "intermediate routine" case which stays fast).
+function normalizeContext(ctx?: Partial<RoutingContext>): RoutingContext {
+  return {
+    agentSpendTodayCents: ctx?.agentSpendTodayCents ?? 0,
+    agentDailyBudgetCents: ctx?.agentDailyBudgetCents ?? 0,
+    perCallCeilingCents: ctx?.perCallCeilingCents ?? 0,
+    preferredProviders: ctx?.preferredProviders ?? DEFAULT_PREFERRED,
+    allowedProviders: ctx?.allowedProviders,
+    forbiddenProviders: ctx?.forbiddenProviders,
+    latencySensitive: ctx?.latencySensitive,
+    forceTier: ctx?.forceTier,
+    forceModelId: ctx?.forceModelId,
+  };
+}
 
-const TIER_ORDER: ModelTierKey[] = ['fast', 'balanced', 'smart', 'reasoning'];
+function tierIndex(tier: ModelTierKey): number {
+  return TIER_ORDER.indexOf(tier);
+}
 
-function bumpTier(t: ModelTierKey, by: number): ModelTierKey {
-  const i = TIER_ORDER.indexOf(t);
-  const next = Math.min(TIER_ORDER.length - 1, Math.max(0, i + by));
+function bumpTier(tier: ModelTierKey, by: number): ModelTierKey {
+  const next = Math.min(TIER_ORDER.length - 1, Math.max(0, tierIndex(tier) + by));
   return TIER_ORDER[next];
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Candidate selection
-// ─────────────────────────────────────────────────────────────────────────────
+function minTier(a: ModelTierKey, b: ModelTierKey): ModelTierKey {
+  return tierIndex(a) <= tierIndex(b) ? a : b;
+}
 
-function tierCapableForKind(model: ModelProfile, kind: TaskKind): 'good' | 'acceptable' | 'avoid' {
+function maxTier(a: ModelTierKey, b: ModelTierKey): ModelTierKey {
+  return tierIndex(a) >= tierIndex(b) ? a : b;
+}
+
+function clampTier(tier: ModelTierKey, minAllowed: ModelTierKey, maxAllowed: ModelTierKey): ModelTierKey {
+  return minTier(maxTier(tier, minAllowed), maxAllowed);
+}
+
+function baselineTier(task: TaskClassification): ModelTierKey {
+  if (task.kind === 'reasoning' && task.complexity === 'strategic') return 'reasoning';
+  if (task.complexity === 'routine' && task.isIntermediate) return 'fast';
+  return COMPLEXITY_TO_BASE_TIER[task.complexity];
+}
+
+function capabilityFit(model: ModelProfile, kind: TaskKind): 'good' | 'acceptable' | 'avoid' {
   if (model.avoidFor.includes(kind)) return 'avoid';
   if (model.goodFor.includes(kind)) return 'good';
   if (model.acceptableFor.includes(kind)) return 'acceptable';
   return 'avoid';
 }
 
-interface CandidateSet {
-  good: ModelProfile[];
-  acceptable: ModelProfile[];
-}
-
-function candidatesForTier(
-  tier: ModelTierKey,
-  kind: TaskKind,
+function providerAllowed(
+  provider: Provider,
+  task: TaskClassification,
   ctx: RoutingContext,
-): CandidateSet {
-  const all = listModels().filter((m) => m.tier === tier);
-  const allowed = all.filter((m) => !ctx.forbiddenProviders?.includes(m.provider));
-  const good: ModelProfile[] = [];
-  const acceptable: ModelProfile[] = [];
-  for (const m of allowed) {
-    const fit = tierCapableForKind(m, kind);
-    if (fit === 'good') good.push(m);
-    else if (fit === 'acceptable') acceptable.push(m);
-  }
-  return { good, acceptable };
+): boolean {
+  const allowedLists = [ctx.allowedProviders, task.allowedProviders].filter(Boolean) as Provider[][];
+  if (allowedLists.some((allowed) => !allowed.includes(provider))) return false;
+  const forbidden = new Set([...(ctx.forbiddenProviders ?? []), ...(task.forbiddenProviders ?? [])]);
+  return !forbidden.has(provider);
 }
 
-function pickByPreference(
+function firstHardRejection(
+  model: ModelProfile,
+  task: TaskClassification,
+  ctx: RoutingContext,
+): string | null {
+  if (!model.active) return 'model is inactive';
+  if (!providerAllowed(model.provider, task, ctx)) return `provider ${model.provider} is not allowed`;
+  if (task.requiresJson && !model.supportsJson) return 'task requires JSON support';
+  if (task.requiresToolCalling && !model.supportsToolCalling) return 'task requires tool calling';
+  if (task.requiresStreaming && !model.supportsStreaming) return 'task requires streaming';
+  if (task.estimatedInputTokens > model.maxInputTokens) return 'estimated input exceeds context window';
+  if (task.estimatedOutputTokens > model.maxOutputTokens) return 'estimated output exceeds model max';
+  if (capabilityFit(model, task.kind) === 'avoid') return `model is not suitable for ${task.kind}`;
+  return null;
+}
+
+function providerPreferenceIndex(provider: Provider, preferred: Provider[]): number {
+  const idx = preferred.indexOf(provider);
+  return idx === -1 ? Number.MAX_SAFE_INTEGER : idx;
+}
+
+function sortCandidates(
   candidates: ModelProfile[],
-  preferred: Provider[],
-  estimatedCost: (m: ModelProfile) => number,
-): ModelProfile | null {
-  if (candidates.length === 0) return null;
-  // Sort by (provider preference index ASC, estimated cost ASC).
-  const sorted = [...candidates].sort((a, b) => {
-    const ai = preferred.indexOf(a.provider);
-    const bi = preferred.indexOf(b.provider);
-    const aiNorm = ai === -1 ? Number.MAX_SAFE_INTEGER : ai;
-    const biNorm = bi === -1 ? Number.MAX_SAFE_INTEGER : bi;
-    if (aiNorm !== biNorm) return aiNorm - biNorm;
-    return estimatedCost(a) - estimatedCost(b);
+  preferredProviders: Provider[],
+  estimate: (model: ModelProfile) => number,
+): ModelProfile[] {
+  return [...candidates].sort((a, b) => {
+    const providerDiff =
+      providerPreferenceIndex(a.provider, preferredProviders) -
+      providerPreferenceIndex(b.provider, preferredProviders);
+    if (providerDiff !== 0) return providerDiff;
+    return estimate(a) - estimate(b);
   });
-  return sorted[0];
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Router
-// ─────────────────────────────────────────────────────────────────────────────
+function budgetLimit(ctx: RoutingContext): number {
+  const limits: number[] = [];
+  if (ctx.perCallCeilingCents > 0) limits.push(ctx.perCallCeilingCents);
+  if (ctx.agentDailyBudgetCents > 0) {
+    limits.push(Math.max(0, ctx.agentDailyBudgetCents - ctx.agentSpendTodayCents));
+  }
+  return limits.length === 0 ? Number.POSITIVE_INFINITY : Math.min(...limits);
+}
 
-const DEFAULT_PREFERRED: Provider[] = ['claude', 'gemini', 'chatgpt'];
+function tierSearchOrder(target: ModelTierKey, minAllowed: ModelTierKey, maxAllowed: ModelTierKey): ModelTierKey[] {
+  const targetIndex = tierIndex(target);
+  const minIndex = tierIndex(minAllowed);
+  const maxIndex = tierIndex(maxAllowed);
+  const tiers: ModelTierKey[] = [];
+
+  for (let i = targetIndex; i <= maxIndex; i += 1) tiers.push(TIER_ORDER[i]);
+  for (let i = targetIndex - 1; i >= minIndex; i -= 1) tiers.push(TIER_ORDER[i]);
+
+  return Array.from(new Set(tiers));
+}
+
+function serializeBudget(ctx: RoutingContext): string {
+  const parts: string[] = [];
+  if (ctx.perCallCeilingCents > 0) {
+    parts.push(`per-call ${formatCostCompact(ctx.perCallCeilingCents)}`);
+  }
+  if (ctx.agentDailyBudgetCents > 0) {
+    parts.push(
+      `daily remaining ${formatCostCompact(Math.max(0, ctx.agentDailyBudgetCents - ctx.agentSpendTodayCents))}`,
+    );
+  }
+  return parts.join(', ');
+}
 
 export function routeModel(task: TaskClassification, ctx?: Partial<RoutingContext>): ModelChoice {
-  const fullCtx: RoutingContext = {
-    agentSpendTodayCents: ctx?.agentSpendTodayCents ?? 0,
-    agentDailyBudgetCents: ctx?.agentDailyBudgetCents ?? 0,
-    perCallCeilingCents: ctx?.perCallCeilingCents ?? 0,
-    preferredProviders: ctx?.preferredProviders ?? DEFAULT_PREFERRED,
-    forbiddenProviders: ctx?.forbiddenProviders,
-    latencySensitive: ctx?.latencySensitive,
-  };
-
-  const reasoningSteps: string[] = [];
-
-  // 1. Map complexity → baseline tier.
-  let tier: ModelTierKey = COMPLEXITY_TO_BASE_TIER[task.complexity];
-  reasoningSteps.push(`complexity=${task.complexity} → baseline tier=${tier}`);
-
-  // 2. Bump up for high-stakes user-visible work.
-  if (!task.isIntermediate && (task.stakes === 'client' || task.stakes === 'leadership')) {
-    const promoted = bumpTier(tier, 1);
-    if (promoted !== tier) {
-      reasoningSteps.push(`stakes=${task.stakes} promotes tier → ${promoted}`);
-      tier = promoted;
-    }
-  }
-
-  // 3. Bump down for routine intermediate steps (errors caught downstream).
-  if (task.isIntermediate && task.complexity === 'routine') {
-    const demoted = bumpTier(tier, -1);
-    if (demoted !== tier) {
-      reasoningSteps.push(`intermediate routine step → demote to ${demoted}`);
-      tier = demoted;
-    }
-  }
-
-  // 4. Reasoning kind always at least complex; reasoning + strategic →
-  //    reasoning tier if any model supports it, else smart.
-  if (task.kind === 'reasoning' && task.complexity === 'strategic') {
-    const reasoningModels = listModels().filter((m) => m.tier === 'reasoning');
-    if (reasoningModels.length > 0) {
-      tier = 'reasoning';
-      reasoningSteps.push('strategic reasoning task → reasoning tier');
-    } else {
-      tier = 'smart';
-      reasoningSteps.push('strategic reasoning task → smart (no reasoning-tier model registered)');
-    }
-  }
-
-  // 5. Find candidates in the chosen tier; if empty (e.g., reasoning tier
-  //    with no models registered), step down a tier and retry.
-  let candidates = candidatesForTier(tier, task.kind, fullCtx);
-  while (candidates.good.length === 0 && candidates.acceptable.length === 0 && tier !== 'fast') {
-    const stepped = bumpTier(tier, -1);
-    if (stepped === tier) break;
-    reasoningSteps.push(`no eligible models in tier=${tier}; stepping down to ${stepped}`);
-    tier = stepped;
-    candidates = candidatesForTier(tier, task.kind, fullCtx);
-  }
-
-  // Estimator function for sorting candidates by cost.
+  const fullCtx = normalizeContext(ctx);
   const usage: TokenUsage = {
     inputTokens: task.estimatedInputTokens,
     outputTokens: task.estimatedOutputTokens,
   };
-  const estCost = (m: ModelProfile) => calculateCost(usage, m).totalCents;
+  const estimate = (model: ModelProfile) => calculateCost(usage, model).totalCents;
+  const reasoningSteps: string[] = [];
+  const rejectedCandidates: RejectedModelCandidate[] = [];
 
-  // Prefer good-fit; fall back to acceptable.
-  let pool = candidates.good.length > 0 ? candidates.good : candidates.acceptable;
-  let chosen = pickByPreference(pool, fullCtx.preferredProviders, estCost);
+  if (fullCtx.forceModelId) {
+    const forced = MODEL_REGISTRY[fullCtx.forceModelId];
+    if (!forced) throw new Error(`routeModel: forced model ${fullCtx.forceModelId} is not registered`);
+    const rejection = firstHardRejection(forced, task, fullCtx);
+    if (rejection) {
+      throw new Error(`routeModel: forced model ${forced.id} is invalid for this task: ${rejection}`);
+    }
+    const cost = calculateCost(usage, forced);
+    const reason = `forced model ${forced.displayName}; estimated ${formatCostCompact(cost.totalCents)}`;
+    return {
+      model: forced,
+      selectedTier: forced.tier,
+      tier: forced.tier,
+      useExtendedThinking: forced.supportsExtendedThinking && task.kind === 'reasoning',
+      useStreaming: Boolean(task.requiresStreaming) && forced.supportsStreaming,
+      usePromptCaching: forced.supportsPromptCaching,
+      extendedThinkingBudgetTokens: forced.supportsExtendedThinking ? Math.min(4096, task.estimatedOutputTokens) : undefined,
+      estimatedUsage: usage,
+      estimatedCost: cost,
+      estimatedCostCents: cost.totalCents,
+      reasoning: reason,
+      routingReason: reason,
+      rejectedCandidates,
+    };
+  }
 
-  // Final safety: if literally nothing matched, fall back to the cheapest
-  // fast-tier model regardless of fit.
-  if (!chosen) {
-    chosen = listModels()
-      .filter((m) => m.tier === 'fast' && !fullCtx.forbiddenProviders?.includes(m.provider))
-      .sort((a, b) => estCost(a) - estCost(b))[0];
-    if (chosen) {
-      tier = 'fast';
-      reasoningSteps.push('no eligible models found anywhere — falling back to cheapest fast model');
+  let targetTier = fullCtx.forceTier ?? task.preferredTier ?? baselineTier(task);
+  reasoningSteps.push(`baseline tier ${targetTier} from ${task.complexity}/${task.kind}`);
+
+  const explicitMinTier = task.minTier;
+  const inferredMinTier =
+    task.kind === 'generation' && !task.isIntermediate && (task.stakes === 'client' || task.stakes === 'leadership')
+      ? 'balanced'
+      : task.kind === 'reasoning' && task.complexity === 'strategic'
+        ? 'smart'
+        : 'fast';
+  const minAllowed = explicitMinTier ?? inferredMinTier;
+  const maxAllowed = task.maxTier ?? 'reasoning';
+
+  if (!task.isIntermediate && (task.stakes === 'client' || task.stakes === 'leadership')) {
+    const promoted = bumpTier(targetTier, 1);
+    if (promoted !== targetTier) {
+      reasoningSteps.push(`${task.stakes} stakes promoted ${targetTier} to ${promoted}`);
+      targetTier = promoted;
     }
   }
 
-  if (!chosen) {
-    throw new Error(
-      'routeModel: no eligible model found and no fast-tier fallback available. ' +
-        'Verify lib/agentic/costing.ts MODEL_REGISTRY is populated.',
+  if (task.isIntermediate && task.reversible && targetTier !== 'fast') {
+    const demoted = clampTier(bumpTier(targetTier, -1), minAllowed, maxAllowed);
+    if (demoted !== targetTier) {
+      reasoningSteps.push('reversible intermediate work allowed one-tier demotion');
+      targetTier = demoted;
+    }
+  }
+
+  targetTier = clampTier(targetTier, minAllowed, maxAllowed);
+  reasoningSteps.push(`quality bounds ${minAllowed}-${maxAllowed}; selected target ${targetTier}`);
+
+  const allModels = listModels({ includeInactive: true });
+  const eligible = allModels.filter((model) => {
+    const rejection = firstHardRejection(model, task, fullCtx);
+    if (rejection) {
+      rejectedCandidates.push({ modelId: model.id, reason: rejection });
+      return false;
+    }
+    return true;
+  });
+
+  if (eligible.length === 0) {
+    throw new Error('routeModel: no eligible model after hard constraints');
+  }
+
+  const limit = budgetLimit(fullCtx);
+  const tiers = tierSearchOrder(targetTier, minAllowed, maxAllowed);
+  const overBudget: RejectedModelCandidate[] = [];
+
+  for (const tier of tiers) {
+    const tierModels = eligible.filter((model) => model.tier === tier);
+    if (tierModels.length === 0) continue;
+
+    const good = tierModels.filter((model) => capabilityFit(model, task.kind) === 'good');
+    const acceptable = tierModels.filter((model) => capabilityFit(model, task.kind) === 'acceptable');
+    const pools = [good, acceptable].filter((pool) => pool.length > 0);
+
+    for (const pool of pools) {
+      const sorted = sortCandidates(pool, fullCtx.preferredProviders, estimate);
+      for (const model of sorted) {
+        const cost = calculateCost(usage, model);
+        if (cost.totalCents > limit) {
+          overBudget.push({
+            modelId: model.id,
+            reason: `estimated ${formatCostCompact(cost.totalCents)} exceeds budget ${serializeBudget(fullCtx)}`,
+          });
+          continue;
+        }
+
+        const reason = [
+          ...reasoningSteps,
+          `picked ${model.displayName} (${model.provider}, ${model.tier})`,
+          `estimated ${formatCostCompact(cost.totalCents)}`,
+        ].join('; ');
+
+        return {
+          model,
+          selectedTier: tier,
+          tier,
+          useExtendedThinking: model.supportsExtendedThinking && (tier === 'reasoning' || task.kind === 'reasoning'),
+          useStreaming: Boolean(task.requiresStreaming || fullCtx.latencySensitive) && model.supportsStreaming,
+          usePromptCaching: model.supportsPromptCaching,
+          extendedThinkingBudgetTokens:
+            model.supportsExtendedThinking && (tier === 'reasoning' || task.kind === 'reasoning')
+              ? Math.min(8192, Math.max(1024, Math.floor(task.estimatedOutputTokens / 2)))
+              : undefined,
+          estimatedUsage: usage,
+          estimatedCost: cost,
+          estimatedCostCents: cost.totalCents,
+          reasoning: reason,
+          routingReason: reason,
+          rejectedCandidates: [...rejectedCandidates, ...overBudget],
+        };
+      }
+    }
+  }
+
+  if (overBudget.length > 0) {
+    throw new RoutingBudgetExceededError(
+      `No eligible model fits budget (${serializeBudget(fullCtx)}) without violating minimum tier ${minAllowed}.`,
     );
   }
 
-  let estimatedCostCents = estCost(chosen);
-
-  // 6. Budget enforcement: if the per-call ceiling is exceeded, downshift.
-  if (fullCtx.perCallCeilingCents > 0 && estimatedCostCents > fullCtx.perCallCeilingCents) {
-    const fallbackTier = bumpTier(tier, -1);
-    if (fallbackTier !== tier) {
-      reasoningSteps.push(
-        `per-call ceiling ${formatCostCompact(fullCtx.perCallCeilingCents)} exceeded ` +
-          `(${formatCostCompact(estimatedCostCents)}); downshifting to ${fallbackTier}`,
-      );
-      const fallbackPool = candidatesForTier(fallbackTier, task.kind, fullCtx);
-      const fallbackPickPool = fallbackPool.good.length > 0 ? fallbackPool.good : fallbackPool.acceptable;
-      const fallbackChosen = pickByPreference(fallbackPickPool, fullCtx.preferredProviders, estCost);
-      if (fallbackChosen) {
-        chosen = fallbackChosen;
-        tier = fallbackTier;
-        estimatedCostCents = estCost(fallbackChosen);
-      }
-    }
-  }
-
-  // 7. Daily-budget enforcement: same downshift logic if we'd exceed the cap.
-  if (
-    fullCtx.agentDailyBudgetCents > 0 &&
-    fullCtx.agentSpendTodayCents + estimatedCostCents > fullCtx.agentDailyBudgetCents
-  ) {
-    const fallbackTier = bumpTier(tier, -1);
-    if (fallbackTier !== tier) {
-      reasoningSteps.push(
-        `daily budget exceeded (${formatCostCompact(fullCtx.agentDailyBudgetCents)}); ` +
-          `downshifting to ${fallbackTier}`,
-      );
-      const fallbackPool = candidatesForTier(fallbackTier, task.kind, fullCtx);
-      const fallbackPickPool = fallbackPool.good.length > 0 ? fallbackPool.good : fallbackPool.acceptable;
-      const fallbackChosen = pickByPreference(fallbackPickPool, fullCtx.preferredProviders, estCost);
-      if (fallbackChosen) {
-        chosen = fallbackChosen;
-        tier = fallbackTier;
-        estimatedCostCents = estCost(fallbackChosen);
-      }
-    }
-  }
-
-  // 8. Use extended thinking for reasoning-tier tasks if the model supports it.
-  const useExtendedThinking =
-    chosen.supportsExtendedThinking && tier === 'reasoning';
-
-  reasoningSteps.push(`chose ${chosen.displayName} — ${formatCostCompact(estimatedCostCents)} est.`);
-
-  return {
-    model: chosen,
-    selectedTier: tier,
-    useExtendedThinking,
-    estimatedUsage: usage,
-    estimatedCostCents,
-    reasoning: reasoningSteps.join('; '),
-  };
+  throw new Error(`routeModel: no eligible model between tiers ${minAllowed} and ${maxAllowed}`);
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Convenience: route a whole DAG and return per-step choices. Used by the
-// Cost Explorer's per-workflow projector to show what every step will cost.
-// ─────────────────────────────────────────────────────────────────────────────
 
 import type { AgenticDAG } from './types';
 import { classifyStep } from './taskClassifier';

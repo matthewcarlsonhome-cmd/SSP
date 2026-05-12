@@ -1,655 +1,863 @@
-# SSP SEO/AEO/GEO and LLM Visibility Audit Design Document
+# SSP AI Visibility and Readiness Workbench Design Document
 
-Version: 2026-05-03
-Status: living product and service design for the SSP local-business audit platform.
+Version: 2026-05-12
+Status: living product, service, and implementation design for the SSP local-business audit platform.
 
 ## 1. Executive Summary
 
-SSP is a local-business audit and remediation platform for SEO, AEO, GEO, and LLM visibility. The application helps an operator take any local business website, understand how visible it is in traditional search and AI answer engines, explain why visibility gaps exist, and produce a client-ready report with precise remediation steps.
+SSP is being shaped into a three-part local-business AI visibility and readiness workbench. The application should help an operator take any local business website, collect structured evidence, test what AI answer engines say, explain why the results are happening, and turn the findings into a client-ready report plus a remediation or implementation offer.
 
-The product now has two connected audit motions:
+The three systems are:
 
 1. SEO/AEO/GEO Audit
-   - Diagnoses the website, content, schema, technical SEO, local SEO, citations, and answer-engine readiness.
-   - Produces implementation-ready recommendations such as title tags, meta descriptions, schema, FAQ content, service-page improvements, local-page recommendations, citation tasks, and roadmap items.
+   - Measures whether the website and business entity are understandable, crawlable, schema-ready, locally credible, and answer-ready.
+   - Explains the root causes behind AI visibility gaps: weak service pages, missing schema, thin FAQ coverage, poor local evidence, citations, GBP, reviews, and entity clarity.
 
 2. LLM Visibility Audit
-   - Tests whether ChatGPT, Claude, Gemini, Perplexity, and manually captured Google AI-style results recommend the business when local buyers ask who to hire.
-   - Captures exact prompts, raw answers, citations, screenshots/evidence, competitor mentions, scores, QA status, and report narrative.
+   - Measures whether ChatGPT, Claude, Gemini, Perplexity, and manual AI Overview-style captures recommend the business when buyers ask local hiring questions.
+   - Captures exact prompts, raw answers, citations, source URLs, screenshots/manual evidence, QA status, workbook scores, composite visibility scores, competitors, findings, reports, and action plans.
 
-Together they answer the two questions local businesses care about:
+3. AIR Audit
+   - Measures whether the business is operationally ready to benefit from AI infrastructure and automation.
+   - Scores Team Readiness, Data Foundation, Workflow Maturity, Stack Coherence, and Opportunity Density into a 0-100 AI Readiness score.
+
+Together they answer three questions a local business owner actually cares about:
 
 ```text
-Do AI and search engines recommend me?
-If not, what should I fix first?
+Can search engines and AI systems understand my business?
+Do AI tools recommend my business when local customers ask who to hire?
+Is my business ready to profit from AI automation and operations?
 ```
 
-The strongest service packaging is a limited free AI Visibility Snapshot as the lead magnet, followed by a paid full audit and remediation sprint.
+The preferred service motion is:
 
-## 2. Product Positioning
+```text
+Free AI Visibility Snapshot
+  -> paid LLM Visibility + SEO/AEO/GEO Audit
+  -> remediation sprint for schema, content, GBP, reviews, citations, and service pages
+  -> AIR Audit for larger clients ready to invest in AI operations
+  -> AI transition sprint or ongoing managed operations
+```
 
-SSP should be positioned as a practical visibility audit system for local businesses, not as a generic AI tool.
+## 2. Current Implementation Snapshot
+
+This repository is a React 18, TypeScript, Vite, Tailwind, HashRouter application. The LLM Visibility Audit is implemented as a production-style frontend workflow inside the existing application shell.
+
+Current implemented route:
+
+- `/llm-visibility-audit`
+
+Current key files:
+
+- `App.tsx`
+- `components/Header.tsx`
+- `components/CommandPalette.tsx`
+- `pages/LLMVisibilityAuditPage.tsx`
+- `lib/llmVisibilityAudit.ts`
+- `tests/lib/llmVisibilityAudit.test.ts`
+- `pages/SettingsPage.tsx`
+- `lib/apiKeyStorage.ts`
+
+Current implemented LLM Visibility capabilities:
+
+- Top navigation and command palette entry for the LLM Visibility Audit.
+- Instant intake from website URL, niche, city, and state.
+- Editable business profile: brand, website, niche, city, state, aliases, competitors, services, service radius, schema signal, GBP signal, review signal, and notes.
+- Audit profiles:
+  - Free Snapshot: 5 prompts, default ChatGPT and Perplexity.
+  - Madison MVP: 15 prompts, default ChatGPT, Perplexity, and Gemini.
+  - Full Audit: 45 prompts, default ChatGPT, Claude, Gemini, and Perplexity.
+- Industry question packs:
+  - HVAC.
+  - Dental.
+  - Legal.
+  - Roofing.
+  - Plumbing.
+  - Med Spa.
+  - Real Estate.
+  - Accounting.
+  - Restaurant.
+  - Auto Repair.
+  - Landscaping.
+  - Pest Control.
+  - Fitness.
+  - Pool and Spa.
+- Madison and Dane County local prompt overlay:
+  - Madison.
+  - Middleton.
+  - Sun Prairie.
+  - Fitchburg.
+  - Verona.
+  - Waunakee.
+  - Monona.
+  - McFarland.
+  - Oregon.
+  - DeForest.
+  - Cottage Grove.
+  - Stoughton.
+- Batch execution across selected providers.
+- Manual capture lane for Google AI Overviews, Gemini browser output, and other consumer UI evidence.
+- Evidence capture for exact prompt, platform, timestamp, raw response, citations, source URLs, screenshots, scorer, QA status, caveat text, and evidence notes.
+- Workbook-style 0-5 scoring.
+- Composite 0-100 AI Visibility Score.
+- Mention rate, citation rate, competitor dominance, high-impact miss count, approved count, needs-review count, and visibility grade.
+- Competitor candidate extraction from captured LLM answers.
+- Action plan builder with service line, estimated hours, price, owner, priority, due date, and status.
+- Report Writer sections:
+  - Executive Summary.
+  - What AI Says.
+  - Who Beats You.
+  - Why It Happens.
+  - What To Fix Next.
+  - Client Email.
+- Shareable lead scorecard link with lead capture.
+- CSV export of evidence runs.
+- JSON export of scorecard/report data.
+- Current scorecard can be saved as a prior baseline for re-audit delta.
+
+Current important limitation:
+
+- Provider API keys are configured through the existing Settings/BYOK model and read from browser storage. That matches the current app architecture, but the production SaaS version should move provider execution to server-side API routes with encrypted organization-level provider keys or Render environment variables.
+
+## 3. Product Positioning
+
+Do not position this as a generic AI tool. Position it as a practical evidence-backed audit service for local businesses.
 
 Primary promise:
 
 ```text
-Find out whether AI tools and search engines recommend your business when local customers ask who to hire.
+Find out whether AI tools recommend your business when local customers ask who to hire.
+```
+
+Expanded promise:
+
+```text
+See what AI tools say, who they recommend instead, why your business is or is not visible, and what to fix first.
 ```
 
 Primary operator outcome:
 
 ```text
-Complete a credible initial AI visibility audit in 30 minutes or less, then use the combined SEO/AEO/GEO findings to sell remediation services.
+Complete a credible initial AI visibility snapshot in 30 minutes or less, then use the report to sell remediation, SEO/AEO/GEO fixes, or AI readiness work.
 ```
 
 Primary client outcome:
 
 ```text
-A plain-English report showing where the business appears, who appears instead, why it is happening, and what to fix next.
+A plain-English report showing the questions tested, the answers AI tools gave, where the business appeared, which competitors appeared instead, and the precise next steps to improve.
 ```
 
-Target users:
+Target market for Madison launch:
 
-- Local consultants and agencies offering SEO, content, local search, and AI visibility services.
-- SSP operators running audits for Madison-area local businesses.
-- Local business owners receiving scorecards, reports, and fix plans.
+- Home services.
+- Contractors.
+- HVAC.
+- Plumbing.
+- Roofing.
+- Dental.
+- Med spas.
+- Legal.
+- Accounting.
+- Real estate.
+- Restaurants.
+- Auto repair.
+- Landscaping.
+- Pest control.
+- Fitness studios.
+- Pool and spa businesses.
 
-## 3. Application Capability Map
+## 4. How The Three Systems Relate
 
-### Current Core App
-
-The SSP application should support:
-
-- Dashboard for recent audits, clients, progress, and completed reports.
-- New audit intake for business website, category, geography, competitors, keywords, GBP, CMS, and pain points.
-- Auto-populate from URL where possible.
-- Client records and audit history.
-- SEO/AEO/GEO audit progress tracking.
-- Interactive report viewer.
-- Exportable reports and implementation assets.
-- LLM Visibility Audit page for fast local AI answer testing.
-- API key setup for ChatGPT/OpenAI, Claude/Anthropic, Gemini/Google, and Perplexity.
-- Lead scorecards for outreach and follow-up.
-
-### SEO/AEO/GEO Audit Module
-
-The SEO/AEO/GEO audit explains the underlying visibility problem. It should inspect:
-
-- Website crawlability.
-- Current title tags, meta descriptions, H1/H2 structure, canonical tags, Open Graph, and structured data.
-- Existing Schema.org usage, especially LocalBusiness, Service, FAQPage, Review, Organization, BreadcrumbList, and sameAs.
-- Service-page depth and answer-ready content.
-- FAQ and buyer-question coverage.
-- Local landing page coverage.
-- Google Business Profile and review signals when available.
-- Competitive content gaps.
-- Citation and local directory opportunities.
-- Off-page authority and source-building opportunities.
-- Technical issues that could block crawl, comprehension, or conversion.
-
-Expected outputs:
-
-- Executive summary.
-- Current SEO/AEO/GEO health score.
-- Page-level recommendations.
-- Title and meta suggestions.
-- FAQ and answer block drafts.
-- JSON-LD schema code.
-- Citation tasks.
-- Link/source opportunities.
-- Prioritized roadmap.
-- DOCX/PDF/CSV/ZIP exports where supported.
-
-### LLM Visibility Audit Module
-
-The LLM Visibility Audit measures what AI answer engines say in buyer-intent situations.
-
-It should support:
-
-- Instant audit intake from a website URL.
-- Business profile editing.
-- Competitor approval.
-- Industry question packs.
-- Madison/Dane County local prompts.
-- Batch prompt execution across selected platforms.
-- Manual capture for Google AI Overviews, Gemini browser results, or any consumer UI result.
-- Evidence locker per run.
-- Workbook-style 0-5 scoring.
-- Composite 0-100 AI Visibility Score.
-- Competitor share of voice.
-- QA flags.
-- Report writer.
-- Action plan builder.
-- Shareable lead scorecard.
-- Re-audit baseline and delta.
-
-## 4. Integrated Workflow
-
-The preferred operator workflow is one integrated audit path:
+The three systems should remain distinct because they measure different truths.
 
 ```text
-1. Paste website URL
-2. Auto-fill business profile
-3. Approve category, city, services, and competitors
-4. Select audit profile
-5. Run LLM visibility prompts
-6. Paste manual AI Overview/Gemini evidence if needed
-7. Review scores and QA flags
-8. Run or attach SEO/AEO/GEO diagnostic
-9. Generate combined report
-10. Produce fix plan, price anchors, and follow-up email
+SEO/AEO/GEO = Can machines understand and cite the business?
+LLM Visibility = Do AI answer engines recommend the business right now?
+AIR = Can the business operationally absorb and profit from AI?
 ```
 
-The LLM audit creates the urgency: "AI did not recommend you." The SEO/AEO/GEO audit creates the explanation and remediation plan: "Here is why, and here is what we fix."
+Combined client story:
+
+```text
+1. AI tools are already making local recommendations.
+2. We tested whether your business appears.
+3. We captured the exact prompts, answers, competitors, citations, and misses.
+4. We diagnosed why this is happening.
+5. We mapped the visibility gaps to concrete fixes.
+6. For larger clients, we also scored whether the business is ready for AI operations.
+```
+
+How data should flow:
+
+```text
+Client website + business profile
+  -> SEO/AEO/GEO crawl and entity evidence
+  -> LLM buyer-question generation and visibility testing
+  -> evidence scoring and competitor share of voice
+  -> report writer and action plan
+  -> AIR readiness evaluation when operational AI work is in scope
+```
+
+Important boundary:
+
+- Do not inject SEO crawl evidence, Firecrawl output, private client notes, or remediation assumptions into the actual LLM buyer prompts.
+- The LLM Visibility test should simulate a clean buyer question.
+- Site evidence should be used after responses return for scoring, citation validation, hallucination checks, explanation, and remediation planning.
 
 ## 5. LLM Visibility Audit Functional Specification
 
 ### Intake
 
-The audit should start from a short business profile:
+The audit starts with a business profile:
 
 - Business name.
 - Website.
 - Business category/niche.
-- City, state, and country.
+- City and state.
 - Service radius.
 - Services.
 - Brand aliases.
 - Approved competitors.
-- Schema signal: unknown, found, thin, missing, blocked.
-- GBP signal: unknown, strong, average, weak.
-- Review signal: unknown, strong, average, weak.
+- Schema status.
+- GBP signal.
+- Review signal.
+- Intake notes.
 
-Auto-fill should infer a draft profile from the URL, but the operator must be able to approve or edit all fields before running prompts.
+Current implementation supports a lightweight instant intake from URL and niche. It drafts the brand name, services, aliases, and competitor suggestions. The operator must still approve or edit the profile.
 
 ### Audit Profiles
 
-1. Free Snapshot
-   - 5 to 7 questions.
-   - 1 to 2 platforms.
-   - Fast scorecard and short follow-up email.
-   - Best for website lead capture and cold outreach.
+Free Snapshot:
 
-2. Madison MVP
-   - 15 questions.
-   - 3 platforms.
-   - Madison/Dane County focused.
-   - Best for a first paid local audit or sales-call prep.
+- 5 prompts.
+- 1 to 2 platforms by default.
+- Best for lead generation, cold outreach, and quick sales-call prep.
+- Output should be a short public scorecard and follow-up email.
 
-3. Full Audit
-   - 45 questions.
-   - 4 API platforms plus manual Google AI Overview lane.
-   - Full evidence package, report narrative, fix plan, and re-audit baseline.
+Madison MVP:
+
+- 15 prompts.
+- 3 platforms by default.
+- Madison and Dane County prompt overlay.
+- Best for the first serious local pilot audit.
+
+Full Audit:
+
+- 45 prompts.
+- 4 providers by default, including Claude.
+- Manual Google AI Overview lane.
+- Best for paid audit delivery.
+- Output should include the full evidence locker, competitor story, action plan, and re-audit baseline.
 
 ### Platforms
 
-Supported platform labels:
+Current provider labels:
 
-- ChatGPT via OpenAI.
-- Claude via Anthropic.
-- Gemini via Google.
-- Perplexity via Sonar/API.
-- Google AI Overview or Google AI Mode as manual/hybrid evidence.
+- ChatGPT.
+- Claude.
+- Gemini.
+- Perplexity.
 
-Clean query rule:
+Current implementation:
 
-Every prompt must be sent as a fresh, standalone API request. Do not reuse a conversation, thread, chat history, memory state, or prior prompt context. Each run should include only the standard audit instruction, the business/geography bias where supported, and the one buyer question being tested.
+- Provider keys are retrieved through `lib/apiKeyStorage.ts`.
+- The page shows key readiness and links to `/settings`.
+- Batch runs skip providers without configured keys and show an error per run.
 
-Manual capture rule:
+Production recommendation:
 
-Browser-only results should be captured manually when the consumer UI matters. The operator should paste the raw answer and add screenshot/evidence URLs or upload references. Google AI Overviews should remain manual or hybrid in v1 because API output may not match live consumer search results.
+- Move provider execution to server-side API routes.
+- Store platform keys as Render environment variables for system-owned keys or encrypted organization-level keys for BYOK.
+- Browser should only see provider availability, not raw secrets.
+
+### Clean Query Rule
+
+Each question must be sent as a fresh standalone request.
+
+Rules:
+
+- No reused conversation.
+- No hidden prior prompt context.
+- No thread reuse.
+- No memory state.
+- No prior answer included in the next prompt.
+- The request should contain only the standard audit instruction, optional platform/geography context, and the one buyer question being tested.
+
+Why this matters:
+
+- The service is selling an unbiased point-in-time visibility test.
+- A contaminated chat history would make the result less defensible.
+
+### Question Categories
+
+Current code categories:
+
+- `brand`.
+- `comparison`.
+- `competitor`.
+- `solution`.
+- `decision`.
+- `local`.
+
+Workbook-style reporting categories should be presented to the operator as:
+
+- Brand Health.
+- Competitors.
+- Category + Geo.
+- Service.
+- Problem / Solution.
+- Cost and Buying Criteria.
+- Reviews and Trust.
+- Local Urgency / Near Me.
+
+Implementation note:
+
+- The current category keys can remain stable internally.
+- Add a display mapping so the page and exports use business-friendly workbook labels.
+- Add Cost and Reviews/Trust prompt families as first-class categories in the next prompt-pack expansion.
 
 ### Evidence Locker
 
-Every run should store:
+Every run should preserve:
 
 - Exact rendered prompt.
 - Query code and category.
 - Platform.
-- Model ID where available.
 - Capture mode: API, manual, or hybrid.
 - Timestamp.
-- Raw text response.
-- Raw JSON response where available.
+- Raw response text.
+- Raw provider JSON when available.
 - Citations.
 - Source URLs.
-- Screenshot/upload references.
+- Screenshot or uploaded evidence URLs.
 - Evidence note.
 - Scorer.
 - QA status.
 - Caveat text.
-- Error message if failed.
+- Error message when a run fails.
 
 QA statuses:
 
-- Unreviewed.
-- Needs review.
-- Approved.
-- Excluded.
-- High-impact miss.
+- `unreviewed`.
+- `needs_review`.
+- `approved`.
+- `excluded`.
+- `high_impact_miss`.
 
-### Question Categories
+### Workbook Score
 
-Default question sets should be organized around the way a business owner thinks about demand:
+The workbook score is the simple 0-5 score per captured answer.
 
-- Brand Health: brand knowledge, reputation, reliability, complaints.
-- Competitors: main competitors, alternatives, category adjacency.
-- Category + Geo: best providers in the city or service area.
-- Service: specific service-line buyer intent.
-- Problem/Solution: buyer has a problem and asks who to hire.
-- Cost/Value: price, estimate, financing, ROI, and value prompts.
-- Decision: should I choose this brand or a competitor.
-- Reputation/Trust: reviews, safety, credibility, and reliability.
-- Local Intent: "near me" and specific suburb prompts.
+Suggested client-facing explanation:
 
-### Madison Local Pack
+```text
+Workbook score is the simple per-answer score: 0 means the business was invisible or harmed; 5 means the business was clearly recommended, supported, and cited.
+```
 
-The Madison pack should include prompts for:
+Recommended UI change:
 
-- Madison.
-- Middleton.
-- Sun Prairie.
-- Fitchburg.
-- Verona.
-- Waunakee.
-- Monona.
-- McFarland.
-- Oregon.
-- DeForest.
-- Cottage Grove.
-- Stoughton.
-- Dane County.
+- Rename the metric card from `Workbook` to `Avg. Answer Score`.
+- Keep `Workbook score` in tooltips or detailed methodology.
 
-High-value Madison target industries:
+### Composite AI Visibility Score
 
-- HVAC.
-- Plumbing.
-- Roofing.
-- Electrical.
-- Pest control.
-- Landscaping.
-- Cleaning.
-- Remodeling.
-- Pool and spa.
-- Dental.
-- Med spa.
-- Chiropractic.
-- Physical therapy.
-- Veterinary.
-- Assisted living.
-- Childcare.
-- Legal.
-- Accounting.
-- Insurance.
-- Financial advisors.
-- Real estate teams.
-- Auto repair.
-- Restaurants.
-- Event venues.
-- Fitness studios.
+The 0-100 AI Visibility Score should summarize:
 
-### Competitor Discovery
+- Brand mention rate.
+- Position when mentioned.
+- Sentiment.
+- Citation/support rate.
+- Competitor dominance.
+- Harmful or high-impact misses.
+- Excluded runs.
+- Approved/reviewed evidence confidence.
 
-Competitor discovery should combine:
-
-- Operator-entered competitors.
-- Website/category/geography inference.
-- Local SEO/AEO/GEO audit findings.
-- LLM answer extraction.
-- Repeated named entities across platforms.
-
-The extraction should filter out generic advertising or marketing terms unless they are actually the audited category. For example, "Google Ads" and "Facebook Ads" should not be treated as competitors for a pool builder, HVAC company, dentist, lawyer, or plumber.
-
-Competitor share of voice should show:
-
-- Competitor name.
-- Mention count.
-- Query categories where they appear.
-- Platforms where they appear.
-- Whether the audited brand appeared in the same answers.
-- Whether the competitor had citations.
-
-## 6. Scoring Model
-
-The report should include both simple and composite scoring.
-
-### Workbook 0-5 Score
-
-The simple score is the easiest metric for local business owners:
-
-- 0: harmful, wrong, or negative result.
-- 1: not mentioned.
-- 2: weak, indirect, or uncited mention.
-- 3: mentioned neutrally.
-- 4: recommended but not dominant.
-- 5: dominant recommendation with supportive evidence.
-
-Always pair this with plain English:
+The 0-100 score is useful for trend tracking, but the operator should always pair it with plain-English counts:
 
 ```text
 You appeared in 4 of 15 captured AI recommendation moments.
+Competitors appeared in 11 of 15.
+Your website was cited 1 time.
 ```
 
-### AI Visibility Score
+### Competitor Discovery
 
-Composite score from 0 to 100:
+Current implementation:
 
-- Mention rate.
-- Brand position.
-- Sentiment.
-- Citation rate.
-- Competitor dominance ratio.
+- Competitors can be entered manually.
+- Instant intake suggests plausible competitors.
+- Captured LLM answers can be scanned for new competitor candidates.
 
-Letter grades:
+Important correction:
 
-- A: 85+.
-- B: 70-84.
-- C: 55-69.
-- D: 40-54.
-- F: under 40.
+- Competitor suggestions should be businesses, not ad channels or marketing services.
+- Prompts and extraction logic should reject terms such as Google Ads, Facebook Ads, Website Design, generic lead generation, and service categories unless the audited business is actually in that category.
 
-### Re-Audit Delta
+Future production improvement:
 
-When a baseline exists, show:
+- Add a competitor research step that uses the website, city, niche, service radius, and LLM answer text to propose local business competitors.
+- Require operator approval before competitors are added to the scoring model.
 
-- Visibility score delta.
-- Mention rate delta.
-- Citation rate delta.
-- Workbook average delta.
-- Competitor share-of-voice delta.
-- Before/after narrative.
+### Report Writer
 
-## 7. Combined Report Specification
+The report should not merely export raw data. It should draft a persuasive client narrative.
 
-The report should be organized for client comprehension, not internal analytics.
+Current report sections:
 
-Recommended report sections:
+- Executive Summary.
+- What AI Says.
+- Who Beats You.
+- Why It Happens.
+- What To Fix Next.
+- Client Email.
 
-1. Cover
-   - Business name.
-   - Website.
-   - Market.
-   - Audit date.
-   - Audit profile.
+Production report sections should include:
 
-2. Executive Summary
-   - Whether AI tools recommend the business.
-   - Whether search/AEO/GEO foundations support visibility.
-   - Biggest opportunity.
-   - Recommended next step.
+1. Cover and audit scope.
+2. Executive summary.
+3. AI Visibility Scorecard.
+4. What AI says about the business.
+5. Where the business appears.
+6. Where the business is missing.
+7. Who beats the business.
+8. Competitor share of voice.
+9. Evidence table by question and platform.
+10. SEO/AEO/GEO root cause analysis.
+11. Citation and source analysis.
+12. QA caveats and methodology.
+13. Prioritized fix plan.
+14. Pricing/service package options.
+15. 30/60/90-day roadmap.
+16. Client follow-up email.
+17. Re-audit baseline and delta plan.
 
-3. AI Visibility Scorecard
-   - Composite score and grade.
-   - Workbook average.
-   - Mention count.
-   - Citation rate.
-   - Platform breakdown.
-   - QA caveat.
+Current exports:
 
-4. What AI Says About You
-   - Representative answer excerpts summarized, not over-quoted.
-   - Positive, neutral, negative, and missing patterns.
+- Copy report to clipboard.
+- CSV evidence export.
+- JSON scorecard export.
+- Shareable lead scorecard link.
 
-5. Who Beats You
-   - Competitor share of voice.
-   - Recurring competitors.
-   - Why they may be more visible.
+Target exports:
 
-6. Winning and Losing Questions
-   - Top prompts where the brand appears.
-   - Top prompts where the brand is missing.
-   - Category-level patterns.
+- DOCX.
+- PDF.
+- CSV evidence table.
+- JSON archive.
+- Public lead scorecard.
 
-7. Evidence Locker
-   - Prompt.
-   - Platform.
-   - Timestamp.
-   - Citation/source.
-   - Screenshot/reference.
-   - QA status.
+## 6. SEO/AEO/GEO Integration
 
-8. SEO/AEO/GEO Diagnostic
-   - Schema.
-   - Technical SEO.
-   - Content depth.
-   - FAQ/answer readiness.
-   - GBP/reviews.
-   - Citations.
-   - Local pages.
-   - Authority/source opportunities.
+The SEO/AEO/GEO layer explains why LLM visibility is weak and what to fix.
 
-9. Why This Is Happening
-   - Plain-English root cause analysis.
-   - Map AI answer gaps to SEO/AEO/GEO causes.
+It should inspect:
 
-10. What To Fix Next
-   - Prioritized action plan.
-   - Owner.
-   - Hours.
-   - Due date.
-   - Service line.
-   - Estimated price.
+- Crawlability.
+- Indexability.
+- Title tags.
+- Meta descriptions.
+- Canonicals.
+- Robots meta.
+- H1/H2/H3 structure.
+- Open Graph data.
+- JSON-LD schema.
+- LocalBusiness, Organization, Service, FAQPage, Review, BreadcrumbList, and sameAs schema.
+- NAP consistency.
+- Service page depth.
+- Location page coverage.
+- FAQ and answer-ready content.
+- Review and reputation evidence.
+- GBP completeness.
+- Citation and directory coverage.
+- Internal linking.
+- External source opportunities.
+- Conversion CTAs.
 
-11. Remediation Offer
-   - Recommended sprint package.
-   - Re-audit cadence.
-   - Expected measurable outcome.
+How it supports LLM Visibility:
 
-12. Caveats
-   - AI answers vary by time, platform, location, account state, and model.
-   - This is a point-in-time audit, not a guaranteed ranking.
+- Helps generate better service/category prompts.
+- Verifies whether cited URLs are real client pages.
+- Checks whether LLM answers hallucinate services the client does not offer.
+- Explains missing citations.
+- Maps visibility gaps to concrete fixes.
+- Builds the remediation plan.
 
-Export formats:
+Do not use SEO/AEO/GEO evidence to bias the LLM buyer prompts. Use it after capture.
 
-- PDF for client delivery.
-- DOCX for editable consulting delivery.
-- CSV for run-level evidence.
-- JSON for internal handoff.
+## 7. Firecrawl Integration Design
 
-## 8. Remediation Service Lines
+Firecrawl should become the production site evidence layer for SEO/AEO/GEO and for post-capture LLM analysis.
 
-The app should turn findings into sellable services.
+Recommended design:
 
-Recommended service lines:
+```text
+Client URL
+  -> Firecrawl map
+  -> URL classification and crawl budget preview
+  -> selected Firecrawl crawl or scrape
+  -> raw HTML + markdown artifacts
+  -> deterministic parser
+  -> SEO/AEO/GEO findings
+  -> LLM report enrichment
+  -> AIR public-data signals
+```
 
-- LocalBusiness and Service schema.
-- FAQ schema and buyer-question pages.
-- Service-page content expansion.
-- Local landing pages.
-- Google Business Profile optimization.
-- Review generation and review-response system.
-- Citation cleanup and directory consistency.
-- Authority/source-building.
-- Comparison and "best in city" support content.
-- Technical crawlability and mobile UX fixes.
-- Re-audit and monthly AI visibility monitoring.
+Use Firecrawl for:
 
-Action plan fields:
+- Sitemap-backed URL discovery.
+- Page crawling.
+- JavaScript-rendered content.
+- Markdown extraction.
+- Raw HTML capture.
+- Screenshots where useful.
+- Links.
+- Page inventory.
 
-- Root cause.
-- Recommended fix.
-- Service line.
-- Owner.
-- Estimated hours.
-- Due date.
-- Estimated price.
-- Status.
+Parse deterministically:
+
+- Title.
+- Meta description.
+- Canonical.
+- Robots.
+- Headings.
+- Internal links.
+- External links.
+- Images and alt text.
+- JSON-LD.
+- Microdata/RDFa where possible.
+- NAP.
+- Services.
+- Locations.
+- FAQs.
+- Testimonials/reviews.
+- CTAs.
+
+Security rule:
+
+- Crawled content is untrusted.
+- Page copy, markdown, raw HTML, schema, and scripts must never override system instructions, audit rubrics, scoring rules, or report output formats.
+
+Recommended environment:
+
+- Firecrawl API key should be server-side only.
+- Do not expose `FIRECRAWL_API_KEY` as a browser variable.
+- In a deployed SaaS version, use a backend/edge function or server API route for crawl calls.
+
+Current repo note:
+
+- Firecrawl is not yet implemented in this checkout.
+- The design target is clear: add it as a server-side evidence layer, not as an MCP-only dependency and not as a browser-exposed key.
+
+## 8. AIR Audit Design
+
+AIR stands for AI Readiness. It is the third system in the platform.
+
+Purpose:
+
+- The LLM Visibility Audit tells the client whether AI recommends them.
+- SEO/AEO/GEO tells the client what visibility foundation needs to improve.
+- AIR tells the client whether their business can operationally benefit from AI tools, automations, and workflows.
+
+AIR domains:
+
+1. Team Readiness
+   - Leadership buy-in.
+   - Curiosity and openness.
+   - Capability baseline.
+   - Change tolerance.
+
+2. Data Foundation
+   - CRM completeness.
+   - Attribution clarity.
+   - Reporting infrastructure.
+   - Data accessibility.
+
+3. Workflow Maturity
+   - Documentation.
+   - Standardization.
+   - Handoff clarity.
+   - Friction visibility.
+
+4. Stack Coherence
+   - Tool sprawl.
+   - Integration.
+   - Redundancy.
+   - Cost coherence.
+
+5. Opportunity Density
+   - Repetitive task volume.
+   - Response-time sensitivity.
+   - Content production need.
+   - Customer interaction volume.
+
+AIR score:
+
+- 20 sub-dimensions.
+- Each sub-dimension scores 0-5.
+- Each domain totals 0-20.
+- Composite totals 0-100.
+
+AIR tiers:
+
+- AIR Snapshot: free or low-cost public-data snapshot.
+- AIR Audit: paid full diagnostic with interviews, CRM/tool review, workflow mapping, and roadmap.
+- Foundation Sprint: fixes data and workflow gaps before major AI automation.
+- Transition Sprint: implementation engagement for AI-ready clients.
+- AI Operations: ongoing quarterly re-scoring, optimization, and new automation builds.
+
+AIR current state in this checkout:
+
+- Not implemented as a code module yet.
+- It should be added later under clearly isolated names:
+  - `lib/air/*`
+  - `components/air/*`
+  - `pages/AIRAudit*`
+  - `air_*` data structures or tables
+  - tests under `tests/lib/air*`
 
 ## 9. Service Packaging
 
-### Recommendation
-
-Lead with a free snapshot, not a full free report.
-
-The free report should create demand and show the gap. The paid audit should contain the complete evidence package, competitor story, SEO/AEO/GEO diagnosis, and fix plan.
-
-### Offer Ladder
+Recommended offer ladder:
 
 1. Free AI Visibility Snapshot
-   - 5 to 7 prompts.
+   - 5 to 7 questions.
    - 1 to 2 platforms.
-   - Mention count.
-   - Top competitors.
-   - Top 1 to 3 gaps.
-   - Short email summary.
-   - CTA to book a review call.
+   - One page scorecard.
+   - Lead capture and booking CTA.
+   - Goal: create urgency.
 
 2. Paid AI Visibility Audit
-   - 15 to 30 prompts.
-   - 3 to 4 platforms.
-   - Evidence locker.
+   - 15 to 45 questions.
+   - 3 to 4 providers plus manual captures.
+   - Evidence table.
    - Competitor share of voice.
    - SEO/AEO/GEO cross-check.
-   - PDF/DOCX report.
-   - Prioritized action plan.
-   - Suggested Madison price: $299 to $750.
+   - Client-ready report.
+   - Action plan and price anchors.
 
-3. AI Visibility Fix Sprint
+3. Visibility Fix Sprint
    - Schema.
-   - GBP.
-   - Reviews.
+   - GBP optimization.
+   - Review automation.
    - Service pages.
-   - FAQ/answer content.
+   - FAQ and answer blocks.
+   - Local landing pages.
    - Citations.
    - Re-audit.
-   - Suggested price: $1,500 to $5,000 for focused fixes; $5,000 to $15,000 for a comprehensive local-market sprint.
 
-4. Monitoring Retainer
-   - Monthly or quarterly re-audit.
-   - New competitor watch.
-   - New content/fix recommendations.
-   - Suggested price: $199 to $750/month depending locations and query volume.
+4. AIR Audit
+   - For larger or operationally complex businesses.
+   - Scores AI readiness beyond marketing visibility.
+   - Produces 90-day roadmap.
 
-## 10. Lead Generation Page Specification
+5. AI Transition Sprint / Operations
+   - Implements automations.
+   - Cleans data.
+   - Improves workflows.
+   - Provides re-scoring and quarterly optimization.
 
-This section is intended to be pasted into Claude Code for the consulting website.
+## 10. Madison Lead Generation Page Spec
+
+Recommended positioning:
 
 ```text
-Build a new consulting website lead generation page for an AI Visibility Snapshot.
-
-Goal:
-Create a conversion-focused page that offers a free local AI visibility report for businesses in the Madison, WI area. The page must match the existing consulting website design system and reuse the same form submission behavior as the current Contact page.
-
-Route:
-Use /ai-visibility-audit or /ai-visibility-report, whichever better matches the site's routing conventions.
-
-Primary page promise:
-"Find out if AI tools recommend your business when local customers ask who to hire."
-
-Hero:
-- H1: Are AI tools recommending your business?
-- Supporting copy: "Customers are starting to ask ChatGPT, Gemini, Claude, Perplexity, and Google AI results who to hire locally. I will run a free snapshot to see whether your business appears, who shows up instead, and what may be holding you back."
-- Primary CTA: "Get Your Free Report"
-- Secondary caveat line: "Free snapshot for Madison-area businesses. No obligation. AI results vary by platform and date, so every report includes the exact prompts and evidence used."
-
-Lead form:
-Reuse the existing Contact page submission function, endpoint, validation style, loading state, toast/success behavior, spam protection, and button styling.
-
-Visible fields:
-- businessName: text, required, label "Business Name"
-- website: url/text, required, label "Website"
-- email: email, required, label "Email"
-- businessCategory: text or select, required, label "Business Category"
-
-Hidden fields:
-- leadSource: "ai_visibility_snapshot"
-- offer: "free_snapshot"
-- market: "madison_wi"
-- requestedReportType: "llm_visibility_snapshot"
-
-Submit button:
-- Text: "Get Your Free Report"
-- Use the same visual style as the Contact page primary button.
-
-Validation:
-- Email must be valid.
-- Website must not be empty and should be normalized with https:// if the user omits protocol.
-- Business category must not be empty.
-- Show validation errors using the existing Contact page pattern.
-
-Post-submit behavior:
-- Submit through the same path as the Contact page.
-- Include visible and hidden fields in the payload/message.
-- Show success text: "Thanks. I will review your AI visibility and send the snapshot to your email."
-- If the site has a booking link, show a secondary "Book a quick review call" CTA after success.
-
-Sections:
-1. Hero with lead form.
-2. What I check:
-   - Whether your business appears in AI answers.
-   - Which competitors are recommended instead.
-   - Whether AI cites your website or other sources.
-   - What quick fixes could improve visibility.
-3. Why this matters:
-   - Local buyers are using AI as a recommendation engine.
-   - AI answers often name only a few businesses.
-   - Traditional SEO tools do not clearly show whether AI recommends you.
-4. What you get free:
-   - 5 to 7 buyer-intent questions.
-   - 1 to 2 AI platforms.
-   - Mention count.
-   - Top competitor mentions.
-   - Top 1 to 3 next-step recommendations.
-5. Full audit and fixes:
-   - Explain that the paid audit adds more questions, more platforms, screenshots/evidence, SEO/AEO/GEO diagnosis, and a prioritized remediation plan.
-6. FAQ:
-   - Is this SEO?
-   - Which AI tools do you check?
-   - Is the free report automated?
-   - How long does it take?
-   - What happens if my business does not show up?
-
-Tone:
-Plain-English, local, consultative, and direct. Avoid "LLM" in the main headline. Use "AI tools", "AI search", and "AI recommendations" for business owners.
-
-Design:
-- Match the existing consulting website colors, typography, form styling, and spacing.
-- Keep the form visible in the first viewport.
-- Do not bury the CTA under a long educational section.
-- Avoid exaggerated claims.
-- Make the page work well on mobile.
-
-Acceptance criteria:
-- Page builds without TypeScript or lint errors.
-- Form submits through the same path as the Contact page.
-- Payload identifies the lead as an AI Visibility Snapshot request.
-- Button text is "Get Your Free Report".
-- Required fields are Business Name, Website, Email, and Business Category.
-- Success message appears after submit.
-- Page copy makes clear that the free deliverable is a snapshot and the full audit/remediation is the next step.
+Are AI tools recommending your Madison-area business?
 ```
 
-## 11. Production Readiness Gaps
+Supporting copy:
 
-To make SSP production-grade for paid local-business audits, prioritize:
+```text
+Customers are starting to ask ChatGPT, Gemini, Claude, Perplexity, and Google AI results who to hire locally. I will run a free snapshot to see whether your business appears, who shows up instead, and what may be holding you back.
+```
 
-- Server-side provider calls so API keys are not exposed in the browser.
-- Durable storage for audits, runs, evidence, screenshots, leads, and reports.
-- PDF and DOCX report generation.
-- Combined SEO/AEO/GEO plus LLM report output.
-- Better competitor entity extraction and filtering.
-- CRM lead creation from the consulting website form and shareable scorecards.
-- Operator QA checklist before reports are sent.
-- Booking integration or CRM task creation for submitted leads.
-- Cost guardrails by audit profile.
-- Scheduled re-audits and delta reporting.
-- Legal/caveat language in every report and public scorecard.
+Form fields:
 
-## 12. Acceptance Criteria
+- Business Name.
+- Website.
+- Email.
+- Business Category.
 
-The SSP LLM Visibility Audit integration is working when:
+Button:
 
-- An operator can paste any local business website and prepare an audit profile in under 5 minutes.
-- A free snapshot can be completed in under 10 minutes.
-- A Madison MVP audit can be completed in 30 minutes or less of operator time.
-- Every captured answer stores prompt, platform, timestamp, raw answer, citations, evidence references, score, and QA status.
-- The report clearly shows mention count, workbook score, AI Visibility Score, competitors, findings, and next steps.
-- The SEO/AEO/GEO diagnostic explains likely root causes behind the LLM visibility gaps.
-- The action plan includes owners, hours, service lines, due dates, and estimated prices.
-- The public lead form captures Business Name, Website, Email, and Business Category.
-- The page CTA says "Get Your Free Report".
-- The free snapshot creates a clear path to paid audit and remediation services.
+```text
+Get Your Free Report
+```
 
-## 13. Design Principle
+Recommended flow:
 
-SSP should make AI visibility concrete for local businesses. The app should not overwhelm owners with model jargon. It should show the exact questions tested, the answers AI tools gave, who was recommended instead, and the practical SEO/AEO/GEO work needed to improve the result.
+1. Visitor submits form.
+2. Form creates a lead record using the same functionality as the Contact page.
+3. Operator runs Free Snapshot in SSP.
+4. Operator sends a short report and booking link.
+5. Follow-up offer is a paid audit or remediation sprint.
+
+Recommendation:
+
+- Lead with a free report, not a paid audit.
+- The local market is not yet educated enough to buy "LLM visibility audits" cold.
+- The free report creates surprise and urgency because most local businesses have never checked AI answer visibility.
+- Monetize on remediation and re-audit.
+
+## 11. Architecture And Security Harness
+
+The "Bob" idea should become a lightweight architecture and release harness inside the platform and development workflow.
+
+Recommended components:
+
+1. Spec Gate
+   - Every major feature starts from a short spec.
+   - The spec states user value, data touched, routes, tables/storage, risks, and acceptance criteria.
+
+2. Multi-Reviewer Gate
+   - Product reviewer.
+   - Security reviewer.
+   - Data/RLS reviewer.
+   - UX reviewer.
+   - Cost reviewer.
+   - Report-quality reviewer.
+
+3. Release Gate
+   - Tests pass.
+   - Build passes.
+   - No browser secrets added.
+   - No prompt injection boundary removed.
+   - No public report route ships without caveats and rate-limit plan.
+
+4. Runtime Audit Log
+   - Record audit runs.
+   - Record provider costs where available.
+   - Record report downloads.
+   - Record public scorecard leads.
+   - Record high-impact misses and QA exclusions.
+
+5. Learning Loop
+   - Review completed reports and lead outcomes.
+   - Improve question packs.
+   - Improve scoring.
+   - Improve service packaging.
+
+Near-term implementation:
+
+- Add a simple `docs/architecture-review-template.md`.
+- Add release checklist to pull request descriptions.
+- Add tests for prompt rendering, scoring, report generation, and share scorecard encoding.
+- Add a future internal page for architecture reviews only after the product flow stabilizes.
+
+## 12. UI And Workflow Recommendations
+
+The LLM Audit page should stay fast but less visually overwhelming.
+
+Recommended page segmentation:
+
+1. Intake.
+2. Questions.
+3. Capture.
+4. Review.
+5. Report.
+6. Share.
+
+Recommended UI pattern:
+
+- Use accordions or step panels.
+- Keep top progress visible.
+- Show total planned runs, completed runs, failed runs, and percent complete in the top bar.
+- Provide jump buttons that scroll to anchors reliably.
+- Keep evidence detail collapsed until needed.
+- Use business-friendly labels rather than internal terms where possible.
+
+Spacebar/keyboard rule:
+
+- Global hotkeys and command palette handlers must ignore typing inside `input`, `textarea`, `select`, and `contenteditable` elements.
+- Never call `preventDefault()` for Space while the user is typing in a field.
+
+## 13. Current Gaps And Next Build Priorities
+
+P0 documentation and reliability:
+
+- Keep this design document and `CLAUDE.md` updated whenever the LLM Audit changes.
+- Add UI tooltip explaining `Avg. Answer Score` / workbook score.
+- Ensure top progress shows completed runs out of total planned runs and percent complete.
+- Ensure all jump buttons scroll to the correct section.
+- Keep Claude visible as a supported provider, especially in Full Audit.
+
+P1 reporting:
+
+- Add DOCX export.
+- Add PDF export.
+- Add clearer report section boundaries.
+- Add generated follow-up email variants.
+- Add service-package/pricing blocks to the report.
+
+P1 prompt/category expansion:
+
+- Add explicit Cost and Buying Criteria category.
+- Add Reviews and Trust category.
+- Add display category mapping to Brand Health, Competitors, Category + Geo, Service, Problem / Solution, Cost, Reviews, and Local Urgency.
+
+P1 competitor discovery:
+
+- Improve competitor suggestions to use actual local business names.
+- Reject generic marketing channels and non-business entities.
+- Add operator approval before competitors affect scoring.
+
+P2 Firecrawl:
+
+- Add server-side Firecrawl site map/crawl preview.
+- Add deterministic SEO/AEO/GEO parser.
+- Use crawl evidence for report root-cause analysis, not for prompt biasing.
+
+P2 AIR:
+
+- Add AIR Snapshot scoring library.
+- Add AIR Snapshot page.
+- Add public AIR deliverable.
+- Add full AIR Audit intake later.
+
+P2 persistence:
+
+- Move LLM audit persistence from local browser storage to Supabase.
+- Add durable evidence tables.
+- Add lead capture table.
+- Add public scorecard slug storage.
+
+## 14. Acceptance Criteria
+
+LLM Visibility Audit is done for MVP when:
+
+- Operator can open `/llm-visibility-audit` from top nav and command palette.
+- Operator can paste a website and draft an intake profile.
+- Operator can select an industry pack and audit profile.
+- Operator can run selected questions against selected configured providers.
+- Each query is a clean standalone request.
+- Manual captures can be added and scored.
+- Evidence includes exact prompt, platform, timestamp, raw response, citations, screenshot URLs, scorer, QA status, and caveat text.
+- Review page shows workbook/answer score, visibility score, mention counts, citation counts, competitor dominance, QA flags, and re-audit delta.
+- Report Writer creates clear sections and client email copy.
+- Action plan includes root cause, recommended action, owner, hours, price, due date, and service line.
+- CSV and JSON exports work.
+- Shareable lead scorecard link works.
+
+Production version is done when:
+
+- Provider keys are server-side or encrypted organization-level secrets.
+- Firecrawl crawl evidence powers SEO/AEO/GEO root cause analysis.
+- DOCX and PDF reports are available.
+- Durable Supabase persistence replaces local-only storage.
+- AIR Snapshot exists as a connected third module.
+- Public lead capture is stored durably and can trigger follow-up.
+- QA and caveats are visible in every client-facing report.
+
+## 15. Design Principle
+
+The product should make AI visibility concrete. Local business owners do not need model jargon. They need to see:
+
+- The exact questions tested.
+- The answers AI tools gave.
+- Whether their business appeared.
+- Which competitors appeared instead.
+- Why the result likely happened.
+- What should be fixed first.
+- What it will cost.
+- When to re-audit.
+
+That is the product.
