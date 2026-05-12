@@ -4,6 +4,7 @@ import { generateDocxReport } from "@/lib/reports/docx-generator";
 import { generateRoadmapCsv, generateLinkOpportunitiesCsv, generateCitationTasksCsv } from "@/lib/reports/roadmap-csv";
 import { generateSchemaPackage } from "@/lib/reports/schema-packager";
 import { generateMarkdownReport } from "@/lib/reports/markdown-generator";
+import { generatePdfReport } from "@/lib/reports/pdf-generator";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,15 @@ export async function GET(
             "Content-Type":
               "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "Content-Disposition": `attachment; filename="${clientName}-SEO-AEO-GEO-Report.docx"`,
+          },
+        });
+      }
+      case "pdf": {
+        const buffer = await generatePdfReport(job);
+        return new NextResponse(new Uint8Array(buffer), {
+          headers: {
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `attachment; filename="${clientName}-SEO-AEO-GEO-Report.pdf"`,
           },
         });
       }

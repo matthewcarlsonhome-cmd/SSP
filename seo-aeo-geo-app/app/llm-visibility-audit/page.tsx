@@ -54,7 +54,6 @@ import {
   QUESTION_CATEGORY_META,
   QUESTION_CATEGORY_ORDER,
   renderVisibilityQuestions,
-  runVisibilityPrompt,
   parseCompetitorDiscoveryResponse,
   sanitizeCompetitorSuggestions,
   saveVisibilityAudit,
@@ -104,7 +103,6 @@ const DEFAULT_PROFILE: AuditBusinessProfile = {
 };
 
 const DEFAULT_PROVIDERS: VisibilityProviderId[] = ['chatgpt', 'claude', 'gemini', 'perplexity'];
-const PROVIDER_KEY_STORAGE = 'ssp_llm_visibility_provider_keys';
 type AuditStepId = 'intake' | 'setup' | 'capture' | 'review' | 'report';
 type ProviderProgress = {
   provider: VisibilityProviderId;
@@ -124,10 +122,10 @@ type BatchProgress = {
 };
 
 const PROVIDER_API_KEY_LABELS: Record<VisibilityProviderId, string> = {
-  chatgpt: 'OpenAI API key for ChatGPT',
-  claude: 'Anthropic API key for Claude',
-  gemini: 'Google AI Studio key for Gemini',
-  perplexity: 'Perplexity API key',
+  chatgpt: 'Render env: OPENAI_API_KEY',
+  claude: 'Render env: ANTHROPIC_API_KEY',
+  gemini: 'Render env: GOOGLE_AI_API_KEY or GEMINI_API_KEY',
+  perplexity: 'Render env: PERPLEXITY_API_KEY',
 };
 
 const AUDIT_STEPS: Array<{ id: AuditStepId; label: string; description: string }> = [
@@ -206,6 +204,7 @@ function exportFilename(profile: AuditBusinessProfile, extension: string): strin
 
 const LLMVisibilityAuditPage: React.FC = () => {
   const mainContentRef = useRef<HTMLElement | null>(null);
+  const serverAuditIdRef = useRef<string | null>(null);
   const [toastMessage, setToastMessage] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const addToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToastMessage({ message, type });
@@ -241,11 +240,11 @@ const LLMVisibilityAuditPage: React.FC = () => {
   const [sharedScorecard, setSharedScorecard] = useState<ShareableLeadScorecard | null>(null);
   const [leadForm, setLeadForm] = useState({ name: '', email: '', phone: '', business: '' });
   const [activeStep, setActiveStep] = useState<AuditStepId>('intake');
-  const [providerApiKeys, setProviderApiKeys] = useState<Record<VisibilityProviderId, string>>({
-    chatgpt: '',
-    claude: '',
-    gemini: '',
-    perplexity: '',
+  const [providerStatus, setProviderStatus] = useState<Record<VisibilityProviderId, boolean>>({
+    chatgpt: false,
+    claude: false,
+    gemini: false,
+    perplexity: false,
   });
 
   useEffect(() => {
@@ -282,17 +281,18 @@ const LLMVisibilityAuditPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(PROVIDER_KEY_STORAGE);
-      if (stored) setProviderApiKeys(current => ({ ...current, ...JSON.parse(stored) }));
-    } catch {
-      // Ignore malformed local key storage.
-    }
+    fetch('/api/llm-visibility/provider-status')
+      .then(response => response.json())
+      .then(status => setProviderStatus({
+        chatgpt: Boolean(status.chatgpt),
+        claude: Boolean(status.claude),
+        gemini: Boolean(status.gemini),
+        perplexity: Boolean(status.perplexity),
+      }))
+      .catch(() => {
+        // Keep all statuses false if the server cannot be reached.
+      });
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem(PROVIDER_KEY_STORAGE, JSON.stringify(providerApiKeys));
-  }, [providerApiKeys]);
 
   const auditProfile = useMemo(() => getAuditProfileConfig(auditProfileId), [auditProfileId]);
   const industryPack = useMemo(() => INDUSTRY_QUESTION_PACKS.find(pack => pack.id === packId) || INDUSTRY_QUESTION_PACKS[0], [packId]);
@@ -385,13 +385,8 @@ const LLMVisibilityAuditPage: React.FC = () => {
   const errorCount = runs.filter(run => run.status === 'error').length;
   const reviewAttentionCount = metrics.needsReviewCount + metrics.highImpactMissCount + errorCount;
   const keyStatus = useMemo(
-    () => ({
-      chatgpt: Boolean(providerApiKeys.chatgpt.trim()),
-      claude: Boolean(providerApiKeys.claude.trim()),
-      gemini: Boolean(providerApiKeys.gemini.trim()),
-      perplexity: Boolean(providerApiKeys.perplexity.trim()),
-    }),
-    [providerApiKeys]
+    () => providerStatus,
+    [providerStatus]
   );
   const nextAction = useMemo(() => {
     if (!profile.brand.trim() || !profile.website?.trim()) {
@@ -526,23 +521,28 @@ const LLMVisibilityAuditPage: React.FC = () => {
   const runCompetitorDiscovery = async () => {
     const providerPriority: VisibilityProviderId[] = ['perplexity', 'chatgpt', 'claude', 'gemini'];
     const provider =
-      providerPriority.find(item => selectedProviders.includes(item) && providerApiKeys[item]?.trim()) ||
-      providerPriority.find(item => providerApiKeys[item]?.trim());
+      providerPriority.find(item => selectedProviders.includes(item) && providerStatus[item]) ||
+      providerPriority.find(item => providerStatus[item]);
 
     if (!provider) {
-      addToast('Add a Perplexity, ChatGPT, Claude, or Gemini key before searching competitors', 'error');
+      addToast('Configure a Perplexity, ChatGPT, Claude, or Gemini key in Render before searching competitors', 'error');
       return;
     }
 
     setIsDiscoveringCompetitors(true);
     try {
-      const response = await runVisibilityPrompt({
-        provider,
-        prompt: buildCompetitorDiscoveryPrompt(profile),
-        apiKey: providerApiKeys[provider],
-        business: profile,
-        maxTokens: 1200,
+      const serverResponse = await fetch('/api/llm-visibility/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider,
+          prompt: buildCompetitorDiscoveryPrompt(profile),
+          business: profile,
+          maxTokens: 1200,
+        }),
       });
+      const response = await serverResponse.json();
+      if (!serverResponse.ok) throw new Error(response.error || 'Competitor discovery failed');
       const candidates = parseCompetitorDiscoveryResponse(response.rawText, profile).filter(
         candidate => !profile.competitors.some(existing => existing.toLowerCase() === candidate.toLowerCase())
       );
@@ -616,28 +616,43 @@ const LLMVisibilityAuditPage: React.FC = () => {
     addToast('Shareable lead scorecard link copied', 'success');
   };
 
-  const submitShareLead = () => {
-    const leads = JSON.parse(localStorage.getItem('skillengine_llm_visibility_leads') || '[]');
-    localStorage.setItem(
-      'skillengine_llm_visibility_leads',
-      JSON.stringify([...leads, { ...leadForm, scorecard: sharedScorecard, capturedAt: new Date().toISOString() }])
-    );
-    setLeadForm({ name: '', email: '', phone: '', business: '' });
-    addToast('Lead captured for follow-up', 'success');
+  const submitShareLead = async () => {
+    try {
+      const response = await fetch('/api/llm-visibility/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...leadForm, scorecard: sharedScorecard }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Lead capture failed');
+      setLeadForm({ name: '', email: '', phone: '', business: '' });
+      addToast('Lead captured for follow-up', 'success');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Lead capture failed', 'error');
+    }
   };
 
   const refreshKeyStatus = () => {
-    addToast('API keys are stored locally on this browser for the audit runner', 'info');
+    fetch('/api/llm-visibility/provider-status')
+      .then(response => response.json())
+      .then(status => {
+        setProviderStatus({
+          chatgpt: Boolean(status.chatgpt),
+          claude: Boolean(status.claude),
+          gemini: Boolean(status.gemini),
+          perplexity: Boolean(status.perplexity),
+        });
+        addToast('Server-side provider key status refreshed from Render environment variables', 'success');
+      })
+      .catch(() => addToast('Could not refresh provider key status', 'error'));
   };
-
-  const getProviderKeys = async (): Promise<Record<VisibilityProviderId, string>> => providerApiKeys;
 
   const persistAudit = (
     nextRuns: VisibilityAuditRun[] = runs,
     nextPriorMetrics = priorMetrics,
     nextProfile: AuditBusinessProfile = profile
   ) => {
-    saveVisibilityAudit({
+    const snapshot = {
       profile: nextProfile,
       packId,
       auditProfileId,
@@ -647,7 +662,26 @@ const LLMVisibilityAuditPage: React.FC = () => {
       reportDraft,
       actionPlan,
       savedAt: new Date().toISOString(),
-    });
+    };
+    saveVisibilityAudit(snapshot);
+    if (nextRuns.length) {
+      fetch('/api/llm-visibility/audits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...snapshot,
+          auditId: serverAuditIdRef.current,
+          metrics: computeVisibilityMetrics(nextRuns),
+        }),
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.id) serverAuditIdRef.current = data.id;
+        })
+        .catch(() => {
+          // Local browser persistence remains as a fallback if server persistence is unavailable.
+        });
+    }
   };
 
   const replaceRun = (
@@ -673,7 +707,6 @@ const LLMVisibilityAuditPage: React.FC = () => {
 
     setIsRunning(true);
     goToStep('capture');
-    const keys = await getProviderKeys();
     let nextRuns = selectedQuestions.flatMap(question =>
       selectedProviders.map(provider => createAuditRun(question, provider))
     );
@@ -684,11 +717,11 @@ const LLMVisibilityAuditPage: React.FC = () => {
         const providerLabel = PROVIDER_LABELS[run.provider];
         setActiveRunLabel(`${providerLabel} - ${run.query.code}`);
 
-        if (!keys[run.provider]) {
+        if (!providerStatus[run.provider]) {
           nextRuns = replaceRun(nextRuns, {
             ...run,
             status: 'error',
-            errorMessage: `${providerLabel} API key is not configured in Settings.`,
+            errorMessage: `${providerLabel} API key is not configured server-side. Add it in Render environment variables.`,
             completedAt: new Date().toISOString(),
           });
           continue;
@@ -702,12 +735,17 @@ const LLMVisibilityAuditPage: React.FC = () => {
         nextRuns = replaceRun(nextRuns, runningRun, false);
 
         try {
-          const response = await runVisibilityPrompt({
-            provider: run.provider,
-            prompt: run.query.prompt,
-            apiKey: keys[run.provider],
-            business: profile,
+          const serverResponse = await fetch('/api/llm-visibility/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              provider: run.provider,
+              prompt: run.query.prompt,
+              business: profile,
+            }),
           });
+          const response = await serverResponse.json();
+          if (!serverResponse.ok) throw new Error(response.error || `${providerLabel} capture failed`);
           const score = scoreAuditResponse(response.rawText, profile, response.citations);
           const qaStatus: AuditQaStatus = score.workbookScore <= 1 ? 'high_impact_miss' : score.confidence < 0.75 ? 'needs_review' : 'unreviewed';
           nextRuns = replaceRun(nextRuns, {
@@ -1343,10 +1381,9 @@ const LLMVisibilityAuditPage: React.FC = () => {
           <ProviderSetupPanel
             selectedProviders={selectedProviders}
             keyStatus={keyStatus}
-            providerApiKeys={providerApiKeys}
             onToggleProvider={toggleProvider}
             onSelectProviders={setSelectedProviders}
-            onApiKeyChange={(provider, value) => setProviderApiKeys(current => ({ ...current, [provider]: value }))}
+            onRefreshStatus={refreshKeyStatus}
           />
           )}
         </aside>
@@ -1579,10 +1616,9 @@ const LLMVisibilityAuditPage: React.FC = () => {
           <ProviderSetupPanel
             selectedProviders={selectedProviders}
             keyStatus={keyStatus}
-            providerApiKeys={providerApiKeys}
             onToggleProvider={toggleProvider}
             onSelectProviders={setSelectedProviders}
-            onApiKeyChange={(provider, value) => setProviderApiKeys(current => ({ ...current, [provider]: value }))}
+            onRefreshStatus={refreshKeyStatus}
           />
 
           <section className="rounded-xl border bg-card p-5">
@@ -2025,23 +2061,25 @@ const BatchProgressPanel: React.FC<{ progress: BatchProgress; activeRunLabel: st
 const ProviderSetupPanel: React.FC<{
   selectedProviders: VisibilityProviderId[];
   keyStatus: Record<VisibilityProviderId, boolean>;
-  providerApiKeys: Record<VisibilityProviderId, string>;
   onToggleProvider: (provider: VisibilityProviderId) => void;
   onSelectProviders: (providers: VisibilityProviderId[]) => void;
-  onApiKeyChange: (provider: VisibilityProviderId, value: string) => void;
-}> = ({ selectedProviders, keyStatus, providerApiKeys, onToggleProvider, onSelectProviders, onApiKeyChange }) => (
+  onRefreshStatus: () => void;
+}> = ({ selectedProviders, keyStatus, onToggleProvider, onSelectProviders, onRefreshStatus }) => (
   <section className="rounded-xl border bg-card p-5">
     <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div className="flex items-center gap-2">
         <Globe className="h-5 w-5 text-primary" />
         <div>
-          <h2 className="font-semibold">Platforms And API Keys</h2>
-          <p className="text-sm text-muted-foreground">Select which LLMs to run and paste the matching provider keys.</p>
+          <h2 className="font-semibold">Platforms And Server Keys</h2>
+          <p className="text-sm text-muted-foreground">Select which LLMs to run. Provider keys are read server-side from Render environment variables.</p>
         </div>
       </div>
-      <Button variant="outline" size="sm" onClick={() => onSelectProviders([...DEFAULT_PROVIDERS])}>
-        Use All Four
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" size="sm" onClick={onRefreshStatus}>Refresh Status</Button>
+        <Button variant="outline" size="sm" onClick={() => onSelectProviders([...DEFAULT_PROVIDERS])}>
+          Use All Four
+        </Button>
+      </div>
     </div>
     <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
       {DEFAULT_PROVIDERS.map(provider => {
@@ -2063,7 +2101,7 @@ const ProviderSetupPanel: React.FC<{
               {keyStatus[provider] ? (
                 <span className="flex items-center gap-1 text-green-600">
                   <CheckCircle2 className="h-3.5 w-3.5" />
-                  Key
+                  Ready
                 </span>
               ) : (
                 <span className="flex items-center gap-1 text-amber-600">
@@ -2078,20 +2116,14 @@ const ProviderSetupPanel: React.FC<{
     </div>
     <div className="mt-4 grid gap-3 md:grid-cols-2">
       {DEFAULT_PROVIDERS.map(provider => (
-        <label key={provider} className="block text-xs font-medium">
-          {PROVIDER_API_KEY_LABELS[provider]}
-          <Input
-            className="mt-1"
-            type="password"
-            placeholder={`Paste ${PROVIDER_LABELS[provider]} key`}
-            value={providerApiKeys[provider]}
-            onChange={event => onApiKeyChange(provider, event.target.value)}
-          />
-        </label>
+        <div key={provider} className="rounded-lg border bg-muted/20 p-3 text-xs">
+          <p className="font-semibold">{PROVIDER_LABELS[provider]}</p>
+          <p className="mt-1 text-muted-foreground">{PROVIDER_API_KEY_LABELS[provider]}</p>
+        </div>
       ))}
     </div>
     <p className="mt-3 text-xs text-muted-foreground">
-      Keys are stored locally in this browser for quick audits. Production team keys should move server-side later.
+      Each query is sent as a fresh stateless API request. The app does not carry chat history between questions.
     </p>
   </section>
 );

@@ -475,6 +475,12 @@ export default function ReportViewerPage() {
                 DOCX
               </Button>
             </a>
+            <a href={`/api/jobs/${jobId}/download?format=pdf`}>
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4" />
+                PDF
+              </Button>
+            </a>
             <a href={`/api/jobs/${jobId}/download?format=schema`}>
               <Button size="sm">
                 <Download className="h-4 w-4" />
