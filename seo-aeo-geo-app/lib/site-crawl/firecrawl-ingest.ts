@@ -24,7 +24,7 @@ export type FirecrawlIngestResult = {
 };
 
 type RunFirecrawlSiteCrawlOptions = {
-  jobId: string;
+  jobId?: string | null;
   clientId: string;
   seedUrl: string;
   profile?: string;
@@ -153,7 +153,7 @@ export async function runFirecrawlSiteCrawl(options: RunFirecrawlSiteCrawlOption
 
 async function createCrawlRow(input: {
   clientId: string;
-  jobId: string;
+  jobId?: string | null;
   seedUrl: string;
   limit: number;
   maxDepth: number;

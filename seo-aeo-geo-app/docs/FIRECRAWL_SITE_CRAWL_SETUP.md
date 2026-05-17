@@ -11,6 +11,7 @@ This app uses Firecrawl as the production crawl engine for the SEO/AEO/GEO audit
 - Parses title tags, meta descriptions, canonicals, robots meta, headings, links, images, JSON-LD schema, NAP, CTAs, FAQs, service signals, and location signals.
 - Builds a client voice profile for report writing.
 - Creates SEO/AEO/GEO findings that feed the final report and fix plan.
+- Updates the client workbench run status and combined recommendation backlog.
 - Keeps LLM visibility prompts clean: crawl data is used for scoring, report writing, hallucination checks, and remediation, not injected into buyer prompts.
 
 ## 1. Add Environment Variables
@@ -36,6 +37,12 @@ or run the SQL in:
 
 ```text
 supabase/migrations/005_firecrawl_site_crawl.sql
+```
+
+For the client dashboard integration, also apply:
+
+```text
+supabase/migrations/008_client_workbench_dashboard.sql
 ```
 
 The migration creates:
@@ -92,6 +99,13 @@ Every run maps first, previews selected pages and estimated credits, then crawls
    - Client voice profile
    - SEO/AEO/GEO findings
    - Page inventory
+
+Standalone client crawl:
+
+1. Open a client profile at `/clients/[id]`.
+2. Click `Run Firecrawl`.
+3. The app runs a client-bound crawl through `/api/clients/[id]/site-crawl/run`.
+4. The crawl artifacts, voice profile, schema inventory, findings, run status, and recommended fixes appear in the Client Results Dashboard.
 
 ## 6. How It Feeds Existing Audit Agents
 

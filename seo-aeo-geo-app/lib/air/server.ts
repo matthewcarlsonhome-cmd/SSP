@@ -1,4 +1,9 @@
 import { getServiceClient } from "@/lib/supabase";
+import {
+  replaceClientRecommendations,
+  upsertClientToolRun,
+  type ClientRecommendationInput,
+} from "@/lib/client-workbench";
 import { buildSnapshotDeliverable } from "./deliverables/snapshot";
 import { computeAirScore } from "./scoring/composite";
 import type { AirAuditInput, AirCompositeScore, AirTierId } from "./types";
@@ -139,6 +144,28 @@ export async function scoreAndPersistAirAudit(auditId: string): Promise<AirCompo
     payload: { composite },
   });
 
+  await upsertClientToolRun({
+    organizationId: audit.organization_id,
+    clientId: audit.client_id,
+    toolKey: "air",
+    status: "needs_review",
+    progressPercent: 85,
+    sourceTable: "air_audits",
+    sourceId: auditId,
+    metricsJson: {
+      composite: composite.composite,
+      band: composite.band,
+      bandLabel: composite.bandLabel,
+      recommendedTier: composite.recommendedTier,
+      domains: composite.domains.map((domain) => ({
+        domain: domain.domain,
+        totalScore: domain.totalScore,
+        confidence: domain.confidence,
+      })),
+    },
+    completedAt: composite.scoredAt,
+  }).catch((error) => console.warn("[Workbench] Could not update AIR run:", error));
+
   return composite;
 }
 
@@ -192,6 +219,37 @@ export async function generateSnapshotDeliverable(auditId: string) {
     event_type: "deliverable_generated",
     payload: { kind: "snapshot" },
   });
+
+  await upsertClientToolRun({
+    organizationId: audit.organization_id,
+    clientId: audit.client_id,
+    toolKey: "air",
+    status: "completed",
+    progressPercent: 100,
+    sourceTable: "air_audits",
+    sourceId: auditId,
+    metricsJson: {
+      composite: deliverable.composite.composite,
+      band: deliverable.composite.band,
+      bandLabel: deliverable.composite.bandLabel,
+      quickWins: deliverable.quickWins.length,
+    },
+    completedAt: new Date().toISOString(),
+  }).catch((error) => console.warn("[Workbench] Could not mark AIR complete:", error));
+
+  await replaceClientRecommendations({
+    organizationId: audit.organization_id,
+    clientId: audit.client_id,
+    sourceTool: "air",
+    recommendations: deliverable.quickWins.map((win): ClientRecommendationInput => ({
+      sourceTool: "air",
+      category: win.sspServiceMatch || "ai readiness",
+      priority: win.rank === 1 ? "high" : "medium",
+      title: win.title,
+      description: win.body,
+      recommendedFix: win.projectedImpact,
+    })),
+  }).catch((error) => console.warn("[Workbench] Could not store AIR recommendations:", error));
 
   return deliverable;
 }
