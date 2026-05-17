@@ -8,6 +8,7 @@ import {
   upsertClientToolRun,
   type ClientRecommendationInput,
 } from "@/lib/client-workbench";
+import { resolveRequestContext } from "@/lib/request-context";
 import { getServiceClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -31,10 +32,19 @@ export async function POST(
     if (error || !client) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
-    if (!client.organization_id) {
-      return NextResponse.json({ error: "Client is missing organization_id" }, { status: 400 });
+    let organizationId = client.organization_id as string | null;
+    if (!organizationId) {
+      const context = await resolveRequestContext(request, client.id);
+      organizationId = context.organizationId;
+      await supabase
+        .from("clients")
+        .update({ organization_id: organizationId, updated_at: new Date().toISOString() })
+        .eq("id", client.id);
     }
-    runContext = { organizationId: client.organization_id, clientId: client.id };
+    if (!organizationId) {
+      return NextResponse.json({ error: "Unable to resolve organization for client" }, { status: 400 });
+    }
+    runContext = { organizationId, clientId: client.id };
 
     const seedUrl = body.seedUrl || body.url || client.website_url;
     if (!seedUrl) {
@@ -42,7 +52,7 @@ export async function POST(
     }
 
     await upsertClientToolRun({
-      organizationId: client.organization_id,
+      organizationId,
       clientId: client.id,
       toolKey: "firecrawl",
       status: "running",
@@ -58,7 +68,7 @@ export async function POST(
     });
 
     await upsertClientToolRun({
-      organizationId: client.organization_id,
+      organizationId,
       clientId: client.id,
       toolKey: "firecrawl",
       status: "completed",
@@ -86,7 +96,7 @@ export async function POST(
     }));
 
     await replaceClientRecommendations({
-      organizationId: client.organization_id,
+      organizationId,
       clientId: client.id,
       sourceTool: "firecrawl",
       recommendations,

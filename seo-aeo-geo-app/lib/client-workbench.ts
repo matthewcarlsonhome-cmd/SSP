@@ -385,7 +385,7 @@ export async function buildClientWorkbench(clientId: string) {
         pageCount: pages.length,
         schemaTypes,
         schemaCount: schemaItems.length,
-        pages: pages.slice(0, 20).map((page: any) => ({
+        pages: pages.map((page: any) => ({
           id: page.id,
           url: page.url,
           pageType: page.page_type,
