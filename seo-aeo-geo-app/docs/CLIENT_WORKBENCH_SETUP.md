@@ -16,6 +16,7 @@ The Client Workbench is the shared reporting layer for the SSP platform. It conn
   - LLM Visibility action plans
   - AIR Snapshot quick wins
 - A client-bound Firecrawl endpoint at `/api/clients/[id]/site-crawl/run`.
+- A client-bound Firecrawl design export at `/api/clients/[id]/site-crawl/download`.
 - A dashboard aggregation endpoint at `/api/clients/[id]/workbench`.
 
 ## Database Install
@@ -86,8 +87,25 @@ Do not inject Firecrawl evidence into the buyer-intent prompts sent to ChatGPT, 
 1. Open a client at `/clients/[id]`.
 2. Review the four tool status cards.
 3. Click `Run Firecrawl` to capture a standalone crawl for the client.
-4. Run SEO/AEO/GEO, LLM Visibility, or AIR from their normal workspaces.
-5. Return to `/clients/[id]` to see the updated evidence, scores, and combined action plan.
+4. Click `Design ZIP` when you need raw HTML/CSS/schema/markdown for Claude Design recreation.
+5. Run SEO/AEO/GEO, LLM Visibility, or AIR from their normal workspaces.
+6. Return to `/clients/[id]` to see the updated evidence, scores, and combined action plan.
+
+## Design Export Contents
+
+The Firecrawl design ZIP includes:
+
+- `crawl-summary.json`
+- `all-pages.json`
+- `all-schema.json`
+- Per-page `metadata.json`
+- Per-page `schema.json`
+- Per-page `page.md`
+- Per-page `raw.html`
+- Per-page `clean.html` for new crawls
+- Per-page `styles/inline.css`
+- Per-page linked stylesheet URLs and fetched CSS files when reachable
+- Per-page `design-brief.md` for Claude Design
 
 ## Implementation Notes
 

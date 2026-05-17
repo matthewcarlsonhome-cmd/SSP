@@ -302,6 +302,7 @@ Current implementation:
 - Preview endpoint: `/api/site-crawl/preview`.
 - Standalone crawl workspace: `/site-crawl`.
 - Client-bound crawl endpoint: `/api/clients/[id]/site-crawl/run`.
+- Client-bound design export endpoint: `/api/clients/[id]/site-crawl/download`.
 - Pipeline integration: `runPipeline()` tries Firecrawl first and falls back to lightweight HTML fetch.
 - Storage:
   - `client_site_crawl`
@@ -327,6 +328,15 @@ Data extracted deterministically:
 - FAQ blocks.
 - CTA language.
 - Client voice signals.
+- Design handoff artifacts for Claude Design:
+  - raw HTML,
+  - cleaned HTML for new crawls,
+  - markdown,
+  - schema JSON,
+  - metadata,
+  - inline CSS,
+  - linked CSS files when reachable,
+  - Claude Design recreation brief.
 
 Security boundary:
 

@@ -188,6 +188,7 @@ async function persistPage(crawlId: string, parsed: ParsedPageSignals, doc: Fire
   const supabase = getServiceClient();
   const storageBase = `site-crawls/${crawlId}/${encodeURIComponent(parsed.url)}`;
   const markdownPath = await uploadArtifact(`${storageBase}/page.md`, doc.markdown);
+  const htmlPath = await uploadArtifact(`${storageBase}/clean.html`, doc.html);
   const rawHtmlPath = await uploadArtifact(`${storageBase}/raw.html`, doc.rawHtml);
 
   const { data, error } = await supabase
@@ -205,7 +206,16 @@ async function persistPage(crawlId: string, parsed: ParsedPageSignals, doc: Fire
       raw_html_storage_path: rawHtmlPath,
       word_count: parsed.wordCount,
       indexability_status: parsed.indexabilityStatus,
-      seo_signals: parsed,
+      seo_signals: {
+        ...parsed,
+        artifactPaths: {
+          markdown: markdownPath,
+          html: htmlPath,
+          rawHtml: rawHtmlPath,
+        },
+        firecrawlMetadata: doc.metadata || {},
+        firecrawlLinks: doc.links || [],
+      },
     })
     .select("id")
     .single();

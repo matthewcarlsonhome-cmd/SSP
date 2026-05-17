@@ -366,9 +366,19 @@ export default function ClientProfilePage() {
             <div>
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-semibold">Captured Priority Pages</h3>
-                <Link href="/site-crawl">
-                  <Button variant="outline" size="sm">Open Crawl Workspace</Button>
-                </Link>
+                <div className="flex flex-wrap gap-2">
+                  {workbench.firecrawl.crawl?.id && (
+                    <a href={`/api/clients/${clientId}/site-crawl/download?crawlId=${workbench.firecrawl.crawl.id}`}>
+                      <Button variant="outline" size="sm">
+                        <Download className="h-3.5 w-3.5" />
+                        Design ZIP
+                      </Button>
+                    </a>
+                  )}
+                  <Link href="/site-crawl">
+                    <Button variant="outline" size="sm">Open Crawl Workspace</Button>
+                  </Link>
+                </div>
               </div>
               <div className="space-y-2">
                 {workbench.firecrawl.pages.length ? (

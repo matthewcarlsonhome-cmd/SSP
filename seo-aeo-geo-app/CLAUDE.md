@@ -85,6 +85,7 @@ SSP is now a three-module AI visibility and readiness workbench for local busine
   - Combined optimization backlog from all modules
   - Existing SEO/AEO/GEO audit history
 - Client-bound standalone Firecrawl crawl through `/api/clients/[id]/site-crawl/run`
+- Client-bound Firecrawl design export through `/api/clients/[id]/site-crawl/download`
 - Delete client (handles FK constraints — deletes audit_jobs first)
 - Delete individual audits
 
@@ -672,6 +673,8 @@ This section documents real issues hit during development and how they were reso
 **Integration points now implemented:**
 
 - Firecrawl standalone and pipeline crawls update `client_tool_runs` and write site findings to `client_recommendations`.
+- New Firecrawl client crawls store cleaned HTML artifact paths in `seo_signals.artifactPaths.html`; older crawls may only have raw HTML and markdown.
+- Client crawl design export builds a ZIP with raw HTML, cleaned HTML, markdown, schema JSON, inline CSS, fetched linked CSS, metadata, and Claude Design briefs.
 - SEO/AEO/GEO pipeline completion updates run status and writes page/roadmap recommendations.
 - LLM Visibility audit persistence updates run status and writes action-plan items.
 - AIR scoring/Snapshot generation updates run status and writes AIR quick wins.
