@@ -183,10 +183,10 @@ export default function ClientProfilePage() {
       const res = await fetch(`/api/clients/${clientId}/site-crawl/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profile: "standard" }),
+        body: JSON.stringify({ profile: "free-snapshot" }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Firecrawl crawl failed");
+      if (!res.ok) throw new Error(`${data.error || "Firecrawl crawl failed"}${data.stage ? ` (${data.stage})` : ""}`);
       await loadWorkbench();
     } catch (error) {
       alert(error instanceof Error ? error.message : "Firecrawl crawl failed");
@@ -381,6 +381,11 @@ export default function ClientProfilePage() {
                         Design ZIP
                       </Button>
                     </a>
+                  )}
+                  {workbench.firecrawl.crawl?.id && (
+                    <Link href={`/clients/${clientId}/crawl`}>
+                      <Button variant="outline" size="sm">View Stored Pages</Button>
+                    </Link>
                   )}
                   <Link href="/site-crawl">
                     <Button variant="outline" size="sm">Open Crawl Workspace</Button>

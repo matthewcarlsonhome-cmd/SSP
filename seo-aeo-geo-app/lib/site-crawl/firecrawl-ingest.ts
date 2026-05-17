@@ -120,8 +120,12 @@ export async function runFirecrawlSiteCrawl(options: RunFirecrawlSiteCrawlOption
 
   const voiceProfile = buildClientVoiceProfile(parsedPages, markdownByUrl);
   if (crawlRow.id) {
-    await persistVoiceProfile(options.clientId, crawlRow.id, voiceProfile);
-    await persistFindings(options.clientId, crawlRow.id, parsedPages);
+    await persistVoiceProfile(options.clientId, crawlRow.id, voiceProfile).catch((error) => {
+      console.warn("[Firecrawl] Could not persist voice profile:", error?.message || error);
+    });
+    await persistFindings(options.clientId, crawlRow.id, parsedPages).catch((error) => {
+      console.warn("[Firecrawl] Could not persist findings:", error?.message || error);
+    });
     await supabase
       .from("client_site_crawl")
       .update({
@@ -131,7 +135,10 @@ export async function runFirecrawlSiteCrawl(options: RunFirecrawlSiteCrawlOption
         discovered_url_count: links.length,
         selected_url_count: selected.length,
       })
-      .eq("id", crawlRow.id);
+      .eq("id", crawlRow.id)
+      .then(({ error }) => {
+        if (error) console.warn("[Firecrawl] Could not mark crawl complete:", error.message);
+      });
   }
 
   const promptSummary = formatFirecrawlForPrompt(parsedPages, voiceProfile, {

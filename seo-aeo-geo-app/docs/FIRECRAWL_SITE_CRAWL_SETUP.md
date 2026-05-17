@@ -117,11 +117,18 @@ Standalone client crawl:
    - fetched linked CSS files when reachable
    - `metadata.json`
    - `design-brief.md` for Claude Design recreation
+6. Click `View Stored Pages` to open `/clients/[id]/crawl`, where each persisted page can be inspected by Markdown, clean HTML, raw HTML, schema, and metadata tabs.
 
 The design ZIP is served from:
 
 ```text
 GET /api/clients/[id]/site-crawl/download?crawlId=<crawl_id>
+```
+
+Per-page artifacts are served from:
+
+```text
+GET /api/clients/[id]/site-crawl/pages/[pageId]
 ```
 
 ## 6. How It Feeds Existing Audit Agents

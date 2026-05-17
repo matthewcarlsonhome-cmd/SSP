@@ -18,11 +18,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   let runContext: { organizationId: string; clientId: string } | null = null;
+  let stage = "initializing";
   try {
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
     const supabase = getServiceClient();
 
+    stage = "loading client";
     const { data: client, error } = await supabase
       .from("clients")
       .select("id, organization_id, website_url, name")
@@ -51,22 +53,29 @@ export async function POST(
       return NextResponse.json({ error: "Client website URL is required" }, { status: 400 });
     }
 
+    const crawlProfile = body.profile || "free-snapshot";
+
+    stage = "marking crawl running";
     await upsertClientToolRun({
       organizationId,
       clientId: client.id,
       toolKey: "firecrawl",
       status: "running",
       progressPercent: 20,
-      configJson: { seedUrl, profile: body.profile || "standard", standalone: true },
+      configJson: { seedUrl, profile: crawlProfile, standalone: true },
+    }).catch((workbenchError) => {
+      console.warn("[Workbench] Could not mark client Firecrawl running:", workbenchError);
     });
 
+    stage = "running Firecrawl crawl";
     const result = await runFirecrawlSiteCrawl({
       jobId: null,
       clientId: client.id,
       seedUrl,
-      profile: body.profile || "standard",
+      profile: crawlProfile,
     });
 
+    stage = "saving workbench status";
     await upsertClientToolRun({
       organizationId,
       clientId: client.id,
@@ -75,7 +84,7 @@ export async function POST(
       progressPercent: 100,
       sourceTable: "client_site_crawl",
       sourceId: result.crawlId || null,
-      configJson: { seedUrl, profile: body.profile || "standard", standalone: true },
+      configJson: { seedUrl, profile: crawlProfile, standalone: true },
       metricsJson: {
         capturedPages: result.pages.length,
         creditsUsed: result.creditsUsed,
@@ -84,6 +93,8 @@ export async function POST(
         schemaTypes: Array.from(new Set(result.pages.flatMap((page) => page.schemaItems.map((schema) => schema.type)))),
       },
       completedAt: new Date().toISOString(),
+    }).catch((workbenchError) => {
+      console.warn("[Workbench] Could not mark client Firecrawl complete:", workbenchError);
     });
 
     const recommendations: ClientRecommendationInput[] = buildSeoGeoFindings(result.pages).map((finding) => ({
@@ -100,7 +111,14 @@ export async function POST(
       clientId: client.id,
       sourceTool: "firecrawl",
       recommendations,
+    }).catch((workbenchError) => {
+      console.warn("[Workbench] Could not store client Firecrawl recommendations:", workbenchError);
     });
+
+    await supabase
+      .from("clients")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", client.id);
 
     return NextResponse.json({
       success: true,
@@ -123,7 +141,10 @@ export async function POST(
       }).catch((workbenchError) => console.warn("[Workbench] Could not mark client Firecrawl failed:", workbenchError));
     }
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Client Firecrawl crawl failed" },
+      {
+        error: error instanceof Error ? error.message : "Client Firecrawl crawl failed",
+        stage,
+      },
       { status: 500 }
     );
   }

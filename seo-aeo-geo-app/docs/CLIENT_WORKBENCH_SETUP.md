@@ -5,6 +5,7 @@ The Client Workbench is the shared reporting layer for the SSP platform. It conn
 ## What It Adds
 
 - A client-level results dashboard at `/clients/[id]`.
+- A stored crawl browser at `/clients/[id]/crawl`.
 - Cross-tool run progress for:
   - Firecrawl Site Crawl
   - SEO/AEO/GEO Audit
@@ -16,6 +17,7 @@ The Client Workbench is the shared reporting layer for the SSP platform. It conn
   - LLM Visibility action plans
   - AIR Snapshot quick wins
 - A client-bound Firecrawl endpoint at `/api/clients/[id]/site-crawl/run`.
+- A page artifact endpoint at `/api/clients/[id]/site-crawl/pages/[pageId]`.
 - A client-bound Firecrawl design export at `/api/clients/[id]/site-crawl/download`.
 - A dashboard aggregation endpoint at `/api/clients/[id]/workbench`.
 
@@ -88,8 +90,9 @@ Do not inject Firecrawl evidence into the buyer-intent prompts sent to ChatGPT, 
 2. Review the four tool status cards.
 3. Click `Run Firecrawl` to capture a standalone crawl for the client.
 4. Click `Design ZIP` when you need raw HTML/CSS/schema/markdown for Claude Design recreation.
-5. Run SEO/AEO/GEO, LLM Visibility, or AIR from their normal workspaces.
-6. Return to `/clients/[id]` to see the updated evidence, scores, and combined action plan.
+5. Click `View Stored Pages` to inspect each persisted page's markdown, clean HTML, raw HTML, schema, and metadata.
+6. Run SEO/AEO/GEO, LLM Visibility, or AIR from their normal workspaces.
+7. Return to `/clients/[id]` to see the updated evidence, scores, and combined action plan.
 
 ## Design Export Contents
 
@@ -106,6 +109,17 @@ The Firecrawl design ZIP includes:
 - Per-page `styles/inline.css`
 - Per-page linked stylesheet URLs and fetched CSS files when reachable
 - Per-page `design-brief.md` for Claude Design
+
+## Where Crawl Data Lives
+
+- Crawl metadata: `client_site_crawl`
+- Page inventory and extracted signals: `client_site_page`
+- JSON-LD schema rows: `client_schema_item`
+- Voice profile: `client_voice_profile`
+- Crawl findings: `seo_geo_finding`
+- Markdown/raw HTML/clean HTML artifacts: private Supabase Storage bucket `site-crawl-artifacts`
+
+The standalone `/site-crawl` workspace is an inspection tool. It returns the crawl summary to the browser but does not attach the crawl to a client. To persist and view pages later, run Firecrawl from `/clients/[id]`.
 
 ## Implementation Notes
 

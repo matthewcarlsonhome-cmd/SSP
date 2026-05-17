@@ -302,6 +302,8 @@ Current implementation:
 - Preview endpoint: `/api/site-crawl/preview`.
 - Standalone crawl workspace: `/site-crawl`.
 - Client-bound crawl endpoint: `/api/clients/[id]/site-crawl/run`.
+- Stored crawl browser: `/clients/[id]/crawl`.
+- Per-page artifact endpoint: `/api/clients/[id]/site-crawl/pages/[pageId]`.
 - Client-bound design export endpoint: `/api/clients/[id]/site-crawl/download`.
 - Pipeline integration: `runPipeline()` tries Firecrawl first and falls back to lightweight HTML fetch.
 - Storage:
