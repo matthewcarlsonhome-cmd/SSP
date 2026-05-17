@@ -365,7 +365,14 @@ export default function ClientProfilePage() {
 
             <div>
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Captured Priority Pages</h3>
+                <div>
+                  <h3 className="text-sm font-semibold">Captured Priority Pages</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {workbench.firecrawl.pages.length
+                      ? `${workbench.firecrawl.pages.length} stored page records from the latest crawl`
+                      : "No stored pages yet"}
+                  </p>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {workbench.firecrawl.crawl?.id && (
                     <a href={`/api/clients/${clientId}/site-crawl/download?crawlId=${workbench.firecrawl.crawl.id}`}>
@@ -380,9 +387,9 @@ export default function ClientProfilePage() {
                   </Link>
                 </div>
               </div>
-              <div className="space-y-2">
+              <div className="max-h-[560px] space-y-2 overflow-auto pr-1">
                 {workbench.firecrawl.pages.length ? (
-                  workbench.firecrawl.pages.slice(0, 8).map((page) => (
+                  workbench.firecrawl.pages.map((page) => (
                     <div key={page.id} className="rounded-lg border p-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="secondary">{page.pageType}</Badge>

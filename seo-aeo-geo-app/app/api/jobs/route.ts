@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { resolveRequestContext } from "@/lib/request-context";
 import { getServiceClient, cleanupStaleJobs } from "@/lib/supabase";
 import { runPipeline } from "@/lib/agents/pipeline";
 
@@ -8,6 +9,7 @@ export async function POST(request: NextRequest) {
   try {
     const brief = await request.json();
     const supabase = getServiceClient();
+    const { userId, organizationId } = await resolveRequestContext(request);
 
     // Create or find client
     let clientId: string;
@@ -24,6 +26,7 @@ export async function POST(request: NextRequest) {
         .from("clients")
         .update({
           name: brief.client_name,
+          organization_id: organizationId,
           business_type: brief.business_type,
           industry: brief.industry,
           target_geography: brief.target_geography,
@@ -44,6 +47,7 @@ export async function POST(request: NextRequest) {
         .from("clients")
         .insert({
           name: brief.client_name,
+          organization_id: organizationId,
           website_url: brief.website_url,
           business_type: brief.business_type,
           industry: brief.industry,
@@ -108,6 +112,7 @@ export async function POST(request: NextRequest) {
       .from("audit_jobs")
       .insert({
         client_id: clientId,
+        created_by: userId,
         status: "pending",
         progress: 0,
         input_brief: brief,
