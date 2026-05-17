@@ -1,6 +1,6 @@
 # SSP AI Visibility and Readiness Workbench Design Document
 
-Version: 2026-05-12
+Version: 2026-05-17
 Status: living product, service, and implementation design for the SSP local-business audit platform.
 
 ## 1. Executive Summary
@@ -38,6 +38,8 @@ Free or low-cost Snapshot
   -> AIR Audit when operational readiness matters
   -> remediation sprint, AI transition sprint, or managed operations
 ```
+
+The newest implementation layer is the Client Results Dashboard. Each client now has a shared workbench view that stores run progress and recommendations across Firecrawl, SEO/AEO/GEO, LLM Visibility, and AIR. This makes the platform useful as an ongoing reporting and account-management tool, not only a set of separate audit pages.
 
 ## 2. Product Positioning
 
@@ -102,6 +104,7 @@ Current implementation:
 - Audit job API at `/api/jobs`.
 - Pipeline in `lib/agents/pipeline.ts`.
 - Firecrawl evidence layer in `lib/site-crawl/firecrawl-ingest.ts`.
+- SEO run progress and selected recommendations now write into `client_tool_runs` and `client_recommendations`.
 - Report viewer at `/audits/[id]/report`.
 - Downloads: Markdown, DOCX, PDF, roadmap CSV, link CSV, citation CSV, schema ZIP.
 
@@ -145,6 +148,7 @@ Current implementation:
 - Durable audit persistence route at `/api/llm-visibility/audits`.
 - Durable lead capture route at `/api/llm-visibility/leads`.
 - Database migration `006_llm_visibility_persistence_and_harness.sql`.
+- Persisted LLM audits now update the unified client workbench run status and write LLM action-plan items into the combined optimization backlog.
 
 Important implementation rule:
 
@@ -204,6 +208,7 @@ Current implementation:
 - Test coverage:
   - `__tests__/air-scoring.test.ts`
   - fixtures in `lib/air/scoring/fixtures.ts`
+- AIR scoring and Snapshot generation now update the unified client workbench and add AIR quick wins to the combined optimization backlog.
 
 Current AIR limitation:
 
@@ -241,6 +246,11 @@ AIR scoring
   -> identifies whether the client is ready for AI operations
   -> supports higher-ticket offers beyond visibility remediation
   -> tells the operator whether to sell visibility fixes, foundation work, transition sprint, or ongoing operations
+
+Client Results Dashboard
+  -> stores which tools have run, their progress, their latest source records, and their key metrics
+  -> brings Firecrawl findings, SEO fixes, LLM action-plan items, and AIR quick wins into one backlog
+  -> gives the operator a single place to explain status, evidence, and next steps to a client
 ```
 
 Recommended combined client story:
@@ -268,6 +278,7 @@ The target workflow remains a 30-minute operator path for a first snapshot:
 9. Review evidence, scores, QA flags, and competitor share of voice.
 10. Generate report draft, PDF/DOCX, action plan, and follow-up email.
 11. If selling AI operations, create AIR Snapshot or AIR Audit.
+12. Open the client dashboard to review run status, evidence, results, and the combined optimization backlog.
 ```
 
 The AIR workflow extends this:
@@ -289,6 +300,9 @@ Current implementation:
 - Server-side key: `FIRECRAWL_API_KEY`.
 - Optional API URL: `FIRECRAWL_API_URL`.
 - Preview endpoint: `/api/site-crawl/preview`.
+- Standalone crawl workspace: `/site-crawl`.
+- Client-bound crawl endpoint: `/api/clients/[id]/site-crawl/run`.
+- Client-bound design export endpoint: `/api/clients/[id]/site-crawl/download`.
 - Pipeline integration: `runPipeline()` tries Firecrawl first and falls back to lightweight HTML fetch.
 - Storage:
   - `client_site_crawl`
@@ -296,7 +310,8 @@ Current implementation:
   - `client_schema_item`
   - `client_voice_profile`
   - `seo_geo_finding`
-  - Supabase Storage bucket `site-crawl-artifacts`
+- Supabase Storage bucket `site-crawl-artifacts`
+- Client dashboard aggregation through `/api/clients/[id]/workbench`.
 
 Data extracted deterministically:
 
@@ -313,6 +328,15 @@ Data extracted deterministically:
 - FAQ blocks.
 - CTA language.
 - Client voice signals.
+- Design handoff artifacts for Claude Design:
+  - raw HTML,
+  - cleaned HTML for new crawls,
+  - markdown,
+  - schema JSON,
+  - metadata,
+  - inline CSS,
+  - linked CSS files when reachable,
+  - Claude Design recreation brief.
 
 Security boundary:
 
@@ -401,6 +425,21 @@ Clean-query guarantee:
 - `client_schema_item`
 - `client_voice_profile`
 - `seo_geo_finding`
+
+### Client Workbench Tables
+
+Migration: `008_client_workbench_dashboard.sql`
+
+- `client_audit_cycles`
+- `client_tool_runs`
+- `client_recommendations`
+
+Purpose:
+
+- Track per-client run status across Firecrawl, SEO/AEO/GEO, LLM Visibility, and AIR.
+- Preserve the source table and source record for the latest run of each tool.
+- Store a combined optimization backlog with source tool, priority, category, status, owner, estimated hours, estimated price, and fix recommendation.
+- Support the client detail dashboard at `/clients/[id]` and the aggregation route at `/api/clients/[id]/workbench`.
 
 ### LLM Visibility Tables
 
@@ -717,6 +756,12 @@ Implemented and verified:
 - AIR scoring engine and fixtures.
 - AIR Snapshot generation and public report page.
 - AIR navigation and first workbench pages.
+- Client Results Dashboard at `/clients/[id]` with run status, Firecrawl evidence, results snapshot, and combined optimization backlog.
+- Client workbench schema and aggregation route:
+  - `008_client_workbench_dashboard.sql`
+  - `/api/clients/[id]/workbench`
+  - `/api/clients/[id]/site-crawl/run`
+  - `lib/client-workbench.ts`
 - Server-side LLM Visibility provider execution.
 - LLM Visibility provider status route.
 - Durable LLM Visibility audit/run/lead schema and persistence routes.
@@ -739,7 +784,7 @@ Known limitation:
 
 Highest priority:
 
-- Apply migrations in Supabase.
+- Apply migrations in Supabase, including `008_client_workbench_dashboard.sql`.
 - Set Render env vars for OpenAI, Anthropic, Gemini/Google, Perplexity, Firecrawl, and app URL.
 - Replace AIR Snapshot stub ingestion with live Firecrawl, GBP, reviews, ads, and tech-stack adapters.
 - Build AIR intake save endpoints and editors:
@@ -758,7 +803,7 @@ Medium priority:
 
 - Server-side LLM Visibility DOCX/PDF export.
 - Durable screenshot/file upload for LLM evidence locker.
-- Combined SEO/AEO/GEO + LLM + AIR report view.
+- Combined SEO/AEO/GEO + LLM + AIR exportable report view using the new client workbench data layer.
 - Client longitudinal dashboard for LLM visibility and AIR score history.
 - Re-audit and re-score delta persistence.
 - Stripe billing and credit enforcement.
@@ -786,6 +831,7 @@ The current platform is working when:
 - Public AIR report is accessible without auth and marked noindex.
 - PDF export works for SEO/AEO/GEO reports.
 - Design docs and `CLAUDE.md` describe the current architecture and known limits.
+- Client dashboard shows run progress and consolidated recommendations across all completed modules.
 - Tests and build pass before deployment.
 
 The full production platform is complete when:

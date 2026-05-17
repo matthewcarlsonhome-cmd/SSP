@@ -11,6 +11,8 @@ This app uses Firecrawl as the production crawl engine for the SEO/AEO/GEO audit
 - Parses title tags, meta descriptions, canonicals, robots meta, headings, links, images, JSON-LD schema, NAP, CTAs, FAQs, service signals, and location signals.
 - Builds a client voice profile for report writing.
 - Creates SEO/AEO/GEO findings that feed the final report and fix plan.
+- Updates the client workbench run status and combined recommendation backlog.
+- Exports a design handoff ZIP with raw HTML, cleaned HTML, markdown, schema JSON, CSS artifacts, metadata, and Claude Design recreation briefs.
 - Keeps LLM visibility prompts clean: crawl data is used for scoring, report writing, hallucination checks, and remediation, not injected into buyer prompts.
 
 ## 1. Add Environment Variables
@@ -36,6 +38,12 @@ or run the SQL in:
 
 ```text
 supabase/migrations/005_firecrawl_site_crawl.sql
+```
+
+For the client dashboard integration, also apply:
+
+```text
+supabase/migrations/008_client_workbench_dashboard.sql
 ```
 
 The migration creates:
@@ -93,6 +101,29 @@ Every run maps first, previews selected pages and estimated credits, then crawls
    - SEO/AEO/GEO findings
    - Page inventory
 
+Standalone client crawl:
+
+1. Open a client profile at `/clients/[id]`.
+2. Click `Run Firecrawl`.
+3. The app runs a client-bound crawl through `/api/clients/[id]/site-crawl/run`.
+4. The crawl artifacts, voice profile, schema inventory, findings, run status, and recommended fixes appear in the Client Results Dashboard.
+5. Click `Design ZIP` to download:
+   - `raw.html`
+   - `clean.html`
+   - `page.md`
+   - page-level `schema.json`
+   - combined `all-schema.json`
+   - inline CSS blocks
+   - fetched linked CSS files when reachable
+   - `metadata.json`
+   - `design-brief.md` for Claude Design recreation
+
+The design ZIP is served from:
+
+```text
+GET /api/clients/[id]/site-crawl/download?crawlId=<crawl_id>
+```
+
 ## 6. How It Feeds Existing Audit Agents
 
 The pipeline now tries this order:
@@ -127,3 +158,7 @@ Do not make MCP a production runtime dependency. The production app should conti
 - Respect robots.txt unless the client has explicitly approved a crawl exception.
 - If adding Firecrawl webhooks later, verify webhook HMAC signatures before trusting status updates.
 - Do not inject crawl evidence into live LLM visibility buyer prompts; that biases the visibility test.
+
+## 9. Future Design Artifacts
+
+Firecrawl can also return screenshots, image lists, and branding data. The current production crawl stores raw HTML, cleaned HTML, markdown, links, schema, and parsed page signals. If deeper visual recreation becomes a regular workflow, add a dedicated design-capture profile that requests Firecrawl `screenshot`, `images`, and `branding` formats and stores those URLs/objects with the page artifacts.

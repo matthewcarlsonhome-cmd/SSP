@@ -7,7 +7,12 @@ import {
 import { getServiceClient } from "@/lib/supabase";
 import { fetchSiteSignals, formatSiteSignalsForPrompt } from "@/lib/utils/html-fetcher";
 import { isFirecrawlConfigured } from "@/lib/firecrawl/client";
-import { runFirecrawlSiteCrawl } from "@/lib/site-crawl/firecrawl-ingest";
+import { buildSeoGeoFindings, runFirecrawlSiteCrawl } from "@/lib/site-crawl/firecrawl-ingest";
+import {
+  replaceClientRecommendations,
+  upsertClientToolRun,
+  type ClientRecommendationInput,
+} from "@/lib/client-workbench";
 import {
   AGENT_1_SYSTEM_PROMPT,
   AGENT_2_SYSTEM_PROMPT,
@@ -185,6 +190,8 @@ export async function runPipeline(jobId: string) {
   if (!job) throw new Error(`Job ${jobId} not found`);
 
   const brief = job.input_brief as Record<string, unknown>;
+  const clientId = job.client_id as string;
+  const organizationId = (job.clients as { organization_id?: string } | null)?.organization_id;
 
   // Resolve model based on job's model_used field (set at job creation from user's selection)
   const modelChoice = (job.model_used === "sonnet" ? "sonnet" : "haiku") as keyof typeof MODEL_CHOICES;
@@ -201,6 +208,19 @@ export async function runPipeline(jobId: string) {
   await writeLog(jobId, "info", `Pipeline started — 5-agent sequence using ${modelLabel}`);
   await writeLog(jobId, "info", `Client: ${(brief.business_name || brief.client_name || brief.website_url || "Unknown")} | Model: ${MODEL_DEEP}`);
 
+  if (organizationId) {
+    await upsertClientToolRun({
+      organizationId,
+      clientId,
+      toolKey: "seo_geo",
+      status: "running",
+      progressPercent: 1,
+      sourceTable: "audit_jobs",
+      sourceId: jobId,
+      metricsJson: { model: modelLabel, currentStep: "Pipeline started" },
+    }).catch((error) => console.warn("[Workbench] Could not update SEO run status:", error));
+  }
+
   try {
     // Pre-fetch: Firecrawl site evidence layer, with lightweight HTML fallback.
     await updateJob(jobId, {
@@ -215,15 +235,58 @@ export async function runPipeline(jobId: string) {
     if (firecrawlEnabled && brief.website_url) {
       try {
         await writeLog(jobId, "info", `Using Firecrawl server-side crawl for ${brief.website_url}...`, "Firecrawl");
+        if (organizationId) {
+          await upsertClientToolRun({
+            organizationId,
+            clientId,
+            toolKey: "firecrawl",
+            status: "running",
+            progressPercent: 20,
+            configJson: { profile: siteCrawlConfig.profile || "standard", seedUrl: brief.website_url },
+          }).catch((error) => console.warn("[Workbench] Could not mark Firecrawl running:", error));
+        }
         const firecrawlResult = await runFirecrawlSiteCrawl({
           jobId,
-          clientId: job.client_id as string,
+          clientId,
           seedUrl: brief.website_url as string,
           profile: siteCrawlConfig.profile || "standard",
           writeLog: (level, message, agent, detail, pageUrl) =>
             writeLog(jobId, level, message, agent, detail, pageUrl),
         });
         siteSignalsText = firecrawlResult.promptSummary;
+        if (organizationId) {
+          await upsertClientToolRun({
+            organizationId,
+            clientId,
+            toolKey: "firecrawl",
+            status: "completed",
+            progressPercent: 100,
+            sourceTable: "client_site_crawl",
+            sourceId: firecrawlResult.crawlId || null,
+            metricsJson: {
+              capturedPages: firecrawlResult.pages.length,
+              creditsUsed: firecrawlResult.creditsUsed,
+              firecrawlJobId: firecrawlResult.firecrawlJobId,
+              services: firecrawlResult.voiceProfile.services,
+            },
+            completedAt: new Date().toISOString(),
+          }).catch((error) => console.warn("[Workbench] Could not mark Firecrawl complete:", error));
+
+          const recommendations: ClientRecommendationInput[] = buildSeoGeoFindings(firecrawlResult.pages).map((finding) => ({
+            sourceTool: "firecrawl",
+            category: finding.category,
+            priority: finding.severity >= 3 ? "high" : finding.severity === 2 ? "medium" : "low",
+            title: finding.title,
+            description: finding.evidence.join(" "),
+            recommendedFix: finding.recommendedFix,
+          }));
+          await replaceClientRecommendations({
+            organizationId,
+            clientId,
+            sourceTool: "firecrawl",
+            recommendations,
+          }).catch((error) => console.warn("[Workbench] Could not store Firecrawl recommendations:", error));
+        }
         await writeLog(
           jobId,
           "success",
@@ -233,6 +296,16 @@ export async function runPipeline(jobId: string) {
       } catch (firecrawlError) {
         const msg = firecrawlError instanceof Error ? firecrawlError.message : String(firecrawlError);
         await writeLog(jobId, "warn", `Firecrawl crawl failed (${msg}) - falling back to lightweight HTML fetch`, "Firecrawl");
+        if (organizationId) {
+          await upsertClientToolRun({
+            organizationId,
+            clientId,
+            toolKey: "firecrawl",
+            status: "failed",
+            progressPercent: 100,
+            errorMessage: msg,
+          }).catch((error) => console.warn("[Workbench] Could not mark Firecrawl failed:", error));
+        }
       }
     } else if (siteCrawlConfig.enabled !== false) {
       await writeLog(jobId, "warn", "FIRECRAWL_API_KEY is not configured - using lightweight HTML fetch fallback", "Firecrawl");
@@ -659,6 +732,32 @@ export async function runPipeline(jobId: string) {
       "success",
       `Pipeline complete. ${allOptimizations.length} pages optimized, reports ready for download.`
     );
+
+    if (organizationId) {
+      await upsertClientToolRun({
+        organizationId,
+        clientId,
+        toolKey: "seo_geo",
+        status: "completed",
+        progressPercent: 100,
+        sourceTable: "audit_jobs",
+        sourceId: jobId,
+        metricsJson: {
+          pagesOptimized: allOptimizations.length,
+          pagesFound: pageUrls.length,
+          tokenUsage,
+          roadmapItems: countRoadmapItems(offpage.roadmap),
+        },
+        completedAt: new Date().toISOString(),
+      }).catch((error) => console.warn("[Workbench] Could not mark SEO complete:", error));
+
+      await replaceClientRecommendations({
+        organizationId,
+        clientId,
+        sourceTool: "seo_geo",
+        recommendations: buildSeoGeoRecommendations(allOptimizations, offpage),
+      }).catch((error) => console.warn("[Workbench] Could not store SEO recommendations:", error));
+    }
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     await writeLog(jobId, "error", `Pipeline failed: ${msg}`);
@@ -666,6 +765,70 @@ export async function runPipeline(jobId: string) {
       status: "failed",
       error_message: msg,
     });
+    if (organizationId) {
+      await upsertClientToolRun({
+        organizationId,
+        clientId,
+        toolKey: "seo_geo",
+        status: "failed",
+        progressPercent: 100,
+        sourceTable: "audit_jobs",
+        sourceId: jobId,
+        errorMessage: msg,
+      }).catch((workbenchError) => console.warn("[Workbench] Could not mark SEO failed:", workbenchError));
+    }
     throw error;
   }
+}
+
+function buildSeoGeoRecommendations(allOptimizations: unknown[], offpage: Record<string, unknown>): ClientRecommendationInput[] {
+  const pageFixes = allOptimizations
+    .map((item) => item as Record<string, unknown>)
+    .filter((page) => typeof page.url === "string")
+    .sort((a, b) => Number(a.health_score || 100) - Number(b.health_score || 100))
+    .slice(0, 12)
+    .map((page): ClientRecommendationInput => {
+      const titleTag = page.title_tag as { recommended?: string } | undefined;
+      const metaDescription = page.meta_description as { recommended?: string } | undefined;
+      return {
+        sourceTool: "seo_geo",
+        category: String(page.page_type || "page optimization"),
+        priority: Number(page.health_score || 100) < 60 ? "high" : "medium",
+        title: `Optimize ${String(page.page_type || "priority")} page`,
+        description: `${page.url} scored ${page.health_score || "unknown"} and targets ${page.primary_keyword || "buyer-intent visibility"}.`,
+        recommendedFix:
+          [
+            titleTag?.recommended ? `Title: ${titleTag.recommended}` : null,
+            metaDescription?.recommended ? `Meta: ${metaDescription.recommended}` : null,
+            page.answer_block ? "Add or refine the answer block." : null,
+          ]
+            .filter(Boolean)
+            .join(" ") || "Refresh title, meta, headings, answer blocks, schema, and internal links for this priority page.",
+      };
+    });
+
+  const roadmapItems = flattenRoadmap(offpage.roadmap).slice(0, 8).map((item, index): ClientRecommendationInput => ({
+    sourceTool: "seo_geo",
+    category: "roadmap",
+    priority: index < 3 ? "high" : "medium",
+    title: String(item.title || item.action || `Roadmap item ${index + 1}`),
+    description: String(item.description || item.rationale || item.details || ""),
+    recommendedFix: String(item.recommended_fix || item.recommendedFix || item.action || ""),
+  }));
+
+  return [...pageFixes, ...roadmapItems].slice(0, 20);
+}
+
+function flattenRoadmap(value: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(value)) return value.filter((item) => item && typeof item === "object") as Array<Record<string, unknown>>;
+  if (value && typeof value === "object") {
+    return Object.values(value as Record<string, unknown>)
+      .flatMap((item) => (Array.isArray(item) ? item : []))
+      .filter((item) => item && typeof item === "object") as Array<Record<string, unknown>>;
+  }
+  return [];
+}
+
+function countRoadmapItems(value: unknown) {
+  return flattenRoadmap(value).length;
 }

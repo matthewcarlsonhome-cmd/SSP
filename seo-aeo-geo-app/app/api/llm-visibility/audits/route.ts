@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveRequestContext } from "@/lib/request-context";
 import { getServiceClient } from "@/lib/supabase";
+import {
+  replaceClientRecommendations,
+  upsertClientToolRun,
+  type ClientRecommendationInput,
+} from "@/lib/client-workbench";
 
 export const dynamic = "force-dynamic";
 
@@ -111,9 +116,61 @@ export async function POST(request: NextRequest) {
       if (runError) throw runError;
     }
 
+    if (clientId && auditId && organizationId) {
+      const completedRuns = runs.filter((run: Record<string, any>) => run.status === "completed" || run.completedAt).length;
+      const totalRuns = runs.length || (body.providers?.length || 0) * (body.questions?.length || 0);
+      await upsertClientToolRun({
+        organizationId,
+        clientId,
+        toolKey: "llm_visibility",
+        status: auditPayload.status === "review" ? "needs_review" : "completed",
+        progressPercent: totalRuns > 0 ? Math.round((completedRuns / totalRuns) * 100) : 100,
+        sourceTable: "llm_visibility_audits",
+        sourceId: auditId,
+        metricsJson: {
+          visibilityScore: auditPayload.visibility_score,
+          workbookAverage: auditPayload.workbook_average,
+          selectedProviders: auditPayload.selected_providers,
+          totalRuns,
+          completedRuns,
+          metrics: auditPayload.metrics_json,
+        },
+        completedAt: new Date().toISOString(),
+        createdBy: userId,
+      }).catch((error) => console.warn("[Workbench] Could not update LLM visibility run:", error));
+
+      await replaceClientRecommendations({
+        organizationId,
+        clientId,
+        sourceTool: "llm_visibility",
+        recommendations: buildLlmVisibilityRecommendations(body.actionPlan || []),
+        createdBy: userId,
+      }).catch((error) => console.warn("[Workbench] Could not store LLM visibility recommendations:", error));
+    }
+
     return NextResponse.json({ id: auditId, persisted: true });
   } catch (error) {
     console.error("Failed to persist LLM visibility audit:", error);
     return NextResponse.json({ error: "Failed to persist LLM visibility audit" }, { status: 500 });
   }
+}
+
+function buildLlmVisibilityRecommendations(actionPlan: unknown): ClientRecommendationInput[] {
+  if (!Array.isArray(actionPlan)) return [];
+  return actionPlan.slice(0, 30).map((item: Record<string, any>, index) => ({
+    sourceTool: "llm_visibility",
+    category: item.category || item.serviceLine || "visibility",
+    priority: normalizePriority(item.priority || (index < 3 ? "high" : "medium")),
+    title: item.title || item.recommendedFix || item.action || `LLM visibility fix ${index + 1}`,
+    description: item.rationale || item.description || item.why || null,
+    recommendedFix: item.recommendedFix || item.action || item.fix || null,
+    estimatedHours: item.hours || item.estimatedHours || null,
+    estimatedPrice: item.price || item.estimatedPrice || null,
+  }));
+}
+
+function normalizePriority(priority: unknown): "urgent" | "high" | "medium" | "low" {
+  const value = String(priority || "").toLowerCase();
+  if (value === "urgent" || value === "high" || value === "medium" || value === "low") return value;
+  return "medium";
 }

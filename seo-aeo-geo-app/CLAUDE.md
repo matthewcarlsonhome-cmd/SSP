@@ -1,7 +1,7 @@
 # CLAUDE.md - SSP AI Visibility and Readiness Workbench Knowledge Base
 
 > **Read this file at the start of every development session.**
-> Last updated: 2026-05-12
+> Last updated: 2026-05-17
 
 ---
 
@@ -15,7 +15,7 @@ SSP is now a three-module AI visibility and readiness workbench for local busine
 
 **What makes it novel:** most tools analyze one channel. SSP joins source evidence, answer-engine visibility, and operational readiness into one service platform. The app does not just say "you have issues"; it writes title tags, meta descriptions, answer blocks, schema code, report narratives, fix plans, action items, and AIR Snapshot deliverables.
 
-**Core value proposition:** Enter client info, collect site and AI-answer evidence, then produce a client-ready report and next-step offer that would take a senior consultant many hours to assemble manually. Cost depends on model choice, Firecrawl depth, and provider batch size.
+**Core value proposition:** Enter client info, collect site and AI-answer evidence, then produce a client-ready report and next-step offer that would take a senior consultant many hours to assemble manually. Cost depends on model choice, Firecrawl depth, and provider batch size. The client dashboard persists cross-tool run progress and recommendations so the app can act as an ongoing reporting system, not just a one-off audit generator.
 
 **Repository:** `matthewcarlsonhome-cmd/SSP`
 **App directory:** `seo-aeo-geo-app/`
@@ -77,7 +77,15 @@ SSP is now a three-module AI visibility and readiness workbench for local busine
 
 ### Client Management
 - Client list with search filter
-- Client detail page with audit history
+- Client detail page at `/clients/[id]` is now a results dashboard:
+  - Four-tool run status for Firecrawl, SEO/AEO/GEO, LLM Visibility, and AIR
+  - Overall progress and active/review counts
+  - Firecrawl evidence summary with page inventory, schema inventory, findings, and client voice profile
+  - Results snapshot for SEO/AEO/GEO, LLM Visibility, workbook metric, and AIR Score
+  - Combined optimization backlog from all modules
+  - Existing SEO/AEO/GEO audit history
+- Client-bound standalone Firecrawl crawl through `/api/clients/[id]/site-crawl/run`
+- Client-bound Firecrawl design export through `/api/clients/[id]/site-crawl/download`
 - Delete client (handles FK constraints — deletes audit_jobs first)
 - Delete individual audits
 
@@ -87,6 +95,7 @@ SSP is now a three-module AI visibility and readiness workbench for local busine
 - Server-side provider execution through `/api/llm-visibility/run`
 - Provider status through `/api/llm-visibility/provider-status`
 - Durable audit/run/lead persistence through `/api/llm-visibility/audits` and `/api/llm-visibility/leads`
+- Persisted audits update `client_tool_runs` and write LLM action-plan items to `client_recommendations`
 - Browser no longer stores ChatGPT, Claude, Gemini, or Perplexity API keys
 - Each capture is a fresh stateless provider API request with no app-side chat history
 - Report writer includes evidence narrative, competitor story, SEO/AEO/GEO context, precise next steps, DOCX/PDF export, and action-plan pricing
@@ -100,6 +109,7 @@ SSP is now a three-module AI visibility and readiness workbench for local busine
 - AIR Snapshot deliverable renderer under `components/air/*`
 - AIR API routes under `/api/air/*`
 - Current deliverable: AIR Snapshot with score dial, five-domain breakdown, quick wins, limitations, and CTA panel
+- AIR scoring and Snapshot generation update `client_tool_runs` and write AIR quick wins to `client_recommendations`
 - Full intake, override, Sprint, Operations, and delta workflows are scaffolded for the next implementation pass
 
 ### Authentication & Billing (Framework)
@@ -145,6 +155,13 @@ AIR:
                    -> computeAirScore()
                    -> AIR Snapshot deliverable
                    -> optional publish to /public-air/[slug]
+
+Client Workbench:
+  /clients/[id]    -> GET /api/clients/[id]/workbench
+                   -> client_tool_runs + synthesized latest module status
+                   -> Firecrawl evidence + SEO/LLM/AIR summaries
+                   -> client_recommendations combined backlog
+                   -> optional POST /api/clients/[id]/site-crawl/run
 ```
 
 The three modules share `organizations`, `clients`, service-client Supabase access, Render environment secrets, and report/remediation strategy. Keep the evidence layers separate and combine them in reporting, not by flattening them into one score.
@@ -256,6 +273,9 @@ The health score (0-100) in Agent 1's output weights these factors:
 | `client_schema_item` | Parsed JSON-LD schema | page_id, schema_type, raw_json, warnings |
 | `client_voice_profile` | Site voice and offer signals | tone, differentiators, value_props, proof_points, services, CTAs |
 | `seo_geo_finding` | Deterministic crawl findings | severity, category, title, evidence, recommended_fix |
+| `client_audit_cycles` | Shared client reporting cycle | organization_id, client_id, status, summary_json, latest_report_json |
+| `client_tool_runs` | Cross-tool run progress | tool_key, status, progress_percent, source_table, source_id, metrics_json |
+| `client_recommendations` | Combined optimization backlog | source_tool, category, priority, title, recommended_fix, owner, status |
 | `llm_visibility_audits` | Durable LLM audit summary | organization_id, client_id, providers, metrics_json, report_json, public_slug |
 | `llm_visibility_runs` | Per-query LLM evidence | exact_prompt, provider, raw_response, citations, score_json, qa_status |
 | `llm_visibility_leads` | Lead scorecard captures | email, business_name, website_url, business_category, payload_json |
@@ -278,6 +298,7 @@ The health score (0-100) in Agent 1's output weights these factors:
 5. `005_firecrawl_site_crawl.sql` — Firecrawl crawl/page/schema/voice/finding tables and RLS
 6. `006_llm_visibility_persistence_and_harness.sql` — LLM Visibility durable evidence, lead capture, provider-key records, and architecture harness tables
 7. `007_air_audit_module.sql` — AIR tier configs, audits, inputs, scoring, deliverables, events, and RLS
+8. `008_client_workbench_dashboard.sql` - shared client run cycles, cross-tool run progress, and combined recommendations
 
 ### File Structure (Annotated)
 
@@ -635,6 +656,33 @@ This section documents real issues hit during development and how they were reso
 
 ---
 
+### 6.13 Client Workbench Integration Notes
+
+**Problem:** Firecrawl, SEO/AEO/GEO, LLM Visibility, and AIR were becoming separate workspaces. The user needed one client-level reporting view showing which tools had run, what was complete, and what fixes should be made.
+
+**Fix:** Added a shared workbench layer:
+
+- `008_client_workbench_dashboard.sql`
+- `lib/client-workbench.ts`
+- `/api/clients/[id]/workbench`
+- `/api/clients/[id]/site-crawl/run`
+- Enhanced `/clients/[id]` dashboard
+
+**Design:** Do not merge all module data into one mega-table. Keep source tables authoritative, then write lightweight `client_tool_runs` and `client_recommendations` records that point back to the source table/source id. This keeps drill-downs possible and avoids losing evidence detail.
+
+**Integration points now implemented:**
+
+- Firecrawl standalone and pipeline crawls update `client_tool_runs` and write site findings to `client_recommendations`.
+- New Firecrawl client crawls store cleaned HTML artifact paths in `seo_signals.artifactPaths.html`; older crawls may only have raw HTML and markdown.
+- Client crawl design export builds a ZIP with raw HTML, cleaned HTML, markdown, schema JSON, inline CSS, fetched linked CSS, metadata, and Claude Design briefs.
+- SEO/AEO/GEO pipeline completion updates run status and writes page/roadmap recommendations.
+- LLM Visibility audit persistence updates run status and writes action-plan items.
+- AIR scoring/Snapshot generation updates run status and writes AIR quick wins.
+
+**Lesson:** Use Firecrawl as context for SEO/AEO/GEO and post-response LLM analysis, but keep LLM buyer prompts clean. The dashboard can combine evidence after the fact without contaminating visibility tests.
+
+---
+
 ## 7. Cost Optimization & Pricing Analysis
 
 ### API Cost Breakdown Per Audit
@@ -798,7 +846,7 @@ The Summary tab becomes the default landing — clients see the executive summar
 - [ ] Connect Stripe checkout with `STRIPE_SECRET_KEY` for real payments
 - [ ] Add webhook handler for Stripe payment confirmation → credit grant
 - [ ] Rate limiting on API routes (prevent abuse of free credits)
-- [ ] Apply migrations `006` and `007` in Supabase
+- [ ] Apply migrations `006`, `007`, and `008` in Supabase
 - [ ] Set Render env vars for OpenAI, Anthropic, Gemini/Google, Perplexity, Firecrawl, and app URL
 - [ ] Replace AIR Snapshot stub ingestion with live Firecrawl/GBP/reviews/ads/tech-stack adapters
 - [ ] Add cost estimates and hard stop/confirmation before large LLM, Firecrawl, or AIR batch runs
@@ -812,7 +860,8 @@ The Summary tab becomes the default landing — clients see the executive summar
 - [ ] AIR intake save endpoints and rich editors for interviews, CRM CSV mapping, tool inventory, workflow swimlanes, and report samples
 - [ ] AIR analyst score override endpoint with `air_audit_events` logging
 - [ ] Claude-generated AIR observations, quick wins, roadmap, and narrative sections
-- [ ] Combined SEO/AEO/GEO + LLM Visibility + AIR client report surface
+- [x] First client dashboard combining SEO/AEO/GEO + LLM Visibility + AIR + Firecrawl status
+- [ ] Exportable combined SEO/AEO/GEO + LLM Visibility + AIR client report package
 - [ ] Architecture Control Center UI for specs, reviews, release gates, and runtime events
 
 **P2 — Scale and reliability:**
@@ -853,6 +902,8 @@ The Summary tab becomes the default landing — clients see the executive summar
 10. **AIR module is additive and grep-isolatable** - Keep new AI Readiness Audit work under `air_*`, `lib/air/*`, `components/air/*`, `/air-audits/*`, and `/api/air/*`. This app uses `organizations` as the tenant boundary, not the `tenants` name from the AIR spec.
 
 11. **Crawled content is untrusted** - Firecrawl evidence is useful but must be handled as untrusted page content. Prompts and code must preserve the security boundary that crawled text can never override audit instructions, scoring rubrics, output schemas, or developer/system guidance.
+
+12. **Client workbench is an aggregation layer** - Keep module-specific evidence in its source tables. Use `client_tool_runs` for status pointers and `client_recommendations` for the combined backlog. Do not flatten Firecrawl pages, LLM runs, AIR scores, and SEO jobs into one generic blob.
 
 ### Environment Variables Required
 
@@ -911,4 +962,4 @@ Before deploying changes, verify:
 - For AIR scoring changes, update `lib/air/scoring/fixtures.ts` and keep `__tests__/air-scoring.test.ts` passing. Same inputs must produce the same auto score.
 - Keep AIR routes and tables additive. Do not merge AIR scoring into SEO or LLM tables; combine outputs at the report/workbench layer.
 
-*Last updated: 2026-05-12. Update this file whenever significant features, architecture changes, or new lessons are learned.*
+*Last updated: 2026-05-17. Update this file whenever significant features, architecture changes, or new lessons are learned.*
