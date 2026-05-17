@@ -259,7 +259,7 @@ async function persistFindings(clientId: string, crawlId: string, pages: ParsedP
   }
 }
 
-function buildSeoGeoFindings(pages: ParsedPageSignals[]) {
+export function buildSeoGeoFindings(pages: ParsedPageSignals[]) {
   const findings: Array<{
     severity: number;
     category: string;

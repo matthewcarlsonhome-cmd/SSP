@@ -17,12 +17,14 @@ import {
   Zap,
   BarChart3,
   Sparkles,
+  Globe,
 } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/audits/new", label: "New Audit", icon: PlusCircle },
+  { href: "/site-crawl", label: "Site Crawl", icon: Globe },
   { href: "/llm-visibility-audit", label: "LLM Audit", icon: BarChart3 },
   { href: "/air-audits", label: "AIR Audit", icon: Sparkles },
   { href: "/clients", label: "Clients", icon: Users },
