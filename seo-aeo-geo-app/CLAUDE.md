@@ -85,6 +85,8 @@ SSP is now a three-module AI visibility and readiness workbench for local busine
   - Combined optimization backlog from all modules
   - Existing SEO/AEO/GEO audit history
 - Client-bound standalone Firecrawl crawl through `/api/clients/[id]/site-crawl/run`
+- Stored crawl browser through `/clients/[id]/crawl`
+- Per-page artifact API through `/api/clients/[id]/site-crawl/pages/[pageId]`
 - Client-bound Firecrawl design export through `/api/clients/[id]/site-crawl/download`
 - Delete client (handles FK constraints — deletes audit_jobs first)
 - Delete individual audits
