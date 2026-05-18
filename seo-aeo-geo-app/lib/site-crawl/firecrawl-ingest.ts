@@ -17,6 +17,10 @@ import {
 export type FirecrawlIngestResult = {
   crawlId: string | null;
   firecrawlJobId: string;
+  auditProfile: ReturnType<typeof getFirecrawlAuditProfile>;
+  discoveredCount: number;
+  selectedCount: number;
+  selectedUrls: Array<{ url: string; pageType: string; title?: string }>;
   pages: ParsedPageSignals[];
   voiceProfile: ReturnType<typeof buildClientVoiceProfile>;
   creditsUsed: number;
@@ -151,6 +155,10 @@ export async function runFirecrawlSiteCrawl(options: RunFirecrawlSiteCrawlOption
   return {
     crawlId: crawlRow.id,
     firecrawlJobId: started.id,
+    auditProfile: profile,
+    discoveredCount: links.length,
+    selectedCount: selected.length,
+    selectedUrls: selected,
     pages: parsedPages,
     voiceProfile,
     creditsUsed: crawlStatus.creditsUsed || docs.length,

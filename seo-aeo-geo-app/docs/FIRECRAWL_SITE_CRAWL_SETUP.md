@@ -13,6 +13,7 @@ This app uses Firecrawl as the production crawl engine for the SEO/AEO/GEO audit
 - Creates SEO/AEO/GEO findings that feed the final report and fix plan.
 - Updates the client workbench run status and combined recommendation backlog.
 - Exports a design handoff ZIP with raw HTML, cleaned HTML, markdown, schema JSON, CSS artifacts, metadata, and Claude Design recreation briefs.
+- Persists standalone `/site-crawl` runs by creating or reusing a lightweight crawl-only client record, so stored pages are available without launching a full SEO audit.
 - Keeps LLM visibility prompts clean: crawl data is used for scoring, report writing, hallucination checks, and remediation, not injected into buyer prompts.
 
 ## 1. Add Environment Variables
@@ -68,9 +69,9 @@ Recommended settings:
 
 - Private bucket
 - No public uploads
-- Store markdown and raw HTML artifacts only
+- Store markdown, cleaned HTML, raw HTML, and derived design artifacts
 
-If the bucket is missing, the crawl still completes, but markdown/raw HTML artifact uploads are skipped and the app logs a warning.
+If the bucket is missing, the crawl still completes, but markdown/HTML artifact uploads are skipped and the app logs a warning.
 
 ## 4. Audit Profiles And Crawl Budgets
 
@@ -119,6 +120,16 @@ Standalone client crawl:
    - `design-brief.md` for Claude Design recreation
 6. Click `View Stored Pages` to open `/clients/[id]/crawl`, where each persisted page can be inspected by Markdown, clean HTML, raw HTML, schema, and metadata tabs.
 
+Standalone site crawl without first creating a client:
+
+1. Open `/site-crawl`.
+2. Enter any site URL and choose Free Snapshot, Standard, or Full Audit.
+3. Click `Run Crawl`.
+4. The app creates or reuses a lightweight crawl-only client record for storage, but no SEO audit job is created.
+5. Click `Stored Pages` after the run or use the `Recent Stored Crawls` panel.
+6. Open `/site-crawl/stored/[crawlId]` to inspect every stored page by Markdown, clean HTML, raw HTML, schema, and metadata.
+7. Download the Design ZIP from the same stored crawl page when you need raw HTML/CSS/schema/markdown for Claude Design recreation.
+
 The design ZIP is served from:
 
 ```text
@@ -129,6 +140,14 @@ Per-page artifacts are served from:
 
 ```text
 GET /api/clients/[id]/site-crawl/pages/[pageId]
+```
+
+Standalone stored crawls are listed and served from:
+
+```text
+GET /api/site-crawl/crawls
+GET /api/site-crawl/crawls/[crawlId]
+GET /api/site-crawl/crawls/[crawlId]/pages/[pageId]
 ```
 
 ## 6. How It Feeds Existing Audit Agents

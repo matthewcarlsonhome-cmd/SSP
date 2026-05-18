@@ -17,7 +17,10 @@ The Client Workbench is the shared reporting layer for the SSP platform. It conn
   - LLM Visibility action plans
   - AIR Snapshot quick wins
 - A client-bound Firecrawl endpoint at `/api/clients/[id]/site-crawl/run`.
+- A standalone persisted Firecrawl endpoint at `/api/site-crawl/run` that creates or reuses a lightweight crawl-only client record.
+- A standalone stored crawl browser at `/site-crawl/stored/[crawlId]`.
 - A page artifact endpoint at `/api/clients/[id]/site-crawl/pages/[pageId]`.
+- A generic page artifact endpoint at `/api/site-crawl/crawls/[crawlId]/pages/[pageId]`.
 - A client-bound Firecrawl design export at `/api/clients/[id]/site-crawl/download`.
 - A dashboard aggregation endpoint at `/api/clients/[id]/workbench`.
 
@@ -86,13 +89,24 @@ Do not inject Firecrawl evidence into the buyer-intent prompts sent to ChatGPT, 
 
 ## Operator Workflow
 
+Client-bound workflow:
+
 1. Open a client at `/clients/[id]`.
 2. Review the four tool status cards.
-3. Click `Run Firecrawl` to capture a standalone crawl for the client.
+3. Click `Run Firecrawl` to capture a crawl for that client.
 4. Click `Design ZIP` when you need raw HTML/CSS/schema/markdown for Claude Design recreation.
 5. Click `View Stored Pages` to inspect each persisted page's markdown, clean HTML, raw HTML, schema, and metadata.
 6. Run SEO/AEO/GEO, LLM Visibility, or AIR from their normal workspaces.
 7. Return to `/clients/[id]` to see the updated evidence, scores, and combined action plan.
+
+Standalone crawl workflow:
+
+1. Open `/site-crawl`.
+2. Enter any website URL and choose a crawl profile.
+3. Preview the map if desired, then click `Run Crawl`.
+4. The app creates or reuses a lightweight crawl-only client record for that URL. This is only to satisfy the existing client-scoped crawl schema; no SEO audit is created.
+5. Use the post-run `Stored Pages` button or the `Recent Stored Crawls` panel to open `/site-crawl/stored/[crawlId]`.
+6. Inspect page markdown, clean HTML, raw HTML, schema, metadata, and download the Design ZIP directly from the standalone crawl workspace.
 
 ## Design Export Contents
 
@@ -119,7 +133,7 @@ The Firecrawl design ZIP includes:
 - Crawl findings: `seo_geo_finding`
 - Markdown/raw HTML/clean HTML artifacts: private Supabase Storage bucket `site-crawl-artifacts`
 
-The standalone `/site-crawl` workspace is an inspection tool. It returns the crawl summary to the browser but does not attach the crawl to a client. To persist and view pages later, run Firecrawl from `/clients/[id]`.
+The standalone `/site-crawl` workspace now persists crawls too. It stores artifacts in the same `client_site_*` tables by creating or reusing a lightweight crawl-only client record for the submitted URL. This keeps one storage model while removing the need to start a full client audit just to inspect captured pages.
 
 ## Implementation Notes
 

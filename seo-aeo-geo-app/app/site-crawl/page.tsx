@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import Link from "next/link";
 import {
   AlertCircle,
   CheckCircle2,
@@ -30,6 +31,11 @@ type CrawlPreview = {
 
 type CrawlResult = CrawlPreview & {
   firecrawlJobId: string;
+  clientId?: string;
+  crawlId?: string | null;
+  stored?: boolean;
+  storedPagesUrl?: string | null;
+  designZipUrl?: string | null;
   capturedCount: number;
   creditsUsed: number;
   completedAt: string;
@@ -75,6 +81,23 @@ type CrawlResult = CrawlPreview & {
   }>;
 };
 
+type StoredCrawlSummary = {
+  id: string;
+  clientId: string;
+  seedUrl: string;
+  status: string;
+  creditsUsed: number | null;
+  discoveredUrlCount: number | null;
+  selectedUrlCount: number | null;
+  pageCount: number;
+  schemaCount: number;
+  createdAt: string;
+  completedAt: string | null;
+  client: { id: string; name: string; website_url: string; business_type?: string | null } | null;
+  storedPagesUrl: string;
+  designZipUrl: string;
+};
+
 const PROFILE_HELP: Record<CrawlProfileId, string> = {
   "free-snapshot": "Home plus priority pages. Fastest and best for a quick look.",
   standard: "Budgeted crawl for a full local-business evidence pass.",
@@ -88,12 +111,32 @@ export default function SiteCrawlPage() {
   const [result, setResult] = useState<CrawlResult | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isCrawling, setIsCrawling] = useState(false);
+  const [loadingStoredCrawls, setLoadingStoredCrawls] = useState(false);
+  const [storedCrawls, setStoredCrawls] = useState<StoredCrawlSummary[]>([]);
   const [error, setError] = useState("");
 
   const schemaCount = useMemo(
     () => result?.schemaInventory.reduce((sum, item) => sum + item.count, 0) || 0,
     [result]
   );
+
+  useEffect(() => {
+    loadStoredCrawls();
+  }, []);
+
+  async function loadStoredCrawls() {
+    setLoadingStoredCrawls(true);
+    try {
+      const response = await fetch("/api/site-crawl/crawls", { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to load stored crawls");
+      setStoredCrawls(data.crawls || []);
+    } catch (err) {
+      console.warn("Failed to load stored crawls:", err);
+    } finally {
+      setLoadingStoredCrawls(false);
+    }
+  }
 
   async function previewSite() {
     if (!url.trim()) {
@@ -139,6 +182,7 @@ export default function SiteCrawlPage() {
       if (!response.ok) throw new Error(data.error || "Failed to run Firecrawl crawl");
       setResult(data);
       setPreview(data);
+      loadStoredCrawls();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to run Firecrawl crawl");
     } finally {
@@ -172,7 +216,8 @@ export default function SiteCrawlPage() {
               </h1>
               <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
                 Run Firecrawl outside the full SEO audit to see discovered URLs, captured pages, schema, indexability,
-                page types, client voice, and answer-readiness findings in one clean workspace.
+                page types, client voice, and answer-readiness findings in one clean workspace. Crawls from this page
+                are now saved as stored page artifacts without requiring a full client audit.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -188,6 +233,22 @@ export default function SiteCrawlPage() {
                 <Download className="h-4 w-4" />
                 JSON
               </Button>
+              {result?.storedPagesUrl && (
+                <Link href={result.storedPagesUrl}>
+                  <Button variant="outline">
+                    <FileJson className="h-4 w-4" />
+                    Stored Pages
+                  </Button>
+                </Link>
+              )}
+              {result?.designZipUrl && (
+                <a href={result.designZipUrl}>
+                  <Button variant="outline">
+                    <Download className="h-4 w-4" />
+                    Design ZIP
+                  </Button>
+                </a>
+              )}
             </div>
           </div>
         </div>
@@ -198,7 +259,8 @@ export default function SiteCrawlPage() {
           <CardHeader>
             <CardTitle>Crawl Setup</CardTitle>
             <CardDescription>
-              Map first to estimate the crawl budget, then run the selected profile when ready.
+              Map first to estimate the crawl budget, then run the selected profile when ready. The run creates or
+              reuses a lightweight crawl-only client record behind the scenes so page artifacts can be stored.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 lg:grid-cols-[1fr_240px]">
@@ -226,6 +288,74 @@ export default function SiteCrawlPage() {
               </Select>
             </div>
             <p className="text-sm text-muted-foreground lg:col-span-2">{PROFILE_HELP[profile]}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <CardTitle>Recent Stored Crawls</CardTitle>
+                <CardDescription>
+                  Stored Firecrawl runs are available here even when they were not launched from a full SEO audit.
+                </CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={loadStoredCrawls} disabled={loadingStoredCrawls}>
+                {loadingStoredCrawls ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                Refresh
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {storedCrawls.length ? (
+              <div className="grid gap-3 lg:grid-cols-2">
+                {storedCrawls.map((crawl) => (
+                  <div key={crawl.id} className="rounded-lg border border-border p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={crawl.status === "complete" ? "success" : crawl.status === "failed" ? "destructive" : "secondary"}>
+                        {crawl.status}
+                      </Badge>
+                      <Badge variant="outline">{crawl.pageCount} pages</Badge>
+                      <Badge variant="outline">{crawl.schemaCount} schema</Badge>
+                    </div>
+                    <h3 className="mt-3 font-semibold text-foreground">
+                      {crawl.client?.name || crawl.seedUrl}
+                    </h3>
+                    <p className="mt-1 break-all text-xs text-muted-foreground">{crawl.seedUrl}</p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {crawl.completedAt
+                        ? `Completed ${new Date(crawl.completedAt).toLocaleString()}`
+                        : `Started ${new Date(crawl.createdAt).toLocaleString()}`}
+                      {" "}- {crawl.creditsUsed ?? 0} credits
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Link href={crawl.storedPagesUrl}>
+                        <Button size="sm">
+                          <FileJson className="h-4 w-4" />
+                          View Stored Pages
+                        </Button>
+                      </Link>
+                      <a href={crawl.designZipUrl}>
+                        <Button size="sm" variant="outline">
+                          <Download className="h-4 w-4" />
+                          Design ZIP
+                        </Button>
+                      </a>
+                      <Link href={`/clients/${crawl.clientId}`}>
+                        <Button size="sm" variant="ghost">
+                          Client Dashboard
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={<Globe className="h-5 w-5" />}
+                text={loadingStoredCrawls ? "Loading stored crawls..." : "No stored crawls yet. Run Firecrawl once and the stored page browser will appear here."}
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -284,6 +414,41 @@ export default function SiteCrawlPage() {
 
         {result && (
           <>
+            <Card>
+              <CardHeader>
+                <CardTitle>Stored Crawl Ready</CardTitle>
+                <CardDescription>
+                  This crawl has been saved to the Firecrawl evidence layer. Open the stored page browser for
+                  Markdown, clean HTML, raw HTML, schema, metadata, and design handoff downloads.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-wrap gap-2">
+                {result.storedPagesUrl ? (
+                  <Link href={result.storedPagesUrl}>
+                    <Button>
+                      <FileJson className="h-4 w-4" />
+                      View Stored Pages
+                    </Button>
+                  </Link>
+                ) : (
+                  <Badge variant="warning">Stored page link unavailable</Badge>
+                )}
+                {result.designZipUrl && (
+                  <a href={result.designZipUrl}>
+                    <Button variant="outline">
+                      <Download className="h-4 w-4" />
+                      Download Design ZIP
+                    </Button>
+                  </a>
+                )}
+                {result.clientId && (
+                  <Link href={`/clients/${result.clientId}`}>
+                    <Button variant="ghost">Open Client Dashboard</Button>
+                  </Link>
+                )}
+              </CardContent>
+            </Card>
+
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <MetricCard title="Captured Pages" value={result.capturedCount} helper={`${result.creditsUsed} credits used`} />
               <MetricCard title="Schema Items" value={schemaCount} helper={`${result.schemaInventory.length} schema types`} />
