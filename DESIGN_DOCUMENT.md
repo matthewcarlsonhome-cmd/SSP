@@ -1,6 +1,6 @@
 # SSP AI Visibility and Readiness Workbench Design Document
 
-Version: 2026-05-17
+Version: 2026-05-18
 Status: living product, service, and implementation design for the SSP local-business audit platform.
 
 ## 1. Executive Summary
@@ -39,7 +39,7 @@ Free or low-cost Snapshot
   -> remediation sprint, AI transition sprint, or managed operations
 ```
 
-The newest implementation layer is the Client Results Dashboard. Each client now has a shared workbench view that stores run progress and recommendations across Firecrawl, SEO/AEO/GEO, LLM Visibility, and AIR. This makes the platform useful as an ongoing reporting and account-management tool, not only a set of separate audit pages.
+The newest implementation layer is the Client Results Dashboard plus a persisted standalone Site Crawl workspace. Each client now has a shared workbench view that stores run progress and recommendations across Firecrawl, SEO/AEO/GEO, LLM Visibility, and AIR. Operators can also crawl any website from `/site-crawl`, inspect stored pages and artifacts, and download a design handoff ZIP without starting a full SEO audit first. This makes the platform useful as an ongoing reporting and account-management tool, not only a set of separate audit pages.
 
 ## 2. Product Positioning
 
@@ -278,7 +278,8 @@ The target workflow remains a 30-minute operator path for a first snapshot:
 9. Review evidence, scores, QA flags, and competitor share of voice.
 10. Generate report draft, PDF/DOCX, action plan, and follow-up email.
 11. If selling AI operations, create AIR Snapshot or AIR Audit.
-12. Open the client dashboard to review run status, evidence, results, and the combined optimization backlog.
+12. For a crawl-only diagnostic, open `/site-crawl`, run Firecrawl, then inspect `/site-crawl/stored/[crawlId]` for stored pages and artifacts.
+13. Open the client dashboard to review run status, evidence, results, and the combined optimization backlog.
 ```
 
 The AIR workflow extends this:
@@ -301,6 +302,10 @@ Current implementation:
 - Optional API URL: `FIRECRAWL_API_URL`.
 - Preview endpoint: `/api/site-crawl/preview`.
 - Standalone crawl workspace: `/site-crawl`.
+- Standalone persisted crawl endpoint: `/api/site-crawl/run`.
+- Standalone stored crawl list endpoint: `/api/site-crawl/crawls`.
+- Standalone stored crawl browser: `/site-crawl/stored/[crawlId]`.
+- Standalone per-page artifact endpoint: `/api/site-crawl/crawls/[crawlId]/pages/[pageId]`.
 - Client-bound crawl endpoint: `/api/clients/[id]/site-crawl/run`.
 - Stored crawl browser: `/clients/[id]/crawl`.
 - Per-page artifact endpoint: `/api/clients/[id]/site-crawl/pages/[pageId]`.
@@ -314,6 +319,14 @@ Current implementation:
   - `seo_geo_finding`
 - Supabase Storage bucket `site-crawl-artifacts`
 - Client dashboard aggregation through `/api/clients/[id]/workbench`.
+
+Standalone persistence behavior:
+
+- `/site-crawl` no longer returns only ephemeral browser output.
+- A standalone run creates or reuses a lightweight crawl-only `clients` row for the submitted URL, then stores the crawl in the existing client-scoped Firecrawl tables.
+- No SEO audit job is created for crawl-only usage.
+- The recent stored-crawls panel on `/site-crawl` gives direct access to stored pages, raw artifacts, and design ZIP downloads.
+- A future v2 may add dedicated standalone crawl tables if crawl-only records should be hidden from the client directory.
 
 Data extracted deterministically:
 
@@ -428,6 +441,8 @@ Clean-query guarantee:
 - `client_voice_profile`
 - `seo_geo_finding`
 
+Standalone `/site-crawl` runs use these same tables. Because `client_site_crawl` is client-scoped, the app creates or reuses a lightweight crawl-only client record for the URL. This avoids a second storage model while allowing page artifacts to be viewed without a full audit.
+
 ### Client Workbench Tables
 
 Migration: `008_client_workbench_dashboard.sql`
@@ -512,6 +527,7 @@ Current exports:
 - Link opportunities CSV.
 - Citation tasks CSV.
 - Schema ZIP.
+- Firecrawl Design ZIP with raw HTML, clean HTML, markdown, schema JSON, inline CSS, linked CSS when reachable, page metadata, and a Claude Design recreation brief.
 
 PDF support is now implemented through:
 
@@ -759,6 +775,13 @@ Implemented and verified:
 - AIR Snapshot generation and public report page.
 - AIR navigation and first workbench pages.
 - Client Results Dashboard at `/clients/[id]` with run status, Firecrawl evidence, results snapshot, and combined optimization backlog.
+- Persisted standalone Site Crawl workflow:
+  - `/site-crawl`
+  - `/api/site-crawl/run`
+  - `/api/site-crawl/crawls`
+  - `/api/site-crawl/crawls/[crawlId]`
+  - `/api/site-crawl/crawls/[crawlId]/pages/[pageId]`
+  - `/site-crawl/stored/[crawlId]`
 - Client workbench schema and aggregation route:
   - `008_client_workbench_dashboard.sql`
   - `/api/clients/[id]/workbench`
@@ -834,6 +857,7 @@ The current platform is working when:
 - PDF export works for SEO/AEO/GEO reports.
 - Design docs and `CLAUDE.md` describe the current architecture and known limits.
 - Client dashboard shows run progress and consolidated recommendations across all completed modules.
+- Standalone Site Crawl stores pages and exposes Markdown, clean HTML, raw HTML, schema, metadata, and design export without requiring a full client audit.
 - Tests and build pass before deployment.
 
 The full production platform is complete when:

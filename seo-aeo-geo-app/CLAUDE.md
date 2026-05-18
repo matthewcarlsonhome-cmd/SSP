@@ -1,7 +1,7 @@
 # CLAUDE.md - SSP AI Visibility and Readiness Workbench Knowledge Base
 
 > **Read this file at the start of every development session.**
-> Last updated: 2026-05-17
+> Last updated: 2026-05-18
 
 ---
 
@@ -88,6 +88,10 @@ SSP is now a three-module AI visibility and readiness workbench for local busine
 - Stored crawl browser through `/clients/[id]/crawl`
 - Per-page artifact API through `/api/clients/[id]/site-crawl/pages/[pageId]`
 - Client-bound Firecrawl design export through `/api/clients/[id]/site-crawl/download`
+- Standalone persisted Site Crawl workspace at `/site-crawl`
+  - `POST /api/site-crawl/run` creates or reuses a lightweight crawl-only client record for storage.
+  - `GET /api/site-crawl/crawls` lists recent stored crawls.
+  - `/site-crawl/stored/[crawlId]` exposes stored Markdown, clean HTML, raw HTML, schema, and metadata without starting a full SEO audit.
 - Delete client (handles FK constraints — deletes audit_jobs first)
 - Delete individual audits
 
@@ -668,6 +672,9 @@ This section documents real issues hit during development and how they were reso
 - `lib/client-workbench.ts`
 - `/api/clients/[id]/workbench`
 - `/api/clients/[id]/site-crawl/run`
+- `/api/site-crawl/run`
+- `/api/site-crawl/crawls`
+- `/site-crawl/stored/[crawlId]`
 - Enhanced `/clients/[id]` dashboard
 
 **Design:** Do not merge all module data into one mega-table. Keep source tables authoritative, then write lightweight `client_tool_runs` and `client_recommendations` records that point back to the source table/source id. This keeps drill-downs possible and avoids losing evidence detail.
@@ -675,13 +682,14 @@ This section documents real issues hit during development and how they were reso
 **Integration points now implemented:**
 
 - Firecrawl standalone and pipeline crawls update `client_tool_runs` and write site findings to `client_recommendations`.
+- `/site-crawl` no longer returns only an ephemeral browser result. It persists crawls by creating or reusing a lightweight crawl-only client record, then exposes the stored page browser and Design ZIP from the standalone workflow.
 - New Firecrawl client crawls store cleaned HTML artifact paths in `seo_signals.artifactPaths.html`; older crawls may only have raw HTML and markdown.
 - Client crawl design export builds a ZIP with raw HTML, cleaned HTML, markdown, schema JSON, inline CSS, fetched linked CSS, metadata, and Claude Design briefs.
 - SEO/AEO/GEO pipeline completion updates run status and writes page/roadmap recommendations.
 - LLM Visibility audit persistence updates run status and writes action-plan items.
 - AIR scoring/Snapshot generation updates run status and writes AIR quick wins.
 
-**Lesson:** Use Firecrawl as context for SEO/AEO/GEO and post-response LLM analysis, but keep LLM buyer prompts clean. The dashboard can combine evidence after the fact without contaminating visibility tests.
+**Lesson:** Use Firecrawl as context for SEO/AEO/GEO and post-response LLM analysis, but keep LLM buyer prompts clean. The dashboard can combine evidence after the fact without contaminating visibility tests. The crawl tables are client-scoped, so standalone crawls must either create a lightweight client record or get a future dedicated standalone crawl table; do not silently return unstored page data from `/site-crawl`.
 
 ---
 
@@ -964,4 +972,4 @@ Before deploying changes, verify:
 - For AIR scoring changes, update `lib/air/scoring/fixtures.ts` and keep `__tests__/air-scoring.test.ts` passing. Same inputs must produce the same auto score.
 - Keep AIR routes and tables additive. Do not merge AIR scoring into SEO or LLM tables; combine outputs at the report/workbench layer.
 
-*Last updated: 2026-05-17. Update this file whenever significant features, architecture changes, or new lessons are learned.*
+*Last updated: 2026-05-18. Update this file whenever significant features, architecture changes, or new lessons are learned.*
