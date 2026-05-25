@@ -5,6 +5,7 @@ The Client Workbench is the shared reporting layer for the SSP platform. It conn
 ## What It Adds
 
 - A client-level results dashboard at `/clients/[id]`.
+- A printable integrated client report at `/clients/[id]/report`.
 - A stored crawl browser at `/clients/[id]/crawl`.
 - Cross-tool run progress for:
   - Firecrawl Site Crawl
@@ -23,6 +24,7 @@ The Client Workbench is the shared reporting layer for the SSP platform. It conn
 - A generic page artifact endpoint at `/api/site-crawl/crawls/[crawlId]/pages/[pageId]`.
 - A client-bound Firecrawl design export at `/api/clients/[id]/site-crawl/download`.
 - A dashboard aggregation endpoint at `/api/clients/[id]/workbench`.
+- A deterministic `workbench.executiveReport` object with integrated score, key insights, module summaries, evidence inventory, and top actions.
 
 ## Database Install
 
@@ -79,6 +81,7 @@ Client
       -> client_tool_runs + client_recommendations
   -> /api/clients/[id]/workbench
       -> /clients/[id] dashboard
+      -> /clients/[id]/report integrated report
 ```
 
 ## How Firecrawl Context Is Used
@@ -98,6 +101,7 @@ Client-bound workflow:
 5. Click `View Stored Pages` to inspect each persisted page's markdown, clean HTML, raw HTML, schema, and metadata.
 6. Run SEO/AEO/GEO, LLM Visibility, or AIR from their normal workspaces.
 7. Return to `/clients/[id]` to see the updated evidence, scores, and combined action plan.
+8. Open `/clients/[id]/report` for the executive-level client report and use `Print / Save PDF` for client-ready sharing.
 
 Standalone crawl workflow:
 
@@ -134,6 +138,28 @@ The Firecrawl design ZIP includes:
 - Markdown/raw HTML/clean HTML artifacts: private Supabase Storage bucket `site-crawl-artifacts`
 
 The standalone `/site-crawl` workspace now persists crawls too. It stores artifacts in the same `client_site_*` tables by creating or reusing a lightweight crawl-only client record for the submitted URL. This keeps one storage model while removing the need to start a full client audit just to inspect captured pages.
+
+## Integrated Client Report
+
+The workbench API now returns `workbench.executiveReport`, generated server-side from stored module data. It does not require a new table because it is a read model over:
+
+- latest Firecrawl crawl and findings
+- latest SEO/AEO/GEO job
+- latest LLM Visibility audit and runs
+- latest AIR audit/deliverable
+- combined `client_recommendations`
+
+The report route `/clients/[id]/report` renders:
+
+- integrated executive score
+- readiness label
+- cross-module metrics
+- key insights
+- module summaries
+- evidence inventory
+- prioritized next actions
+
+The route is intentionally tied to the client record, not to one audit job, so the report remains useful as more modules are run over time.
 
 ## Implementation Notes
 
