@@ -317,7 +317,7 @@ export async function buildClientWorkbench(clientId: string) {
   const pages = latestCrawl?.client_site_page || [];
   const findings = latestCrawl?.seo_geo_finding || [];
   const schemaItems = pages.flatMap((page: any) => page.client_schema_item || []);
-  const schemaTypes = Array.from(new Set(schemaItems.map((item: any) => item.schema_type).filter(Boolean)));
+  const schemaTypes = Array.from(new Set(schemaItems.map((item: any) => item.schema_type).filter(Boolean))) as string[];
   const voiceProfile = voiceResult.data || null;
   const llmActionPlan = Array.isArray(latestLlmAudit?.action_plan_json) ? latestLlmAudit.action_plan_json : [];
   const airQuickWins = latestAirAudit?.air_audit_quick_wins || [];
@@ -365,12 +365,29 @@ export async function buildClientWorkbench(clientId: string) {
     .filter((deliverable: any) => deliverable.is_latest !== false)
     .sort((a: any, b: any) => String(b.generated_at || "").localeCompare(String(a.generated_at || "")))[0];
   const airComposite = latestAirDeliverable?.content?.composite?.composite ?? null;
+  const executiveReport = buildExecutiveReport({
+    client,
+    toolRuns,
+    latestSeoJob,
+    latestCrawl,
+    latestLlmAudit,
+    latestAirAudit,
+    airComposite,
+    airBand: latestAirDeliverable?.content?.composite?.bandLabel || latestAirDeliverable?.content?.composite?.band || null,
+    pages,
+    findings,
+    schemaTypes,
+    voiceProfile,
+    recommendations,
+    llmRuns: llmRunsResult.data || [],
+  });
 
   return {
     client: client as Client,
     audits: auditsResult.data || [],
     cycle,
     workbench: {
+      executiveReport,
       summary: {
         organizationId,
         overallProgress: Math.round(toolRuns.reduce((sum, run) => sum + run.progressPercent, 0) / toolRuns.length),
@@ -419,6 +436,167 @@ export async function buildClientWorkbench(clientId: string) {
       },
       recommendations,
     },
+  };
+}
+
+function buildExecutiveReport(args: {
+  client: any;
+  toolRuns: ReturnType<typeof buildToolRunCards>;
+  latestSeoJob: any;
+  latestCrawl: any;
+  latestLlmAudit: any;
+  latestAirAudit: any;
+  airComposite: number | null;
+  airBand: string | null;
+  pages: any[];
+  findings: any[];
+  schemaTypes: string[];
+  voiceProfile: any;
+  recommendations: ReturnType<typeof normalizeRecommendations>;
+  llmRuns: any[];
+}) {
+  const seoScore = averagePageHealth(args.latestSeoJob?.page_optimizations);
+  const visibilityScore = numericOrNull(args.latestLlmAudit?.visibility_score);
+  const workbookAverage = numericOrNull(args.latestLlmAudit?.workbook_average);
+  const airScore = numericOrNull(args.airComposite);
+  const siteEvidenceScore = scoreSiteEvidence({
+    pageCount: args.pages.length,
+    schemaCount: args.schemaTypes.length,
+    findingCount: args.findings.length,
+    crawlStatus: args.latestCrawl?.status,
+  });
+  const availableScores = [seoScore, visibilityScore, airScore, siteEvidenceScore].filter(
+    (score): score is number => typeof score === "number" && Number.isFinite(score)
+  );
+  const executiveScore = availableScores.length
+    ? Math.round(availableScores.reduce((sum, score) => sum + score, 0) / availableScores.length)
+    : 0;
+  const completedModules = args.toolRuns.filter((run) => run.status === "completed").length;
+  const highPriorityActions = args.recommendations.filter((item) => ["urgent", "high"].includes(item.priority)).length;
+  const approvedLlmRuns = args.llmRuns.filter((run) => run.qa_status === "approved").length;
+
+  const metrics = [
+    {
+      key: "executive_score",
+      label: "Executive Score",
+      value: availableScores.length ? `${executiveScore}/100` : "No score yet",
+      detail: "Average of available SEO, site evidence, LLM visibility, and AIR signals.",
+      status: scoreStatus(executiveScore),
+    },
+    {
+      key: "modules_complete",
+      label: "Modules Complete",
+      value: `${completedModules}/4`,
+      detail: "Firecrawl, SEO/AEO/GEO, LLM Visibility, and AIR.",
+      status: completedModules >= 3 ? "good" : completedModules >= 1 ? "watch" : "missing",
+    },
+    {
+      key: "open_actions",
+      label: "Open Actions",
+      value: String(args.recommendations.filter((item) => item.status !== "done").length),
+      detail: `${highPriorityActions} high-priority actions need attention.`,
+      status: highPriorityActions > 0 ? "watch" : "good",
+    },
+    {
+      key: "evidence_depth",
+      label: "Evidence Depth",
+      value: `${args.pages.length} pages`,
+      detail: `${args.schemaTypes.length} schema types, ${args.findings.length} crawl findings.`,
+      status: args.pages.length >= 5 ? "good" : args.pages.length > 0 ? "watch" : "missing",
+    },
+    {
+      key: "llm_visibility",
+      label: "LLM Visibility",
+      value: visibilityScore === null ? "Not run" : `${Math.round(visibilityScore)}/100`,
+      detail: `${args.llmRuns.length} stored responses, ${approvedLlmRuns} approved.`,
+      status: visibilityScore === null ? "missing" : scoreStatus(visibilityScore),
+    },
+    {
+      key: "air_readiness",
+      label: "AIR Readiness",
+      value: airScore === null ? "Not run" : `${Math.round(airScore)}/100`,
+      detail: args.airBand || "No AIR band yet.",
+      status: airScore === null ? "missing" : scoreStatus(airScore),
+    },
+  ];
+
+  return {
+    generatedAt: new Date().toISOString(),
+    headline: executiveHeadline(executiveScore, completedModules, availableScores.length),
+    executiveScore,
+    readinessLabel: readinessLabel(executiveScore, availableScores.length),
+    metrics,
+    keyInsights: buildKeyInsights({
+      seoScore,
+      visibilityScore,
+      workbookAverage,
+      airScore,
+      siteEvidenceScore,
+      findings: args.findings,
+      schemaTypes: args.schemaTypes,
+      pages: args.pages,
+      recommendations: args.recommendations,
+      voiceProfile: args.voiceProfile,
+    }),
+    moduleSummaries: [
+      {
+        key: "firecrawl",
+        label: "Firecrawl Site Evidence",
+        status: args.latestCrawl ? mapCrawlStatus(args.latestCrawl.status) : "not_started",
+        score: siteEvidenceScore,
+        summary: args.latestCrawl
+          ? `${args.pages.length} pages captured with ${args.schemaTypes.length} schema types and ${args.findings.length} deterministic findings.`
+          : "No stored crawl evidence yet.",
+        nextStep: args.latestCrawl
+          ? nextFirecrawlStep(args.findings.length, args.schemaTypes.length)
+          : "Run Firecrawl to capture sitemap, page, schema, HTML, and client voice evidence.",
+      },
+      {
+        key: "seo_geo",
+        label: "SEO/AEO/GEO",
+        status: args.latestSeoJob ? mapSeoStatus(args.latestSeoJob.status) : "not_started",
+        score: seoScore,
+        summary: args.latestSeoJob
+          ? `${countPageOptimizations(args.latestSeoJob.page_optimizations)} page optimizations and ${countRoadmapItems(args.latestSeoJob.roadmap)} roadmap items are available.`
+          : "No SEO/AEO/GEO audit has been run for this client.",
+        nextStep: args.latestSeoJob
+          ? "Review implementation-ready title, meta, schema, FAQ, citation, and roadmap outputs."
+          : "Run the SEO/AEO/GEO audit after Firecrawl evidence is captured.",
+      },
+      {
+        key: "llm_visibility",
+        label: "LLM Visibility",
+        status: args.latestLlmAudit ? "completed" : "not_started",
+        score: visibilityScore,
+        summary: args.latestLlmAudit
+          ? `${args.llmRuns.length} AI answer captures across ${new Set(args.llmRuns.map((run) => run.provider)).size} providers. Workbook average: ${workbookAverage ?? "n/a"}.`
+          : "No LLM Visibility audit has been stored for this client.",
+        nextStep: args.latestLlmAudit
+          ? "Review share of voice, competitor mentions, citations, and high-impact misses."
+          : "Run clean buyer-intent prompts for the client's category, services, and geography.",
+      },
+      {
+        key: "air",
+        label: "AIR Readiness",
+        status: args.latestAirAudit ? "completed" : "not_started",
+        score: airScore,
+        summary: args.latestAirAudit
+          ? `AIR score ${airScore ?? "n/a"}${args.airBand ? ` in ${args.airBand}` : ""}.`
+          : "No AIR Snapshot or AIR Audit has been created for this client.",
+        nextStep: args.latestAirAudit
+          ? "Use AIR quick wins to position foundation, transition, or operations work."
+          : "Create an AIR Snapshot when operational AI readiness becomes part of the sales conversation.",
+      },
+    ],
+    evidenceInventory: {
+      crawlPages: args.pages.length,
+      schemaTypes: args.schemaTypes,
+      llmRuns: args.llmRuns.length,
+      recommendations: args.recommendations.length,
+      services: args.voiceProfile?.services || [],
+      differentiators: args.voiceProfile?.differentiators || [],
+    },
+    topActions: args.recommendations.slice(0, 8),
   };
 }
 
@@ -529,6 +707,174 @@ function deriveToolRun(toolKey: WorkbenchToolKey, sources: any) {
     };
   }
   return { status: "not_started", progressPercent: 0 };
+}
+
+function averagePageHealth(pageOptimizations: unknown) {
+  const pages = normalizePageOptimizations(pageOptimizations);
+  const scores = pages
+    .map((page) => numericOrNull(page.health_score ?? page.healthScore))
+    .filter((score): score is number => score !== null);
+  if (!scores.length) return null;
+  return Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length);
+}
+
+function normalizePageOptimizations(pageOptimizations: unknown): Array<Record<string, any>> {
+  if (Array.isArray(pageOptimizations)) return pageOptimizations as Array<Record<string, any>>;
+  if (pageOptimizations && typeof pageOptimizations === "object") {
+    const maybeNested = (pageOptimizations as Record<string, unknown>).page_optimizations;
+    if (Array.isArray(maybeNested)) return maybeNested as Array<Record<string, any>>;
+  }
+  return [];
+}
+
+function countPageOptimizations(pageOptimizations: unknown) {
+  return normalizePageOptimizations(pageOptimizations).length;
+}
+
+function numericOrNull(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) return Number(value);
+  return null;
+}
+
+function scoreSiteEvidence(input: {
+  pageCount: number;
+  schemaCount: number;
+  findingCount: number;
+  crawlStatus?: string | null;
+}) {
+  if (!input.crawlStatus) return null;
+  if (input.crawlStatus !== "complete") return 35;
+  let score = 30;
+  if (input.pageCount >= 3) score += 20;
+  if (input.pageCount >= 10) score += 15;
+  if (input.schemaCount >= 1) score += 15;
+  if (input.schemaCount >= 3) score += 10;
+  if (input.findingCount === 0) score += 10;
+  if (input.findingCount >= 5) score -= 10;
+  return Math.max(0, Math.min(100, score));
+}
+
+function scoreStatus(score: number): "good" | "watch" | "risk" | "missing" {
+  if (score >= 75) return "good";
+  if (score >= 50) return "watch";
+  return "risk";
+}
+
+function readinessLabel(score: number, scoreCount: number) {
+  if (!scoreCount) return "No integrated report yet";
+  if (score >= 80) return "Strong visibility foundation";
+  if (score >= 65) return "Solid but improvable";
+  if (score >= 45) return "Needs focused remediation";
+  return "High-risk visibility gap";
+}
+
+function executiveHeadline(score: number, completedModules: number, scoreCount: number) {
+  if (!scoreCount) return "Run at least one module to generate the integrated client report.";
+  if (completedModules < 2) return "Early evidence is available, but the client needs more modules run for a complete read.";
+  if (score >= 75) return "The client has a strong foundation with clear opportunities to compound visibility.";
+  if (score >= 55) return "The client has usable evidence, but priority fixes are needed before results are dependable.";
+  return "The client has material visibility and readiness gaps that should be addressed before scaling spend.";
+}
+
+function buildKeyInsights(args: {
+  seoScore: number | null;
+  visibilityScore: number | null;
+  workbookAverage: number | null;
+  airScore: number | null;
+  siteEvidenceScore: number | null;
+  findings: any[];
+  schemaTypes: string[];
+  pages: any[];
+  recommendations: ReturnType<typeof normalizeRecommendations>;
+  voiceProfile: any;
+}) {
+  const insights: Array<{
+    title: string;
+    body: string;
+    source: WorkbenchToolKey | "workbench";
+    severity: "positive" | "watch" | "risk";
+  }> = [];
+
+  if (args.pages.length) {
+    insights.push({
+      title: "Site evidence is captured",
+      body: `${args.pages.length} pages are stored with ${args.schemaTypes.length} schema types and ${args.findings.length} deterministic findings.`,
+      source: "firecrawl",
+      severity: args.findings.length >= 4 ? "watch" : "positive",
+    });
+  } else {
+    insights.push({
+      title: "Site evidence is missing",
+      body: "Run Firecrawl first so every report can reference stored pages, schema, raw HTML, and client voice.",
+      source: "firecrawl",
+      severity: "risk",
+    });
+  }
+
+  if (!args.schemaTypes.length) {
+    insights.push({
+      title: "Schema is not yet supporting AI answers",
+      body: "No schema inventory is available from the latest crawl, which weakens SEO, AEO, GEO, and LLM citation confidence.",
+      source: "firecrawl",
+      severity: "risk",
+    });
+  }
+
+  if (args.visibilityScore !== null) {
+    insights.push({
+      title: "LLM visibility has a baseline",
+      body: `The current AI Visibility Score is ${Math.round(args.visibilityScore)}/100${args.workbookAverage !== null ? ` with a workbook average of ${args.workbookAverage.toFixed(1)}/5` : ""}.`,
+      source: "llm_visibility",
+      severity: args.visibilityScore >= 60 ? "positive" : "watch",
+    });
+  }
+
+  if (args.seoScore !== null) {
+    insights.push({
+      title: "SEO/AEO/GEO score is available",
+      body: `Implementation-ready page optimization output averages ${Math.round(args.seoScore)}/100 across scored pages.`,
+      source: "seo_geo",
+      severity: args.seoScore >= 70 ? "positive" : "watch",
+    });
+  }
+
+  if (args.airScore !== null) {
+    insights.push({
+      title: "AIR readiness is scored",
+      body: `The current AIR score is ${Math.round(args.airScore)}/100, helping frame whether to sell remediation, foundation work, or AI operations.`,
+      source: "air",
+      severity: args.airScore >= 60 ? "positive" : "watch",
+    });
+  }
+
+  const topAction = args.recommendations.find((item) => ["urgent", "high"].includes(item.priority)) || args.recommendations[0];
+  if (topAction) {
+    insights.push({
+      title: "Top recommended action is clear",
+      body: `${topAction.title}: ${topAction.recommendedFix || topAction.description || "Review this recommendation in the combined backlog."}`,
+      source: (topAction.sourceTool as WorkbenchToolKey) || "workbench",
+      severity: ["urgent", "high"].includes(topAction.priority) ? "risk" : "watch",
+    });
+  }
+
+  const services = args.voiceProfile?.services || [];
+  if (services.length) {
+    insights.push({
+      title: "Client service language is reusable",
+      body: `The crawl detected service signals including ${services.slice(0, 5).join(", ")}.`,
+      source: "firecrawl",
+      severity: "positive",
+    });
+  }
+
+  return insights.slice(0, 8);
+}
+
+function nextFirecrawlStep(findingCount: number, schemaCount: number) {
+  if (!schemaCount) return "Add LocalBusiness, Organization, Service, FAQPage, and sameAs schema where appropriate.";
+  if (findingCount) return "Review crawl findings and turn the highest severity issues into implementation tasks.";
+  return "Use stored pages, schema, and client voice as source evidence for SEO/AEO/GEO and report writing.";
 }
 
 function statusProgress(status: string): number {

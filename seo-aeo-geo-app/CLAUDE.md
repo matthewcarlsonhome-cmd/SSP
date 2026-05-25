@@ -1,7 +1,7 @@
 # CLAUDE.md - SSP AI Visibility and Readiness Workbench Knowledge Base
 
 > **Read this file at the start of every development session.**
-> Last updated: 2026-05-18
+> Last updated: 2026-05-25
 
 ---
 
@@ -16,6 +16,8 @@ SSP is now a three-module AI visibility and readiness workbench for local busine
 **What makes it novel:** most tools analyze one channel. SSP joins source evidence, answer-engine visibility, and operational readiness into one service platform. The app does not just say "you have issues"; it writes title tags, meta descriptions, answer blocks, schema code, report narratives, fix plans, action items, and AIR Snapshot deliverables.
 
 **Core value proposition:** Enter client info, collect site and AI-answer evidence, then produce a client-ready report and next-step offer that would take a senior consultant many hours to assemble manually. Cost depends on model choice, Firecrawl depth, and provider batch size. The client dashboard persists cross-tool run progress and recommendations so the app can act as an ongoing reporting system, not just a one-off audit generator.
+
+**Client reporting layer:** The client record now owns the unified reporting surface. `/clients/[id]` shows the compact executive dashboard and module status, while `/clients/[id]/report` renders a printable integrated client report with executive score, key insights, module summaries, evidence inventory, and top actions.
 
 **Repository:** `matthewcarlsonhome-cmd/SSP`
 **App directory:** `seo-aeo-geo-app/`
@@ -78,12 +80,17 @@ SSP is now a three-module AI visibility and readiness workbench for local busine
 ### Client Management
 - Client list with search filter
 - Client detail page at `/clients/[id]` is now a results dashboard:
+  - Executive client report summary with integrated score, readiness label, key insights, and top actions
   - Four-tool run status for Firecrawl, SEO/AEO/GEO, LLM Visibility, and AIR
   - Overall progress and active/review counts
   - Firecrawl evidence summary with page inventory, schema inventory, findings, and client voice profile
   - Results snapshot for SEO/AEO/GEO, LLM Visibility, workbook metric, and AIR Score
   - Combined optimization backlog from all modules
   - Existing SEO/AEO/GEO audit history
+- Integrated client report route at `/clients/[id]/report`
+  - Uses `workbench.executiveReport` from `/api/clients/[id]/workbench`.
+  - Renders executive score, cross-module metrics, key insights, evidence inventory, module summaries, and prioritized actions.
+  - Includes browser print/save-PDF flow for client-ready sharing.
 - Client-bound standalone Firecrawl crawl through `/api/clients/[id]/site-crawl/run`
 - Stored crawl browser through `/clients/[id]/crawl`
 - Per-page artifact API through `/api/clients/[id]/site-crawl/pages/[pageId]`
@@ -675,6 +682,7 @@ This section documents real issues hit during development and how they were reso
 - `/api/site-crawl/run`
 - `/api/site-crawl/crawls`
 - `/site-crawl/stored/[crawlId]`
+- `/clients/[id]/report`
 - Enhanced `/clients/[id]` dashboard
 
 **Design:** Do not merge all module data into one mega-table. Keep source tables authoritative, then write lightweight `client_tool_runs` and `client_recommendations` records that point back to the source table/source id. This keeps drill-downs possible and avoids losing evidence detail.
@@ -688,8 +696,10 @@ This section documents real issues hit during development and how they were reso
 - SEO/AEO/GEO pipeline completion updates run status and writes page/roadmap recommendations.
 - LLM Visibility audit persistence updates run status and writes action-plan items.
 - AIR scoring/Snapshot generation updates run status and writes AIR quick wins.
+- `lib/client-workbench.ts` now builds `workbench.executiveReport` as a deterministic read model over the latest Firecrawl, SEO/AEO/GEO, LLM Visibility, AIR, and recommendation records.
+- `/clients/[id]/report` renders the executive report from that read model and should remain client-scoped, not job-scoped.
 
-**Lesson:** Use Firecrawl as context for SEO/AEO/GEO and post-response LLM analysis, but keep LLM buyer prompts clean. The dashboard can combine evidence after the fact without contaminating visibility tests. The crawl tables are client-scoped, so standalone crawls must either create a lightweight client record or get a future dedicated standalone crawl table; do not silently return unstored page data from `/site-crawl`.
+**Lesson:** Use Firecrawl as context for SEO/AEO/GEO and post-response LLM analysis, but keep LLM buyer prompts clean. The dashboard and integrated report can combine evidence after the fact without contaminating visibility tests. Keep the executive report as a read model over source tables; do not create a second set of report truth unless edits/approval workflow requires versioned report snapshots later. The crawl tables are client-scoped, so standalone crawls must either create a lightweight client record or get a future dedicated standalone crawl table; do not silently return unstored page data from `/site-crawl`.
 
 ---
 
@@ -972,4 +982,4 @@ Before deploying changes, verify:
 - For AIR scoring changes, update `lib/air/scoring/fixtures.ts` and keep `__tests__/air-scoring.test.ts` passing. Same inputs must produce the same auto score.
 - Keep AIR routes and tables additive. Do not merge AIR scoring into SEO or LLM tables; combine outputs at the report/workbench layer.
 
-*Last updated: 2026-05-18. Update this file whenever significant features, architecture changes, or new lessons are learned.*
+*Last updated: 2026-05-25. Update this file whenever significant features, architecture changes, or new lessons are learned.*

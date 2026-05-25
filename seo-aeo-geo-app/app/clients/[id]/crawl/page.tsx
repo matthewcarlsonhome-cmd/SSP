@@ -156,7 +156,7 @@ export default function ClientCrawlBrowserPage() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Stored Firecrawl Pages</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              {payload.client.name} · {payload.client.website_url}
+              {payload.client.name} - {payload.client.website_url}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -216,7 +216,7 @@ export default function ClientCrawlBrowserPage() {
                   <p className="mt-2 text-sm font-semibold">{page.title || page.h1 || "Untitled page"}</p>
                   <p className="mt-1 break-all text-xs text-muted-foreground">{page.url}</p>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    {page.wordCount || 0} words · {page.schemaTypes.join(", ") || "no schema"}
+                    {page.wordCount || 0} words - {page.schemaTypes.join(", ") || "no schema"}
                   </p>
                 </button>
               ))

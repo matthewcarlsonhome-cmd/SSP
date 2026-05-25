@@ -39,7 +39,7 @@ Free or low-cost Snapshot
   -> remediation sprint, AI transition sprint, or managed operations
 ```
 
-The newest implementation layer is the Client Results Dashboard plus a persisted standalone Site Crawl workspace. Each client now has a shared workbench view that stores run progress and recommendations across Firecrawl, SEO/AEO/GEO, LLM Visibility, and AIR. Operators can also crawl any website from `/site-crawl`, inspect stored pages and artifacts, and download a design handoff ZIP without starting a full SEO audit first. This makes the platform useful as an ongoing reporting and account-management tool, not only a set of separate audit pages.
+The newest implementation layer is the Client Results Dashboard, the Integrated Client Report, and a persisted standalone Site Crawl workspace. Each client now has a shared workbench view that stores run progress and recommendations across Firecrawl, SEO/AEO/GEO, LLM Visibility, and AIR. Operators can open `/clients/[id]/report` for an executive-level view of the client record: integrated score, key insights, module summaries, evidence inventory, and prioritized next actions. Operators can also crawl any website from `/site-crawl`, inspect stored pages and artifacts, and download a design handoff ZIP without starting a full SEO audit first. This makes the platform useful as an ongoing reporting and account-management tool, not only a set of separate audit pages.
 
 ## 2. Product Positioning
 
@@ -251,6 +251,11 @@ Client Results Dashboard
   -> stores which tools have run, their progress, their latest source records, and their key metrics
   -> brings Firecrawl findings, SEO fixes, LLM action-plan items, and AIR quick wins into one backlog
   -> gives the operator a single place to explain status, evidence, and next steps to a client
+
+Integrated Client Report
+  -> converts the same workbench data into an executive report attached to the client record
+  -> includes integrated score, readiness label, key insights, module summaries, evidence inventory, and top actions
+  -> is printable/saveable as PDF from `/clients/[id]/report`
 ```
 
 Recommended combined client story:
@@ -319,6 +324,8 @@ Current implementation:
   - `seo_geo_finding`
 - Supabase Storage bucket `site-crawl-artifacts`
 - Client dashboard aggregation through `/api/clients/[id]/workbench`.
+- Integrated client report route through `/clients/[id]/report`.
+- Executive report object generated in `lib/client-workbench.ts` from the same source records.
 
 Standalone persistence behavior:
 
@@ -457,6 +464,7 @@ Purpose:
 - Preserve the source table and source record for the latest run of each tool.
 - Store a combined optimization backlog with source tool, priority, category, status, owner, estimated hours, estimated price, and fix recommendation.
 - Support the client detail dashboard at `/clients/[id]` and the aggregation route at `/api/clients/[id]/workbench`.
+- Support the printable integrated client report at `/clients/[id]/report`.
 
 ### LLM Visibility Tables
 
@@ -515,6 +523,28 @@ Important adaptation:
 - All AIR tables use `organization_id` for tenant isolation.
 
 ## 9. Reporting And Export Functionality
+
+### Integrated Client Report
+
+Current route:
+
+- `/clients/[id]/report`
+
+Current sections:
+
+- Executive score and readiness label.
+- Executive summary headline.
+- Cross-module metrics.
+- Key insights.
+- Evidence inventory.
+- Module summaries for Firecrawl, SEO/AEO/GEO, LLM Visibility, and AIR.
+- Prioritized next actions.
+- Print/save-to-PDF action through the browser print flow.
+
+Data source:
+
+- `GET /api/clients/[id]/workbench`
+- `lib/client-workbench.ts` generates `workbench.executiveReport` deterministically from stored module records.
 
 ### SEO/AEO/GEO Reports
 
@@ -775,6 +805,7 @@ Implemented and verified:
 - AIR Snapshot generation and public report page.
 - AIR navigation and first workbench pages.
 - Client Results Dashboard at `/clients/[id]` with run status, Firecrawl evidence, results snapshot, and combined optimization backlog.
+- Integrated Client Report at `/clients/[id]/report` with executive score, key insights, module summaries, evidence inventory, and top actions.
 - Persisted standalone Site Crawl workflow:
   - `/site-crawl`
   - `/api/site-crawl/run`
@@ -857,6 +888,7 @@ The current platform is working when:
 - PDF export works for SEO/AEO/GEO reports.
 - Design docs and `CLAUDE.md` describe the current architecture and known limits.
 - Client dashboard shows run progress and consolidated recommendations across all completed modules.
+- Client report gives an executive-level view of all stored audit results and can be printed/saved as a client-facing PDF.
 - Standalone Site Crawl stores pages and exposes Markdown, clean HTML, raw HTML, schema, metadata, and design export without requiring a full client audit.
 - Tests and build pass before deployment.
 

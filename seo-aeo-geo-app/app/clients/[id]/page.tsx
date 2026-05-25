@@ -83,11 +83,55 @@ type Recommendation = {
   status: string;
 };
 
+type ExecutiveMetric = {
+  key: string;
+  label: string;
+  value: string;
+  detail: string;
+  status: "good" | "watch" | "risk" | "missing";
+};
+
+type ExecutiveInsight = {
+  title: string;
+  body: string;
+  source: string;
+  severity: "positive" | "watch" | "risk";
+};
+
+type ModuleSummary = {
+  key: string;
+  label: string;
+  status: string;
+  score: number | null;
+  summary: string;
+  nextStep: string;
+};
+
+type ExecutiveReport = {
+  generatedAt: string;
+  headline: string;
+  executiveScore: number;
+  readinessLabel: string;
+  metrics: ExecutiveMetric[];
+  keyInsights: ExecutiveInsight[];
+  moduleSummaries: ModuleSummary[];
+  evidenceInventory: {
+    crawlPages: number;
+    schemaTypes: string[];
+    llmRuns: number;
+    recommendations: number;
+    services: string[];
+    differentiators: string[];
+  };
+  topActions: Recommendation[];
+};
+
 type WorkbenchPayload = {
   client: ClientData;
   audits: AuditHistoryItem[];
   cycle: { id: string; name: string; status: string } | null;
   workbench: {
+    executiveReport: ExecutiveReport;
     summary: {
       overallProgress: number;
       completedTools: number;
@@ -297,6 +341,8 @@ export default function ClientProfilePage() {
 
       <ClientDetails client={client} />
 
+      <ExecutiveDashboard report={workbench.executiveReport} clientId={clientId} />
+
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -422,8 +468,8 @@ export default function ClientProfilePage() {
             <CardDescription>Latest cross-module signals for this client.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <SnapshotRow label="SEO/AEO/GEO" value={workbench.seoGeo.latestJob?.status || "not run"} detail={`${workbench.seoGeo.pageOptimizations} page optimizations · ${workbench.seoGeo.roadmapItems} roadmap items`} />
-            <SnapshotRow label="LLM Visibility" value={scoreValue(workbench.llmVisibility.visibilityScore)} detail={`${workbench.llmVisibility.runCount} runs · ${workbench.llmVisibility.providerCount} providers`} />
+            <SnapshotRow label="SEO/AEO/GEO" value={workbench.seoGeo.latestJob?.status || "not run"} detail={`${workbench.seoGeo.pageOptimizations} page optimizations - ${workbench.seoGeo.roadmapItems} roadmap items`} />
+            <SnapshotRow label="LLM Visibility" value={scoreValue(workbench.llmVisibility.visibilityScore)} detail={`${workbench.llmVisibility.runCount} runs - ${workbench.llmVisibility.providerCount} providers`} />
             <SnapshotRow label="Workbook Metric" value={scoreValue(workbench.llmVisibility.workbookAverage)} detail="Simple 0-5 workbook-style average for owner-friendly reporting" />
             <SnapshotRow label="AIR Score" value={scoreValue(workbench.air.composite)} detail={workbench.air.band || "No AIR deliverable yet"} />
             <div className="rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
@@ -483,6 +529,99 @@ export default function ClientProfilePage() {
         </Card>
       )}
     </div>
+  );
+}
+
+function ExecutiveDashboard({ report, clientId }: { report: ExecutiveReport; clientId: string }) {
+  return (
+    <Card className="border-primary/20 bg-primary/5">
+      <CardHeader>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-background px-3 py-1 text-xs font-medium text-primary">
+              <Sparkles className="h-3.5 w-3.5" />
+              Executive Client Report
+            </div>
+            <CardTitle className="text-2xl">Unified Results Dashboard</CardTitle>
+            <CardDescription className="mt-2 max-w-3xl">
+              {report.headline}
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/clients/${clientId}/report`}>
+              <Button>
+                <Eye className="h-4 w-4" />
+                Open Full Report
+              </Button>
+            </Link>
+            <Link href={`/clients/${clientId}/crawl`}>
+              <Button variant="outline">Stored Pages</Button>
+            </Link>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
+          <div className="rounded-lg border bg-background p-5 text-center">
+            <p className="text-xs font-medium uppercase text-muted-foreground">Integrated Score</p>
+            <p className="mt-3 text-5xl font-bold text-foreground">{report.executiveScore}</p>
+            <p className="mt-1 text-sm font-medium text-primary">{report.readinessLabel}</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {report.metrics.slice(1).map((metric) => (
+              <div key={metric.key} className="rounded-lg border bg-background p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-medium text-muted-foreground">{metric.label}</p>
+                  <StatusDot status={metric.status} />
+                </div>
+                <p className="mt-2 text-xl font-bold">{metric.value}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{metric.detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[1fr_0.85fr]">
+          <div className="rounded-lg border bg-background p-4">
+            <h3 className="text-sm font-semibold">Key Insights</h3>
+            <div className="mt-3 space-y-3">
+              {report.keyInsights.slice(0, 4).map((insight) => (
+                <div key={`${insight.source}-${insight.title}`} className="rounded-md border p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={insight.severity === "risk" ? "destructive" : insight.severity === "watch" ? "warning" : "success"}>
+                      {sourceLabel(insight.source)}
+                    </Badge>
+                    <p className="text-sm font-semibold">{insight.title}</p>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">{insight.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-lg border bg-background p-4">
+            <h3 className="text-sm font-semibold">Top Actions</h3>
+            <div className="mt-3 space-y-3">
+              {report.topActions.length ? (
+                report.topActions.slice(0, 4).map((action) => (
+                  <div key={action.id} className="rounded-md border p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={priorityVariant(action.priority)}>{action.priority}</Badge>
+                      <Badge variant="outline">{sourceLabel(action.sourceTool)}</Badge>
+                    </div>
+                    <p className="mt-2 text-sm font-semibold">{action.title}</p>
+                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                      {action.recommendedFix || action.description || "Review in the combined backlog."}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <EmptyMini text="Run one or more modules to populate recommended actions." />
+              )}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -679,6 +818,18 @@ function StatusBadge({ status }: { status: ToolRunCard["status"] }) {
   if (status === "running") return <Badge variant="default">Running</Badge>;
   if (status === "queued") return <Badge variant="secondary">Queued</Badge>;
   return <Badge variant="outline">Not run</Badge>;
+}
+
+function StatusDot({ status }: { status: ExecutiveMetric["status"] }) {
+  const className =
+    status === "good"
+      ? "bg-success"
+      : status === "watch"
+        ? "bg-warning"
+        : status === "risk"
+          ? "bg-destructive"
+          : "bg-muted-foreground";
+  return <span className={`h-2.5 w-2.5 rounded-full ${className}`} />;
 }
 
 function TagList({ items, empty }: { items: string[]; empty: string }) {
