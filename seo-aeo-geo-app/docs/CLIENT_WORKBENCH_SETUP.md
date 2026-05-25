@@ -157,9 +157,17 @@ The report route `/clients/[id]/report` renders:
 - key insights
 - module summaries
 - evidence inventory
+- grouped next-step action plan
 - prioritized next actions
 
 The route is intentionally tied to the client record, not to one audit job, so the report remains useful as more modules are run over time.
+
+Recommendation behavior:
+
+- Stored `client_recommendations` remain the first source of truth when modules write recommendations.
+- The workbench also derives recommendations directly from raw audit evidence so the report is never empty when data exists.
+- Derived next steps include site updates, marketing ideas, competitor gap actions, outreach/citation ideas, and operations/AIR steps.
+- Competitor recommendations use `client_competitors` plus latest SEO competitor analysis when available.
 
 ## Implementation Notes
 

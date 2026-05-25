@@ -538,6 +538,7 @@ Current sections:
 - Key insights.
 - Evidence inventory.
 - Module summaries for Firecrawl, SEO/AEO/GEO, LLM Visibility, and AIR.
+- Next-step action plan grouped into site updates, marketing ideas, competitor gaps, outreach ideas, and operations/AIR.
 - Prioritized next actions.
 - Print/save-to-PDF action through the browser print flow.
 
@@ -545,6 +546,7 @@ Data source:
 
 - `GET /api/clients/[id]/workbench`
 - `lib/client-workbench.ts` generates `workbench.executiveReport` deterministically from stored module records.
+- Recommendations are synthesized from stored recommendations plus raw crawl findings, page data, schema inventory, service signals, SEO page optimizations, competitor analysis, LLM visibility metrics/action plans, approved competitors, and AIR readiness data. This prevents the executive report from appearing empty when the `client_recommendations` table has not yet been populated.
 
 ### SEO/AEO/GEO Reports
 

@@ -119,10 +119,12 @@ type ExecutiveReport = {
     crawlPages: number;
     schemaTypes: string[];
     llmRuns: number;
+    competitors: Array<{ name: string; websiteUrl: string; reviewCount?: number | null; averageRating?: number | null }>;
     recommendations: number;
     services: string[];
     differentiators: string[];
   };
+  actionPlan: Array<{ key: string; label: string; items: Recommendation[] }>;
   topActions: Recommendation[];
 };
 
@@ -620,6 +622,26 @@ function ExecutiveDashboard({ report, clientId }: { report: ExecutiveReport; cli
             </div>
           </div>
         </div>
+        {report.actionPlan.length > 0 && (
+          <div className="rounded-lg border bg-background p-4">
+            <h3 className="text-sm font-semibold">Next-Step Plan</h3>
+            <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {report.actionPlan.slice(0, 5).map((group) => (
+                <div key={group.key} className="rounded-md border p-3">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">{group.label}</p>
+                  <ul className="mt-2 space-y-2 text-sm">
+                    {group.items.slice(0, 3).map((item) => (
+                      <li key={item.id}>
+                        <span className="font-medium">{item.title}</span>
+                        <span className="text-muted-foreground"> - {item.recommendedFix || item.description || "Review details."}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -863,5 +885,6 @@ function sourceLabel(source: string) {
   if (source === "seo_geo") return "SEO/AEO/GEO";
   if (source === "llm_visibility") return "LLM";
   if (source === "air") return "AIR";
+  if (source === "manual") return "Integrated";
   return source;
 }
