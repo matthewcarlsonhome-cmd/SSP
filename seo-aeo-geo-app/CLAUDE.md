@@ -698,8 +698,10 @@ This section documents real issues hit during development and how they were reso
 - AIR scoring/Snapshot generation updates run status and writes AIR quick wins.
 - `lib/client-workbench.ts` now builds `workbench.executiveReport` as a deterministic read model over the latest Firecrawl, SEO/AEO/GEO, LLM Visibility, AIR, and recommendation records.
 - `/clients/[id]/report` renders the executive report from that read model and should remain client-scoped, not job-scoped.
+- The executive report now derives fallback/enrichment recommendations from raw audit data, not just `client_recommendations`: crawl findings, schema gaps, thin pages, missing FAQs, service signals, competitor analysis, approved competitors, LLM visibility metrics/runs, and AIR readiness.
+- Recommendation groups should stay practical and client-facing: site updates, marketing ideas, competitor gaps, outreach ideas, and operations/AIR.
 
-**Lesson:** Use Firecrawl as context for SEO/AEO/GEO and post-response LLM analysis, but keep LLM buyer prompts clean. The dashboard and integrated report can combine evidence after the fact without contaminating visibility tests. Keep the executive report as a read model over source tables; do not create a second set of report truth unless edits/approval workflow requires versioned report snapshots later. The crawl tables are client-scoped, so standalone crawls must either create a lightweight client record or get a future dedicated standalone crawl table; do not silently return unstored page data from `/site-crawl`.
+**Lesson:** Use Firecrawl as context for SEO/AEO/GEO and post-response LLM analysis, but keep LLM buyer prompts clean. The dashboard and integrated report can combine evidence after the fact without contaminating visibility tests. Keep the executive report as a read model over source tables; do not create a second set of report truth unless edits/approval workflow requires versioned report snapshots later. Never let the report look empty just because the stored recommendation table is empty; derive grounded next steps from raw module data. The crawl tables are client-scoped, so standalone crawls must either create a lightweight client record or get a future dedicated standalone crawl table; do not silently return unstored page data from `/site-crawl`.
 
 ---
 

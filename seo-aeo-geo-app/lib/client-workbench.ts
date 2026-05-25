@@ -224,6 +224,7 @@ export async function buildClientWorkbench(clientId: string) {
     crawlResult,
     llmResult,
     airResult,
+    competitorResult,
   ] = await Promise.all([
     supabase
       .from("audit_jobs")
@@ -265,6 +266,10 @@ export async function buildClientWorkbench(clientId: string) {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from("client_competitors")
+      .select("id, name, website_url, review_count, average_rating, notes")
+      .eq("client_id", clientId),
   ]);
 
   const cycle = cycleResult.data || null;
@@ -321,6 +326,7 @@ export async function buildClientWorkbench(clientId: string) {
   const voiceProfile = voiceResult.data || null;
   const llmActionPlan = Array.isArray(latestLlmAudit?.action_plan_json) ? latestLlmAudit.action_plan_json : [];
   const airQuickWins = latestAirAudit?.air_audit_quick_wins || [];
+  const competitors = competitorResult.data || [];
 
   const recommendations = normalizeRecommendations([
     ...(storedRecommendationsResult.data || []),
@@ -359,6 +365,18 @@ export async function buildClientWorkbench(clientId: string) {
       status: "recommended",
       created_at: win.created_at,
     })),
+    ...buildDerivedRecommendations({
+      client,
+      pages,
+      findings,
+      schemaTypes,
+      voiceProfile,
+      latestSeoJob,
+      latestLlmAudit,
+      latestAirAudit,
+      competitors,
+      llmRuns: llmRunsResult.data || [],
+    }),
   ]);
 
   const latestAirDeliverable = (latestAirAudit?.air_audit_deliverables || [])
@@ -380,6 +398,7 @@ export async function buildClientWorkbench(clientId: string) {
     voiceProfile,
     recommendations,
     llmRuns: llmRunsResult.data || [],
+    competitors,
   });
 
   return {
@@ -415,6 +434,7 @@ export async function buildClientWorkbench(clientId: string) {
         voiceProfile,
         findings,
       },
+      competitors,
       seoGeo: {
         latestJob: latestSeoJob,
         pageOptimizations: Array.isArray(latestSeoJob?.page_optimizations) ? latestSeoJob.page_optimizations.length : 0,
@@ -454,6 +474,7 @@ function buildExecutiveReport(args: {
   voiceProfile: any;
   recommendations: ReturnType<typeof normalizeRecommendations>;
   llmRuns: any[];
+  competitors: any[];
 }) {
   const seoScore = averagePageHealth(args.latestSeoJob?.page_optimizations);
   const visibilityScore = numericOrNull(args.latestLlmAudit?.visibility_score);
@@ -537,6 +558,7 @@ function buildExecutiveReport(args: {
       pages: args.pages,
       recommendations: args.recommendations,
       voiceProfile: args.voiceProfile,
+      competitors: args.competitors,
     }),
     moduleSummaries: [
       {
@@ -592,10 +614,17 @@ function buildExecutiveReport(args: {
       crawlPages: args.pages.length,
       schemaTypes: args.schemaTypes,
       llmRuns: args.llmRuns.length,
+      competitors: args.competitors.map((competitor) => ({
+        name: competitor.name || competitor.website_url,
+        websiteUrl: competitor.website_url,
+        reviewCount: competitor.review_count,
+        averageRating: competitor.average_rating,
+      })),
       recommendations: args.recommendations.length,
       services: args.voiceProfile?.services || [],
       differentiators: args.voiceProfile?.differentiators || [],
     },
+    actionPlan: groupActionPlan(args.recommendations),
     topActions: args.recommendations.slice(0, 8),
   };
 }
@@ -788,6 +817,7 @@ function buildKeyInsights(args: {
   pages: any[];
   recommendations: ReturnType<typeof normalizeRecommendations>;
   voiceProfile: any;
+  competitors: any[];
 }) {
   const insights: Array<{
     title: string;
@@ -848,6 +878,19 @@ function buildKeyInsights(args: {
     });
   }
 
+  const competitorNames = args.competitors
+    .map((competitor) => competitor.name || competitor.website_url)
+    .filter(Boolean)
+    .slice(0, 4);
+  if (competitorNames.length) {
+    insights.push({
+      title: "Competitor set is available",
+      body: `The report can compare against ${competitorNames.join(", ")} for local positioning, content gaps, reviews, and outreach opportunities.`,
+      source: "seo_geo",
+      severity: "positive",
+    });
+  }
+
   const topAction = args.recommendations.find((item) => ["urgent", "high"].includes(item.priority)) || args.recommendations[0];
   if (topAction) {
     insights.push({
@@ -876,6 +919,332 @@ function nextFirecrawlStep(findingCount: number, schemaCount: number) {
   if (findingCount) return "Review crawl findings and turn the highest severity issues into implementation tasks.";
   return "Use stored pages, schema, and client voice as source evidence for SEO/AEO/GEO and report writing.";
 }
+
+function buildDerivedRecommendations(args: {
+  client: any;
+  pages: any[];
+  findings: any[];
+  schemaTypes: string[];
+  voiceProfile: any;
+  latestSeoJob: any;
+  latestLlmAudit: any;
+  latestAirAudit: any;
+  competitors: any[];
+  llmRuns: any[];
+}) {
+  const recommendations: any[] = [];
+  const services = normalizeStringArray(args.voiceProfile?.services).slice(0, 8);
+  const geography = args.client.target_geography || "the target service area";
+  const businessType = args.client.business_type || args.client.industry || "the business";
+  const competitorNames = args.competitors
+    .map((competitor) => competitor.name || hostname(competitor.website_url))
+    .filter(Boolean);
+  const competitorList = competitorNames.length ? competitorNames.slice(0, 4).join(", ") : "approved local competitors";
+
+  if (!args.pages.length) {
+    recommendations.push({
+      id: "derived-firecrawl-run",
+      source_tool: "firecrawl",
+      category: "site_update",
+      priority: "high",
+      title: "Run the site evidence crawl first",
+      description: "The integrated report needs stored pages, schema, raw HTML, and client voice before recommendations can be fully grounded.",
+      recommended_fix: "Run Firecrawl, then use the stored page browser to confirm priority pages, schema coverage, and crawl findings.",
+      owner: "agency",
+      estimated_hours: 1,
+      status: "recommended",
+    });
+    return recommendations;
+  }
+
+  if (!args.schemaTypes.length) {
+    recommendations.push({
+      id: "derived-schema-foundation",
+      source_tool: "firecrawl",
+      category: "site_update",
+      priority: "high",
+      title: "Install local entity schema",
+      description: `The latest crawl found ${args.pages.length} stored pages but no schema inventory.`,
+      recommended_fix: "Add Organization or LocalBusiness schema on the home page, Service schema on service pages, FAQPage schema where FAQs exist, and sameAs links to GBP/social profiles.",
+      owner: "agency",
+      estimated_hours: 3,
+      status: "recommended",
+    });
+  }
+
+  const thinPriorityPages = args.pages
+    .filter((page) => ["home", "service", "location"].includes(page.page_type || page.pageType))
+    .filter((page) => Number(page.word_count || page.wordCount || 0) < 550)
+    .slice(0, 4);
+  for (const page of thinPriorityPages) {
+    recommendations.push({
+      id: `derived-thin-page-${stableKey(page.url)}`,
+      source_tool: "seo_geo",
+      category: "site_update",
+      priority: "high",
+      title: `Expand ${page.page_type || page.pageType || "priority"} page content`,
+      description: `${page.title || page.h1 || page.url} has ${page.word_count || page.wordCount || 0} words, which is light for answer-engine and AI citation readiness.`,
+      recommended_fix: "Add a buyer-intent summary, service details, local proof, FAQs, internal links, and a short comparison section that explains why the business is credible in this market.",
+      owner: "agency",
+      estimated_hours: 4,
+      status: "recommended",
+    });
+  }
+
+  const missingFaqPages = args.pages
+    .filter((page) => ["service", "location"].includes(page.page_type || page.pageType))
+    .filter((page) => (page.seo_signals?.faqQuestions || []).length === 0)
+    .slice(0, 3);
+  if (missingFaqPages.length) {
+    recommendations.push({
+      id: "derived-faq-answer-blocks",
+      source_tool: "seo_geo",
+      category: "site_update",
+      priority: "medium",
+      title: "Add answer-ready FAQ sections",
+      description: `${missingFaqPages.length} service/location pages have no detected FAQ questions.`,
+      recommended_fix: "Add 4-6 plain-English FAQs per service/location page covering cost, timing, process, service area, warranties, and what makes the business different.",
+      owner: "agency",
+      estimated_hours: 3,
+      status: "recommended",
+    });
+  }
+
+  if (services.length) {
+    const uncoveredServices = services.filter((service) => !pageMentionsService(args.pages, service)).slice(0, 4);
+    if (uncoveredServices.length) {
+      recommendations.push({
+        id: "derived-service-page-gaps",
+        source_tool: "seo_geo",
+        category: "site_update",
+        priority: "high",
+        title: "Create dedicated service pages",
+        description: `The crawl detected services without obvious dedicated page coverage: ${uncoveredServices.join(", ")}.`,
+        recommended_fix: `Build dedicated pages for ${uncoveredServices.join(", ")} with local proof, FAQs, before/after examples, and internal links from the home page and related service pages.`,
+        owner: "agency",
+        estimated_hours: uncoveredServices.length * 3,
+        status: "recommended",
+      });
+    }
+  }
+
+  const competitorGapItems = extractCompetitorGapRecommendations(args.latestSeoJob?.competitor_analysis, competitorList);
+  recommendations.push(...competitorGapItems);
+
+  if (args.competitors.length) {
+    recommendations.push({
+      id: "derived-competitor-positioning",
+      source_tool: "seo_geo",
+      category: "marketing",
+      priority: "medium",
+      title: "Build a local competitor positioning brief",
+      description: `Approved competitors include ${competitorList}. The sales story should explain where ${args.client.name} is more specific, more trusted, faster, or more locally relevant.`,
+      recommended_fix: "Create a one-page messaging brief, then reuse it across service pages, GBP posts, review requests, LLM report narrative, and follow-up sales emails.",
+      owner: "agency",
+      estimated_hours: 2,
+      status: "recommended",
+    });
+  }
+
+  const visibilityScore = numericOrNull(args.latestLlmAudit?.visibility_score);
+  const runCount = args.llmRuns.length;
+  if (visibilityScore === null) {
+    recommendations.push({
+      id: "derived-run-llm-visibility",
+      source_tool: "llm_visibility",
+      category: "marketing",
+      priority: "high",
+      title: "Run buyer-intent LLM visibility tests",
+      description: "No stored LLM Visibility audit is attached to this client yet.",
+      recommended_fix: `Run clean local prompts for ${businessType} in ${geography}, including brand health, competitors, category + geo, service, problem/solution, and cost questions.`,
+      owner: "agency",
+      estimated_hours: 1.5,
+      status: "recommended",
+    });
+  } else if (visibilityScore < 60) {
+    recommendations.push({
+      id: "derived-llm-visibility-remediation",
+      source_tool: "llm_visibility",
+      category: "marketing",
+      priority: "high",
+      title: "Turn LLM misses into content and citation fixes",
+      description: `The current AI Visibility Score is ${Math.round(visibilityScore)}/100 across ${runCount} stored answer captures.`,
+      recommended_fix: "For each high-impact miss, add supporting service-page copy, strengthen GBP/review signals, add schema, and pursue local citations that AI tools are likely to trust.",
+      owner: "agency",
+      estimated_hours: 5,
+      status: "recommended",
+    });
+  }
+
+  recommendations.push({
+    id: "derived-gbp-content-cadence",
+    source_tool: "seo_geo",
+    category: "marketing",
+    priority: "medium",
+    title: "Start a weekly local proof cadence",
+    description: `The report should give ${args.client.name} ongoing proof assets AI/search systems can understand, especially around ${geography}.`,
+    recommended_fix: "Publish one GBP post, one short project/customer proof item, and one FAQ/social post per week. Tie each post to a service, city/suburb, problem solved, and review/testimonial when available.",
+    owner: "agency",
+    estimated_hours: 2,
+    status: "recommended",
+  });
+
+  recommendations.push({
+    id: "derived-outreach-citations",
+    source_tool: "seo_geo",
+    category: "outreach",
+    priority: "medium",
+    title: "Build local authority and citation targets",
+    description: `Competitors and local AI answers usually benefit from trusted third-party mentions, not just website copy.`,
+    recommended_fix: "Prioritize chamber pages, local associations, sponsor pages, niche directories, supplier/manufacturer dealer pages, neighborhood publications, and partner pages that can mention the business name, services, and location.",
+    owner: "agency",
+    estimated_hours: 4,
+    status: "recommended",
+  });
+
+  const airScore = extractAirScore(args.latestAirAudit);
+  if (!args.latestAirAudit) {
+    recommendations.push({
+      id: "derived-air-snapshot",
+      source_tool: "air",
+      category: "operations",
+      priority: "low",
+      title: "Add an AIR Snapshot before selling automation",
+      description: "No AI Readiness score is attached to this client yet.",
+      recommended_fix: "Run AIR Snapshot to decide whether the next offer should be visibility remediation, data/workflow foundation work, or an AI operations sprint.",
+      owner: "agency",
+      estimated_hours: 1,
+      status: "recommended",
+    });
+  } else if (airScore !== null && airScore < 60) {
+    recommendations.push({
+      id: "derived-air-foundation",
+      source_tool: "air",
+      category: "operations",
+      priority: "medium",
+      title: "Sequence AI work behind foundation fixes",
+      description: `The AIR score is ${Math.round(airScore)}/100, so operational readiness may limit the value of AI automation.`,
+      recommended_fix: "Prioritize CRM hygiene, workflow documentation, lead-source tracking, and response-time process fixes before selling a heavier AI implementation.",
+      owner: "agency",
+      estimated_hours: 6,
+      status: "recommended",
+    });
+  }
+
+  return recommendations;
+}
+
+function extractCompetitorGapRecommendations(competitorAnalysis: unknown, competitorList: string) {
+  const analysis = competitorAnalysis && typeof competitorAnalysis === "object"
+    ? competitorAnalysis as Record<string, any>
+    : null;
+  if (!analysis) return [];
+
+  const gap = analysis.gap_analysis && typeof analysis.gap_analysis === "object"
+    ? analysis.gap_analysis as Record<string, any>
+    : {};
+  const recommendations: any[] = [];
+
+  const rankingGap = firstArrayItem(gap.ranking_gaps);
+  if (rankingGap) {
+    recommendations.push({
+      id: "derived-ranking-gap",
+      source_tool: "seo_geo",
+      category: "competitor_gap",
+      priority: "high",
+      title: "Close the highest-value ranking gap",
+      description: `${rankingGap.competitor || competitorList} appears to have an advantage around ${rankingGap.keyword || "a buyer-intent topic"}.`,
+      recommended_fix: rankingGap.action || "Create or improve the relevant service/local page, then add internal links, FAQs, schema, and supporting GBP/social proof.",
+      owner: "agency",
+      estimated_hours: 5,
+      status: "recommended",
+    });
+  }
+
+  const contentGap = firstArrayItem(gap.content_depth_gaps);
+  if (contentGap) {
+    recommendations.push({
+      id: "derived-content-depth-gap",
+      source_tool: "seo_geo",
+      category: "competitor_gap",
+      priority: "medium",
+      title: "Match competitor content depth where it matters",
+      description: `${contentGap.competitor || competitorList} has deeper content for ${contentGap.page || "a priority page"}.`,
+      recommended_fix: "Expand the client page with service specifics, local examples, FAQs, trust proof, and a clear conversion path instead of adding generic copy.",
+      owner: "agency",
+      estimated_hours: 4,
+      status: "recommended",
+    });
+  }
+
+  const linkGap = firstArrayItem(gap.link_gaps);
+  if (linkGap) {
+    recommendations.push({
+      id: "derived-link-gap",
+      source_tool: "seo_geo",
+      category: "outreach",
+      priority: "medium",
+      title: "Pursue competitor-linked authority sources",
+      description: `${linkGap.domain || "A local/source domain"} links to competitors including ${(linkGap.links_to_competitors || []).join(", ") || competitorList}.`,
+      recommended_fix: linkGap.approach || "Create a small outreach list from competitor-linked domains and pitch a supplier, partner, sponsorship, resource, or local proof angle.",
+      owner: "agency",
+      estimated_hours: 3,
+      status: "recommended",
+    });
+  }
+
+  const reviewGap = gap.review_gap;
+  if (reviewGap && typeof reviewGap === "object" && Number(reviewGap.gap_to_close || 0) > 0) {
+    recommendations.push({
+      id: "derived-review-gap",
+      source_tool: "seo_geo",
+      category: "marketing",
+      priority: "medium",
+      title: "Close the review proof gap",
+      description: `Competitor average reviews appear ahead by about ${reviewGap.gap_to_close} reviews.`,
+      recommended_fix: "Launch a post-job review request sequence, reply to new reviews, and add review snippets to service/location pages and GBP posts.",
+      owner: "agency",
+      estimated_hours: 3,
+      status: "recommended",
+    });
+  }
+
+  const schemaGap = firstArrayItem(gap.schema_gaps);
+  if (schemaGap && schemaGap.client_has === false) {
+    recommendations.push({
+      id: "derived-schema-gap",
+      source_tool: "seo_geo",
+      category: "competitor_gap",
+      priority: "medium",
+      title: `Add ${schemaGap.schema_type || "missing"} schema competitors use`,
+      description: `${(schemaGap.competitors_using || []).join(", ") || competitorList} appear to use schema that the client lacks.`,
+      recommended_fix: "Add the missing schema type only where it is accurate and supported by visible page content.",
+      owner: "agency",
+      estimated_hours: 2,
+      status: "recommended",
+    });
+  }
+
+  return recommendations;
+}
+
+function groupActionPlan(recommendations: ReturnType<typeof normalizeRecommendations>) {
+  const categories = [
+    { key: "site_updates", label: "Site Updates", match: ["site_update", "schema", "content", "aeo", "technical", "media"] },
+    { key: "marketing", label: "Marketing Ideas", match: ["marketing", "visibility", "reviews", "gbp"] },
+    { key: "competitors", label: "Competitor Gaps", match: ["competitor_gap", "roadmap"] },
+    { key: "outreach", label: "Outreach Ideas", match: ["outreach", "citations", "links"] },
+    { key: "operations", label: "Operations / AIR", match: ["operations", "ai readiness"] },
+  ];
+
+  return categories.map((category) => ({
+    ...category,
+    items: recommendations
+      .filter((item) => category.match.some((match) => item.category.toLowerCase().includes(match)))
+      .slice(0, 5),
+  })).filter((category) => category.items.length);
+}
+
 
 function statusProgress(status: string): number {
   if (status === "completed") return 100;
@@ -939,6 +1308,60 @@ function normalizeRecommendations(items: any[]) {
     })
     .sort((a, b) => priorityWeight(b.priority) - priorityWeight(a.priority))
     .slice(0, 50);
+}
+
+function normalizeStringArray(value: unknown) {
+  return Array.isArray(value)
+    ? value.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+}
+
+function pageMentionsService(pages: any[], service: string) {
+  const needle = service.toLowerCase();
+  return pages.some((page) =>
+    [
+      page.url,
+      page.title,
+      page.h1,
+      page.description,
+      page.page_type,
+      ...(normalizeStringArray(page.seo_signals?.serviceSignals)),
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(needle)
+  );
+}
+
+function firstArrayItem(value: unknown) {
+  return Array.isArray(value) && value.length ? value[0] : null;
+}
+
+function stableKey(value: unknown) {
+  return String(value || "item")
+    .toLowerCase()
+    .replace(/https?:\/\//g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 48);
+}
+
+function hostname(url: unknown) {
+  try {
+    return new URL(String(url)).hostname.replace(/^www\./, "");
+  } catch {
+    return String(url || "");
+  }
+}
+
+function extractAirScore(audit: any) {
+  const deliverables = audit?.air_audit_deliverables || [];
+  const latest = Array.isArray(deliverables)
+    ? deliverables
+        .filter((deliverable: any) => deliverable.is_latest !== false)
+        .sort((a: any, b: any) => String(b.generated_at || "").localeCompare(String(a.generated_at || "")))[0]
+    : null;
+  return numericOrNull(latest?.content?.composite?.composite);
 }
 
 function priorityWeight(priority: RecommendationPriority) {

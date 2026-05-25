@@ -168,9 +168,11 @@ export default function ClientIntegratedReportPage() {
             <InventoryRow label="Stored crawl pages" value={report.evidenceInventory.crawlPages} />
             <InventoryRow label="Schema types" value={report.evidenceInventory.schemaTypes.length} />
             <InventoryRow label="LLM responses" value={report.evidenceInventory.llmRuns} />
+            <InventoryRow label="Competitors" value={report.evidenceInventory.competitors?.length || 0} />
             <InventoryRow label="Recommendations" value={report.evidenceInventory.recommendations} />
             <TagBlock title="Services Detected" items={report.evidenceInventory.services} />
             <TagBlock title="Differentiators" items={report.evidenceInventory.differentiators} />
+            <TagBlock title="Competitors" items={(report.evidenceInventory.competitors || []).map((competitor: any) => competitor.name)} />
           </CardContent>
         </Card>
       </div>
@@ -212,6 +214,39 @@ export default function ClientIntegratedReportPage() {
               </div>
             );
           })}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Next-Step Action Plan</CardTitle>
+          <CardDescription>Concrete, doable recommendations grouped for execution.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 lg:grid-cols-2">
+          {report.actionPlan?.length ? (
+            report.actionPlan.map((group: any) => (
+              <div key={group.key} className="rounded-lg border p-4">
+                <h3 className="font-semibold">{group.label}</h3>
+                <div className="mt-3 space-y-3">
+                  {group.items.map((action: any) => (
+                    <div key={action.id} className="rounded-md border bg-muted/20 p-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={priorityVariant(action.priority)}>{action.priority}</Badge>
+                        <Badge variant="outline">{sourceLabel(action.sourceTool)}</Badge>
+                      </div>
+                      <p className="mt-2 text-sm font-semibold">{action.title}</p>
+                      {action.description && <p className="mt-1 text-xs text-muted-foreground">{action.description}</p>}
+                      <p className="mt-2 text-sm">{action.recommendedFix || "Review details in the combined backlog."}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground lg:col-span-2">
+              No action plan groups yet. Run Firecrawl, SEO/AEO/GEO, LLM Visibility, or AIR to populate recommendations.
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -294,5 +329,6 @@ function sourceLabel(source: string) {
   if (source === "llm_visibility") return "LLM Visibility";
   if (source === "air") return "AIR";
   if (source === "workbench") return "Workbench";
+  if (source === "manual") return "Integrated";
   return source;
 }
